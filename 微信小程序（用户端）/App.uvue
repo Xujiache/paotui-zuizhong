@@ -1,0 +1,44 @@
+<script lang="uts">
+let firstBackTime = 0;
+import {LoadFontCommon, LoadFontForWX} from "@/uni_modules/unix-ui/fonts/loadFont.uts"
+export default {
+	onLaunch: function () {
+		console.log('App Launch')
+		// 加载字体
+		// 说明 : 鸿蒙在onLaunch内加载字体会报错 page not ready
+		// 所以，在 index.uvue 中加载字体（全局）
+		// #ifndef MP-WEIXIN 
+		// #ifndef APP-HARMONY
+		LoadFontCommon()
+		// #endif
+		// #endif
+		// #ifdef MP-WEIXIN
+		LoadFontForWX()
+		// #endif
+		// 加载字体
+	},
+	onShow: function () {},
+	onHide: function () {},
+	onLastPageBackPress: function () {
+		if (firstBackTime == 0) {
+			uni.showToast({
+			  title: '再按一次退出应用',
+			  position: 'bottom',
+			})
+			firstBackTime = Date.now();
+			setTimeout(() => {
+			  firstBackTime = 0
+			}, 2000);
+		} else if (Date.now() - firstBackTime < 2000) {
+			firstBackTime = Date.now();
+			uni.exit();
+		}
+
+	},
+	onExit() {},
+}
+</script>
+<style lang="scss">
+/* 加载框架样式 */
+@import "@/uni_modules/unix-ui/uxui.scss";
+</style>

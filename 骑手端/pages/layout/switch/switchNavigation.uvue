@@ -1,0 +1,69 @@
+<template>
+	<view>
+		<text class="ux-h6 ux-color-grey ux-mt-large ux-body">默认属性</text>
+		<view class="ux-demo ux-body">
+			<ux-switch-navigation 
+			:items="navItems1" 
+			@change="navChange"></ux-switch-navigation>
+		</view>
+		<text class="ux-h6 ux-color-grey ux-mt-large ux-body">居中模式</text>
+		<view class="ux-demo ux-body">
+			<ux-switch-navigation 
+			:items="navItems2" 
+			:isCenter="true" 
+			activeDirection="center" 
+			textAlign="center" 
+			@change="navChange"></ux-switch-navigation>
+		</view>
+		<text class="ux-h6 ux-color-grey ux-mt-large ux-body">自动宽度</text>
+		<view class="ux-demo ux-body">
+			<ux-switch-navigation 
+			:items="navItems3" 
+			textAlign="center" 
+			:isCenter="true" 
+			activeDirection="center" 
+			:size="0" 
+			:margin="20" 
+			padding="20rpx" 
+			activeLineHeight="4rpx" 
+			@change="navChange"></ux-switch-navigation>
+		</view>
+	</view>
+</template>
+<script lang="uts">
+import {UXNavItem} from "@/uni_modules/unix-ui/uxts/classes.uts";
+export default {
+	data() {
+		return {
+			navItems1 : [
+				new UXNavItem(0, '全部', 0),
+				new UXNavItem(1, '新闻', 8),
+				new UXNavItem(2, '体育', 0),
+				new UXNavItem(3, '音乐', 0),
+				new UXNavItem(4, '编程', 1),
+				new UXNavItem(5, '推荐', 0),
+				new UXNavItem(6, '购物', 0),
+				new UXNavItem(7, '影视', 0),
+				new UXNavItem(8, '社区', 0),
+			] as UXNavItem[],
+			navItems2 : [
+				new UXNavItem(0, '全部', 0),
+				new UXNavItem(1, '新闻', 0),
+				new UXNavItem(2, '体育', 0),
+			] as UXNavItem[],
+			navItems3 : [
+				new UXNavItem(0, '四个字符', 0),
+				new UXNavItem(1, '三个字', 0),
+				new UXNavItem(2, '五个字标签', 0),
+			] as UXNavItem[]
+		}
+	},
+	methods: {
+		navChange : function(index:number){
+			console.log(index);
+		}
+	}
+}
+</script>
+<style scoped>
+</style>

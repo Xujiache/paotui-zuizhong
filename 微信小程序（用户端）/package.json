@@ -1,0 +1,17 @@
+{
+	"id": "uni-app x ui",
+	"name": "uXui",
+	"version": "1.0.1",
+	"description": "uXui",
+	"main": "env.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"keywords": [
+		"uvue",
+		"uni-app2.0"
+	],
+	"author": "",
+	"license": "ISC",
+	"displayName": "uXui"
+}

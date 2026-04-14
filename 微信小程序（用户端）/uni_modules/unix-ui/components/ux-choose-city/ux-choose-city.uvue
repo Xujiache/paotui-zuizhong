@@ -1,0 +1,408 @@
+<template>
+	<!-- #ifndef APP -->
+	<scroll-view
+	style="padding:0 20rpx;"
+	class="ux-flex1 ux-relative" 
+	:scroll-into-view="scrollIntoViewId">
+		<view v-for="(item, idx) in AZData" 
+		:key="idx">
+			<view :id="bindAZ(item)">
+				<text class="ux-city-AZ">{{item}}</text>
+			</view>
+			<view 
+			v-for="(city, cIndex) in cities[idx]" 
+			:key="cIndex"
+			:id="bindCity(city.code)">
+				<text 
+				class="ux-city-item" 
+				@tap="chooseCity(city)">
+					{{city.name}}
+				</text>
+			</view>
+		</view>
+		<view class="ux-city-AZ-right">
+			<text 
+			v-for="(char, index) in AZData" 
+			:class="['ux-city-AZ-right-item', char == changAZLetter?'ux-AZ-active':'']" 
+			:key="index" 
+			:data-char="char" 
+			@tap="changAZ(char)">{{char}}</text>
+		</view>
+	</scroll-view>
+	<!-- #endif -->
+	<!-- #ifdef APP || APP-HARMONY -->
+	<list-view
+	style="padding:0 20rpx;"
+	class="ux-flex1 ux-relative" 
+	:show-scrollbar="false" 
+	:scroll-into-view="scrollIntoViewId">
+		<list-item id="AZA">
+			<text class="ux-city-AZ">A</text>
+		</list-item>
+		<list-item
+		v-for="(city, cIndex) in cities[0]" 
+		:key="cIndex"
+		:id="bindCity(city.code)">
+			<text 
+			class="ux-city-item" 
+			@tap="chooseCity(city)">
+				{{city.name}}
+			</text>
+		</list-item>
+		<list-item id="AZB">
+			<text class="ux-city-AZ">B</text>
+		</list-item>
+		<list-item
+		v-for="(city, cIndex) in cities[1]" 
+		:key="cIndex"
+		:id="bindCity(city.code)">
+			<text 
+			class="ux-city-item" 
+			@tap="chooseCity(city)">
+				{{city.name}}
+			</text>
+		</list-item>
+		<list-item id="AZC">
+			<text class="ux-city-AZ">C</text>
+		</list-item>
+		<list-item
+		v-for="(city, cIndex) in cities[2]" 
+		:key="cIndex"
+		:id="bindCity(city.code)">
+			<text 
+			class="ux-city-item" 
+			@tap="chooseCity(city)">
+				{{city.name}}
+			</text>
+		</list-item>
+		<list-item id="AZD">
+			<text class="ux-city-AZ">D</text>
+		</list-item>
+		<list-item
+		v-for="(city, cIndex) in cities[3]" 
+		:key="cIndex"
+		:id="bindCity(city.code)">
+			<text 
+			class="ux-city-item" 
+			@tap="chooseCity(city)">
+				{{city.name}}
+			</text>
+		</list-item>
+		<list-item id="AZE">
+			<text class="ux-city-AZ">E</text>
+		</list-item>
+		<list-item
+		v-for="(city, cIndex) in cities[4]" 
+		:key="cIndex"
+		:id="bindCity(city.code)">
+			<text 
+			class="ux-city-item" 
+			@tap="chooseCity(city)">
+				{{city.name}}
+			</text>
+		</list-item>
+		<list-item id="AZF">
+			<text class="ux-city-AZ">F</text>
+		</list-item>
+		<list-item
+		v-for="(city, cIndex) in cities[5]" 
+		:key="cIndex"
+		:id="bindCity(city.code)">
+			<text 
+			class="ux-city-item" 
+			@tap="chooseCity(city)">
+				{{city.name}}
+			</text>
+		</list-item>
+		<list-item id="AZG">
+			<text class="ux-city-AZ">G</text>
+		</list-item>
+		<list-item
+		v-for="(city, cIndex) in cities[6]" 
+		:key="cIndex"
+		:id="bindCity(city.code)">
+			<text 
+			class="ux-city-item" 
+			@tap="chooseCity(city)">
+				{{city.name}}
+			</text>
+		</list-item>
+		<list-item id="AZH">
+			<text class="ux-city-AZ">H</text>
+		</list-item>
+		<list-item
+		v-for="(city, cIndex) in cities[7]" 
+		:key="cIndex"
+		:id="bindCity(city.code)">
+			<text 
+			class="ux-city-item" 
+			@tap="chooseCity(city)">
+				{{city.name}}
+			</text>
+		</list-item>
+		<list-item id="AZJ">
+			<text class="ux-city-AZ">J</text>
+		</list-item>
+		<list-item
+		v-for="(city, cIndex) in cities[8]" 
+		:key="cIndex"
+		:id="bindCity(city.code)">
+			<text 
+			class="ux-city-item" 
+			@tap="chooseCity(city)">
+				{{city.name}}
+			</text>
+		</list-item>
+		<list-item id="AZK">
+			<text class="ux-city-AZ">K</text>
+		</list-item>
+		<list-item
+		v-for="(city, cIndex) in cities[9]" 
+		:key="cIndex"
+		:id="bindCity(city.code)">
+			<text 
+			class="ux-city-item" 
+			@tap="chooseCity(city)">
+				{{city.name}}
+			</text>
+		</list-item>
+		<list-item id="AZL">
+			<text class="ux-city-AZ">L</text>
+		</list-item>
+		<list-item
+		v-for="(city, cIndex) in cities[10]" 
+		:key="cIndex"
+		:id="bindCity(city.code)">
+			<text 
+			class="ux-city-item" 
+			@tap="chooseCity(city)">
+				{{city.name}}
+			</text>
+		</list-item>
+		<list-item id="AZM">
+			<text class="ux-city-AZ">M</text>
+		</list-item>
+		<list-item
+		v-for="(city, cIndex) in cities[11]" 
+		:key="cIndex"
+		:id="bindCity(city.code)">
+			<text 
+			class="ux-city-item" 
+			@tap="chooseCity(city)">
+				{{city.name}}
+			</text>
+		</list-item>
+		<list-item id="AZN">
+			<text class="ux-city-AZ">N</text>
+		</list-item>
+		<list-item
+		v-for="(city, cIndex) in cities[12]" 
+		:key="cIndex"
+		:id="bindCity(city.code)">
+			<text 
+			class="ux-city-item" 
+			@tap="chooseCity(city)">
+				{{city.name}}
+			</text>
+		</list-item>
+		<list-item id="AZP">
+			<text class="ux-city-AZ">P</text>
+		</list-item>
+		<list-item
+		v-for="(city, cIndex) in cities[13]" 
+		:key="cIndex"
+		:id="bindCity(city.code)">
+			<text 
+			class="ux-city-item" 
+			@tap="chooseCity(city)">
+				{{city.name}}
+			</text>
+		</list-item>
+		<list-item id="AZQ">
+			<text class="ux-city-AZ">Q</text>
+		</list-item>
+		<list-item
+		v-for="(city, cIndex) in cities[14]" 
+		:key="cIndex"
+		:id="bindCity(city.code)">
+			<text 
+			class="ux-city-item" 
+			@tap="chooseCity(city)">
+				{{city.name}}
+			</text>
+		</list-item>
+		<list-item id="AZR">
+			<text class="ux-city-AZ">R</text>
+		</list-item>
+		<list-item
+		v-for="(city, cIndex) in cities[15]" 
+		:key="cIndex"
+		:id="bindCity(city.code)">
+			<text 
+			class="ux-city-item" 
+			@tap="chooseCity(city)">
+				{{city.name}}
+			</text>
+		</list-item>
+		<list-item id="AZS">
+			<text class="ux-city-AZ">S</text>
+		</list-item>
+		<list-item
+		v-for="(city, cIndex) in cities[16]" 
+		:key="cIndex"
+		:id="bindCity(city.code)">
+			<text 
+			class="ux-city-item" 
+			@tap="chooseCity(city)">
+				{{city.name}}
+			</text>
+		</list-item>
+		<list-item id="AZT">
+			<text class="ux-city-AZ">T</text>
+		</list-item>
+		<list-item
+		v-for="(city, cIndex) in cities[17]" 
+		:key="cIndex"
+		:id="bindCity(city.code)">
+			<text 
+			class="ux-city-item" 
+			@tap="chooseCity(city)">
+				{{city.name}}
+			</text>
+		</list-item>
+		<list-item id="AZW">
+			<text class="ux-city-AZ">W</text>
+		</list-item>
+		<list-item
+		v-for="(city, cIndex) in cities[18]" 
+		:key="cIndex"
+		:id="bindCity(city.code)">
+			<text 
+			class="ux-city-item" 
+			@tap="chooseCity(city)">
+				{{city.name}}
+			</text>
+		</list-item>
+		<list-item id="AZX">
+			<text class="ux-city-AZ">X</text>
+		</list-item>
+		<list-item
+		v-for="(city, cIndex) in cities[19]" 
+		:key="cIndex"
+		:id="bindCity(city.code)">
+			<text 
+			class="ux-city-item" 
+			@tap="chooseCity(city)">
+				{{city.name}}
+			</text>
+		</list-item>
+		<list-item id="AZY">
+			<text class="ux-city-AZ">Y</text>
+		</list-item>
+		<list-item
+		v-for="(city, cIndex) in cities[20]" 
+		:key="cIndex"
+		:id="bindCity(city.code)">
+			<text 
+			class="ux-city-item" 
+			@tap="chooseCity(city)">
+				{{city.name}}
+			</text>
+		</list-item>
+		<list-item id="AZZ">
+			<text class="ux-city-AZ">Z</text>
+		</list-item>
+		<list-item
+		v-for="(city, cIndex) in cities[21]" 
+		:key="cIndex"
+		:id="bindCity(city.code)">
+			<text 
+			class="ux-city-item" 
+			@tap="chooseCity(city)">
+				{{city.name}}
+			</text>
+		</list-item>
+	</list-view>
+	<view class="ux-city-AZ-right">
+		<text 
+		v-for="(char, index) in AZData" 
+		:class="['ux-city-AZ-right-item', char == changAZLetter?'ux-AZ-active':'']" 
+		:key="index" 
+		:data-char="char" 
+		@tap="changAZ(char)">{{char}}</text>
+	</view>
+	<!-- #endif -->
+</template>
+<script lang="uts">
+import {AZ, cityData, CityItem} from '@/uni_modules/unix-ui/data/cityData.uts';
+export default {
+	data() {
+		return {
+			AZData:AZ as string[],
+			cities:cityData as CityItem[][],
+			scrollIntoViewId : "" as string.IDString,
+			changAZLetter : "A" as string.IDString,
+			searchTimer :-1
+		}
+	},
+	methods: {
+		// 选择
+		chooseCity : function(city:CityItem){
+			this.$emit("choose",[city.name, city.code, city.pinyin]);
+		},
+		changAZ: function(letter:string.IDString){
+			this.changAZLetter = letter;
+			this.scrollIntoViewId = ("AZ"+letter) as string.IDString;
+			console.log(this.scrollIntoViewId);
+		},
+		search : function(kwd:string){
+			kwd = kwd.toLowerCase();
+			if(kwd == ''){
+				this.scrollIntoViewId = "AZA" as string.IDString;
+				return
+			}
+			if(this.searchTimer >= 0){
+				clearTimeout(this.searchTimer);
+			}
+			this.searchTimer = setTimeout(()=>{
+				this.searchBase(kwd);
+			}, 200);
+		},
+		searchBase : function(kwd:string){
+			var kwdIn = kwd as string.IDString;
+			var searchCode = "";
+			for(var i = 0; i < this.cities.length; i++){
+				var cities = this.cities[i];
+				for(var ii = 0; ii < cities.length; ii++){
+					var city = cities[ii];
+					var name = city.name as string.IDString;
+					if(name.indexOf(kwdIn) == 0 || city.pinyin.indexOf(kwdIn) == 0){
+						searchCode = city.code;
+						break;
+					}
+				}
+				if(searchCode != ""){break ;}
+			}
+			console.log(searchCode);
+			if(searchCode != ""){
+				this.scrollIntoViewId = 'city'+searchCode as string.IDString;
+			}
+		},
+		bindAZ : function(letter:String):string.IDString{
+			return ("AZ"+letter) as string.IDString
+		},
+		bindCity : function(city:any):string.IDString{
+			return ("city"+city as String) as string.IDString
+		}
+	},
+	emits:['choose']
+}
+</script>
+<style scoped>
+.ux-h6{line-height:80rpx; font-size:28rpx;}
+.ux-city-AZ{font-weight:bold; line-height:88rpx; font-size:30rpx;}
+.ux-city-AZ-right{width:50rpx; position:fixed; right:30rpx; top:80px; z-index:2;}
+.ux-city-AZ-right-item{line-height:38rpx; height:38rpx; width:38rpx; border-radius:40rpx; font-size:22rpx; text-align:center; color:#353535;}
+.ux-AZ-active{background-color:#F7F8F9;}
+.ux-city-item{line-height:82rpx; height:82rpx; font-size:26rpx;}
+</style>

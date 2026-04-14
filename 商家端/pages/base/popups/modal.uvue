@@ -1,0 +1,87 @@
+<template>
+	<scroll-view class="ux-body ux-page-color ux-flex1">
+		<text class="ux-h6 ux-color-grey ux-mt">模态对话框演示</text>
+		<view 
+		class="ux-bg-white ux-mt">
+			<view 
+			class="ux-list-items" 
+			@tap="open1">
+				<view 
+				class="ux-list-body ux-border-b" 
+				hover-class="ux-tap">
+					<view 
+					class="ux-list-title">
+						<text 
+						class="ux-list-title-text ux-list-one-line ux-primary-text">点击这里打开对话框</text>
+					</view>
+				</view>
+				<text 
+				class="ux-list-arrow-right ux-icons ux-color-grey">{{"\ue601"}}</text>
+			</view>
+		</view>
+		
+		<!-- 模态对话框组件 -->
+		<ux-modal 
+		:customClass="['ux-bg-white', 'ux-border-radius']" 
+		ref="uxmodal1" 
+		title="标题文本..">
+			<template v-slot:content>
+				<view class="ux-padding ux-bg-grey6">
+					<text 
+					class="ux-text-center ux-text ux-color-grey" 
+					style="line-height:100rpx; padding:10rpx;">您确定要这样做吗？</text>
+				</view>
+			</template>
+			<!-- 利用 flex 布局 可以放置多个自定义按钮哦  -->
+			<template v-slot:btns>
+				<view 
+				class="ux-flex ux-row ux-space-between">
+					<view 
+					hover-class="ux-tap" 
+					class="ux-flex1" 
+					style="margin-right:80rpx;">
+						<text 
+						class="modal-btns ux-color-gray" 
+						@tap="close1">取消</text>
+					</view>
+					<view 
+					hover-class="ux-tap" 
+					class="ux-flex1" 
+					style="margin-left:80rpx;">
+						<text 
+						class="modal-btns ux-primary-color" 
+						@tap="confirm1">确认</text>
+					</view>
+				</view>
+			</template>
+		</ux-modal>
+	</scroll-view>
+</template>
+<script>
+export default {
+	data() {
+		return {
+			popupRef1 : null as UxModalComponentPublicInstance | null,
+		}
+	},
+	onReady:function(){
+		this.popupRef1 = this.$refs['uxmodal1'] as UxModalComponentPublicInstance;
+		this.popupRef1?.$callMethod("open");
+	},
+	methods: {
+		open1  : function () {
+			this.popupRef1?.$callMethod("open");
+		},
+		close1 : function () {
+			this.popupRef1?.$callMethod("close");
+		},
+		confirm1 : function(){
+			// your code 
+			this.popupRef1?.$callMethod("close");
+		}
+	}
+}
+</script>
+<style scoped>
+.modal-btns{line-height:88rpx; font-size:26rpx; text-align:center; width:200rpx;}
+</style>

@@ -1,0 +1,37 @@
+<template>
+	<view class="ux-body ux-page-color ux-flex1">
+		<text class="ux-h6 ux-color-grey ux-mt-large">默认属性</text>
+		<view class="ux-flex ux-row ux-nowrap ux-justify-content-center ux-mt-small ux-bg-white ux-padding-small">
+			<ux-star @change="change1"></ux-star>
+		</view>
+		<text class="ux-h6 ux-color-grey ux-mt-large">属性及布局演示</text>
+		<view class="ux-flex ux-row ux-nowrap ux-justify-content-center ux-align-items-center ux-mt-small ux-bg-white ux-padding-small">
+			<text class="ux-text ux-color-grey3">打分 : </text>
+			<view style="margin-left:22rpx;">
+				<ux-star
+				activecolor="#FF0036" 
+				:totalstars="6" 
+				:starnum="3" 
+				font-size="38rpx" 
+				:cantap="false"></ux-star>
+			</view>
+		</view>
+	</view>
+</template>
+<script lang="uts">
+export default {
+	data() {
+		return {
+			
+		}
+	},
+	methods: {
+		change1 : function(val:number){
+			console.log(val);
+			uni.showToast({icon:"none", title:val + " 星"});
+		}
+	}
+}
+</script>
+<style scoped>
+</style>

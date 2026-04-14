@@ -1,0 +1,68 @@
+<template>
+	<scroll-view 
+	class="ux-flex1" 
+	@scroll="scroll">
+		<ux-header 
+		:statusBarBg="statusBarBg" 
+		:background="background" 
+		:space="false">
+			<view class="ux-flex ux-row ux-align-items-center ux-space-between">
+				<!-- 页面功能按钮，返回 回首页等 -->
+				<view class="ux-flex ux-row ux-align-items-center">
+					<view hover-class="ux-tap">
+						<text 
+						@tap="back" 
+						class="ux-icon header-icon-button ux-text-center">{{"\ue643"}}</text>
+						<!-- 其他按钮 -->
+					</view>
+				</view>
+				<!-- 中间标题文本 -->
+				<view class="ux-flex ux-row ux-align-items-center ux-flex1">
+					<text class="ux-text ux-color-white">自定义标题</text>
+					<!-- 其他内容 -->
+				</view>
+			</view>
+		</ux-header>
+		<!-- 主体内容 -->
+		<view class="">
+			<image
+			style="width: 100%;" 
+			mode="widthFix" 
+			src="https://img0.baidu.com/it/u=901391126,2993295560&fm=253&fmt=auto&app=138&f=JPEG?w=889&h=500"></image>
+		</view>
+		<view style="padding:200rpx 0;">
+			<text class="ux-text ux-color-grey2 ux-text-center">请滚动屏幕试试</text>
+		</view>
+		<view style="height:2000rpx;"></view>
+	</scroll-view>
+</template>
+<script lang="uts">
+export default {
+	data() {
+		return {
+			statusBarBg : "rgba(0,0,255,0)",
+			background : "rgba(0,0,255,0)",
+			scrollTop : 0,
+			scrollTimer : -1
+		}
+	},
+	methods: {
+		back : function(){
+			uni.navigateBack()
+		},
+		scroll : function(e:ScrollEvent){
+			this.scrollTop =  e.detail.scrollTop;
+			if(this.scrollTop > 100){
+				this.statusBarBg = "rgba(0,0,255,0.88)";
+				this.background = "rgba(0,0,255,0.88)";
+			}else if(this.scrollTop < 10){
+				this.statusBarBg = "rgba(0,0,255,0)";
+				this.background = "rgba(0,0,255,0)";
+			}
+		}
+	}
+}
+</script>
+<style scoped>
+.header-icon-button{width:100rpx; height:100rpx; font-size:32rpx; line-height:100rpx; color:#FFFFFF;}
+</style>

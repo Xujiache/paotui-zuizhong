@@ -1,0 +1,86 @@
+<template>
+	<view 
+	class="ux-flex ux-row ux-nowrap ux-align-items-center" 
+	@tap.stop="changeStatus">
+		<text
+		v-if="status" 
+		class="ux-icons ux-block ux-text-center" 
+		:class="checkedClass" 
+		:style="{
+			width  : size+'rpx',
+			height : size+'rpx',
+			lineHeight:size+'rpx', 
+			fontSize:(size - 8)+'rpx', 
+			borderRadius:(size)+'rpx' 
+		}">{{"\ue7f8"}}</text>
+		<text v-else 
+		class="ux-icons ux-block ux-text-center" 
+		:class="defaultClass" 
+		:style="{
+			width  : size+'rpx',
+			height : size+'rpx',
+			lineHeight:(size+2)+'rpx', 
+			fontSize:(size - 10)+'rpx',
+		}">{{"\ue762"}}</text>
+		<view 
+		class="ux-radio-lable ux-flex1">
+			<slot></slot>
+		</view>
+	</view>
+</template>
+<script lang="uts">
+export default {
+	name  : "ux-radio",
+	props : {
+		size : {
+			type : Number,
+			default : 38
+		},
+		defaultClass : {
+			type : Array as PropType<Array<string>>,
+			default : function():string[]{
+				return ['ux-color-gray'] as string[];
+			}
+		},
+		checked : {
+			type : Boolean,
+			default : false
+		},
+		checkedClass : {
+			type : Array as PropType<Array<string>>,
+			default : function():string[]{
+				return ['ux-color-primary'] as string[];
+			}
+		},
+		parameter : {
+			type : Array as PropType<Array<any>>,
+			default : function():any[]{
+				return [] as any[];
+			}
+		},
+	},
+	data() {
+		return {
+			status : false
+		}
+	},
+	watch: {
+		checked : function (val) {
+			this.status = val;
+		}
+	},
+	created : function(){
+		this.status = this.checked;
+	},
+	methods:{
+		changeStatus : function(){
+			this.status = !this.status;
+			this.$emit('change', [this.status, this.parameter]);
+		}
+	},
+	emits : ['change']
+}
+</script>
+<style scoped>
+.ux-radio-lable{margin-left:15rpx; width:100rpx;}
+</style>

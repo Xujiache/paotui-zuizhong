@@ -1,0 +1,51 @@
+<template>
+	<view class="ux-body ux-page-color ux-flex1">
+		<text class="ux-h6 ux-color-grey ux-mt-large">文字形式</text>
+		<view class="ux-flex ux-row ux-justify-content-center ux-mt-small ux-bg-white ux-padding-small">
+			<ux-count-down 
+			:padding="0" 
+			:timer="time1"></ux-count-down>
+		</view>
+		<text class="ux-h6 ux-color-grey ux-mt-large">边框样式</text>
+		<view class="ux-flex ux-row ux-justify-content-center ux-mt-small ux-bg-white ux-padding-small">
+			<ux-count-down 
+			:timer="time1"
+			:customClass="['ux-color-blue']" 
+			:splitorClass="['ux-color-blue']" 
+			:size="22" 
+			borderColor="#008AFF"
+			spacing="5rpx"></ux-count-down>
+		</view>
+		<text class="ux-h6 ux-color-grey ux-mt-large">背景样式</text>
+		<view class="ux-flex ux-row ux-justify-content-center ux-mt-small ux-bg-white ux-padding-small">
+			<ux-count-down 
+			:timer="time1"
+			:customClass="['ux-color-white', 'ux-bg-primary']" 
+			:splitorClass="['ux-color-grey2']" 
+			:size="25" 
+			borderColor="#3688FF" 
+			spacing="5rpx" 
+			@endDo="endDo"></ux-count-down>
+		</view>
+	</view>
+</template>
+<script lang="uts">
+import UXDatetime from "@/uni_modules/unix-ui/uxts/datetime.uts";
+var uxDatetime = new UXDatetime();
+export default {
+	data() {
+		return {
+			// 初始化倒计时
+			// 一小时后
+			time1 : uxDatetime.nowString(1000 * 3600), 
+		}
+	},
+	methods: {
+		endDo : function () {
+			console.log('倒计时结束');
+		}
+	}
+}
+</script>
+<style scoped>
+</style>

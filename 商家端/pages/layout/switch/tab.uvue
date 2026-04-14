@@ -1,0 +1,60 @@
+<template>
+	<view class="ux-mt">
+		<view class="ux-body">
+			<ux-switch-navigation 
+			:items="navItems" 
+			:size="180" 
+			:is-center="true"
+			text-align="center" 
+			active-direction="center" 
+			activeLineWidth="88rpx" 
+			active-line-height="2rpx" 
+			:current-index="currentIndex" 
+			@change="navChange"></ux-switch-navigation>
+		</view>
+		<view class="ux-bg-white ux-mt-small">
+			<!-- 局部选项卡 使用 切换导航 + swiper 实现 -->
+			<swiper 
+			class="tab-card-body" 
+			:current="currentIndex" 
+			@change="swiperChange">
+				<!-- 轮播项目数量对应 上面的选项标签 -->
+				<swiper-item 
+				v-for="(_, index) in navItems"
+				class="tab-card-item">
+					<text 
+					class="tab-card-demo-text ux-color-grey3 ux-text-center">{{index}}</text>
+				</swiper-item>
+			</swiper>
+		</view>
+	</view>
+</template>
+<script lang="uts">
+import {UXNavItem} from "@/uni_modules/unix-ui/uxts/classes.uts";
+export default {
+	data() {
+		return {
+			navItems : [
+				new UXNavItem(0, '标签名称', 0),
+				new UXNavItem(1, '标签名称', 0),
+				new UXNavItem(2, '标签名称', 0),
+			] as UXNavItem[],
+			// 当前索引
+			currentIndex : 0
+		}
+	},
+	methods: {
+		navChange : function(index:number){
+			this.currentIndex = index;
+		},
+		swiperChange : function(e:SwiperChangeEvent){
+			this.currentIndex = e.detail.current;
+		}
+	}
+}
+</script>
+<style scoped>
+.tab-card-body{width:690rpx; height:388rpx;}
+.tab-card-item{width:690rpx; height:388rpx;}
+.tab-card-demo-text{line-height:388rpx; font-size:88rpx;}
+</style>

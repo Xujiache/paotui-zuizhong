@@ -1,0 +1,105 @@
+<template>
+	<view 
+	class="ux-flex ux-row ux-nowrap ux-align-items-center ux-flex1" 
+	:class="customClass" 
+	:style="{borderRadius:borderRadius, padding:padding}">
+		<text 
+		class="ux-icons ux-text-center ux-color-grey3" 
+		@tap="tapme" 
+		:style="{
+			fontSize:iconFontSize, 
+			width:iconWidth,
+			color:iconColor
+		}">{{"\ue604"}}</text>
+		<input 
+		type="text" 
+		class="ux-search-input ux-flex1 ux-primary-text" 
+		:placeholder="placeholder" 
+		v-model="inputVal" 
+		v-if="!disabled" 
+		:focus="focus" 
+		:style="{
+			fontSize:inputFontSize, 
+			color:inputColor
+		}" 
+		@input="inputting" 
+		@confirm="confirm" />
+		<text 
+		class="ux-search-input ux-flex1 ux-color-grey2" 
+		v-if="disabled" 
+		@tap="tapme" 
+		:style="{
+			fontSize:inputFontSize,
+			color:disabledColor
+		}">{{placeholder}}</text>
+		<text 
+		class="ux-icons ux-text-center ux-color-grey3" 
+		v-if="inputVal.length > 0 && clearBtn" 
+		@tap="clearKwd" 
+		:style="{
+			fontSize:iconFontSize, 
+			width:iconWidth,
+			color:iconColor
+		}">{{"\ue78a"}}</text>
+	</view>
+</template>
+<script>
+export default{
+	name  : "ux-search-bar", 
+	props : {
+		customClass:{
+			type : Array<String>, 
+			default:function():Array<String>{
+				return ['ux-bg-grey5'] as Array<String>;
+			}
+		},
+		fontSize:{type:String, default:'28rpx'},
+		iconWidth:{type:String, default:'66rpx'},
+		iconFontSize:{type:String, default:'30rpx'},
+		inputFontSize:{type:String, default:'26rpx'},
+		placeholder:{type:String, default:'关键字'},
+		placeholderClass:{type:String, default:''},
+		kwd:{type:String, default:''},
+		borderRadius:{type:String, default:'66rpx'},
+		disabled:{type:Boolean, default:false},
+		focus:{type:Boolean, default:false},
+		clearBtn:{type:Boolean, default:true},
+		padding:{type:String, default:"15rpx 12rpx"},
+		inputColor:{type:String, default:'#353535'},
+		iconColor:{type:String, default:'#BDBDBD'},
+		disabledColor:{type:String, default:'#999999'},
+	},
+	data() {
+		return {
+			inputVal : ''
+		}
+	},
+	created: function (){
+		this.inputVal = this.kwd;
+	},
+	watch:{
+		kwd : function(val:string){
+			this.inputVal = val;
+		}
+	},
+	methods:{
+		clearKwd : function () {
+			this.inputVal = '';
+			this.$emit('clear', '');
+		},
+		inputting : function(e:InputEvent){
+			this.$emit('inputting', e.detail.value);
+		},
+		confirm : function (e:InputConfirmEvent) {
+			this.$emit('confirm', e.detail.value);
+		},
+		tapme : function () {
+			this.$emit('tap')
+		}
+	},
+	emits : ['clear', 'confirm', 'tap', 'inputting']
+}
+</script>
+<style scoped>
+.ux-search-input{width:100rpx; border-width:0rpx; padding:0; background-color:rgba(255,255,255,0);}
+</style>

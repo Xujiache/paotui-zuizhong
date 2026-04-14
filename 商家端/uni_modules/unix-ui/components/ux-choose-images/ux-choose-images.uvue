@@ -1,0 +1,107 @@
+<template>
+	<view class="ux-flex ux-row ux-wrap">
+		<view 
+		v-for="(item, index) in imgLists" 
+		class="ux-add-list-items" 
+		:style="{borderRadius:borderRadius}" 
+		:key="index">
+			<image 
+			:src="item" 
+			:style="{borderRadius:borderRadius}" 
+			@tap="showImgs(index)" 
+			class="ux-add-list-img" 
+			:mode="imgMode"></image>
+			<text 
+			class="ux-add-list-remove ux-icons" 
+			:style="{color:removeBtnColor}" 
+			@tap="removeImg(index)">{{"\ue632"}}</text>
+		</view>
+		<view 
+		class="ux-add-list-items ux-flex ux-columns ux-justify-content-center ux-align-items-center ux-bg-grey6 ux-dark-bg-level-5" 
+		@tap="addImg" 
+		v-if="imgLists.length < maxFileNumber" 
+		:style="{borderRadius:borderRadius}">
+			<text class="ux-add-list-btn-icon ux-color-grey2">+</text>
+			<text class="ux-add-list-btn-text ux-color-grey2">{{btnName}}</text>
+		</view>
+	</view>
+</template>
+<script>
+export default {
+	name  : "ux-choose-images",
+	props : {
+		maxFileNumber  : { type : Number, default : 9 },
+		btnName        : { type : String, default : "添加" },
+		items          : { 
+			type : Array as PropType<Array<string>>, 
+			default : function():string[]{
+				return [] as string[];
+			}
+		},
+		removeBtnColor : { type : String, default : "rgba(0, 0, 0, 0.8)" },
+		imgMode        : { type : String, default : 'aspectFill' },
+		sourceType     : { 
+			type : Array as PropType<Array<string>>, 
+			default : function():string[]{
+				return ['album', 'camera'] as string[];
+			},
+		},
+		borderRadius   : { type : String, default : "10rpx" }
+	},
+	data() {
+		return {
+			imgLists : [] as string[]
+		}
+	},
+	created:function () {
+		this.initImgs();
+	},
+	watch:{
+		items:function(){ this.initImgs(); }
+	},
+    methods:{
+		initImgs : function(){
+			this.imgLists = this.items as Array<string>;
+		},
+        addImg : function(){
+            var num = this.maxFileNumber - this.imgLists.length;
+            if(num < 1){return ;}
+            uni.chooseImage({
+                count      : num,
+                sizeType   : ['compressed'],
+				sourceType : this.sourceType as string[],
+                success    : (res:ChooseImageSuccess) => {
+					if(this.imgLists.length >= this.maxFileNumber){return ;}
+					this.imgLists.push(...res.tempFilePaths);
+                    this.$emit('change', this.imgLists);
+                },
+				complete   : function(){}
+            });
+        },
+        removeImg : function(index:number){
+			var removeImg =  this.imgLists.splice(index, 1);
+			this.$emit('remove', removeImg[0], index);
+			this.$emit('change'   , this.imgLists);
+        },
+        showImgs : function(index:number){
+            uni.previewImage({
+              urls: this.imgLists,
+              current : index
+            })
+        },
+		setItems : function(items:string[]){
+			this.imgLists = new Array<string>();
+			this.imgLists = items;
+			this.$emit('change', this.imgLists);
+		}
+    },
+	emits : ['change', 'remove']
+}
+</script>
+<style scoped>
+.ux-add-list-btn-text{font-size:26rpx; line-height:36rpx; text-align:center;}
+.ux-add-list-btn-icon{font-size:80rpx; height:80rpx; line-height:80rpx; margin-bottom:20rpx;}
+.ux-add-list-items{width:210rpx; height:210rpx; overflow:hidden; margin:10rpx; position:relative;}
+.ux-add-list-remove{width:60rpx; height:60rpx; line-height:60rpx; text-align:center; font-size:38rpx; position:absolute; z-index:1; right:0; bottom:0;}
+.ux-add-list-img{width:210rpx;}
+</style>

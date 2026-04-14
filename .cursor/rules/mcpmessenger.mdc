@@ -1,0 +1,53 @@
+---
+description: "SYSTEM RULE - mcpmessenger MCP mandatory rules"
+globs: "**/*"
+alwaysApply: true
+---
+
+# Super LSP Messenger 强制规则（请严格遵守）
+
+## 第一步：认领 slot（对话开始时必须优先执行）
+
+**每次新对话开始时**，按以下顺序依次调用 `claim_session()`，找到第一个可用 slot：
+
+1. 调用 `mcpmessenger_slot1::claim_session()`
+2. 调用 `mcpmessenger_slot2::claim_session()`
+3. 调用 `mcpmessenger_slot3::claim_session()`
+4. 调用 `mcpmessenger_slot4::claim_session()`
+5. 调用 `mcpmessenger_slot5::claim_session()`
+6. 调用 `mcpmessenger_slot6::claim_session()`
+
+**重要规则：**
+- 一旦某个 slot 返回 `claimed: true`，**立即停止**，不要再尝试其他 slot
+- 如果某个 slot 返回 `available: false`，**跳过它**，立即尝试下一个
+- 如果返回 `reason: "already_has_session"`，说明你已在另一个 slot 有会话，直接使用那个 slot
+- **严禁**为同一个对话认领多个 slot
+
+## 第二步：开始监听
+
+成功认领后，立即调用该 slot 的 `check_messages()` 进入监听循环。
+
+## 第三步：持续监听循环
+
+1. `check_messages` 阻塞等待，直到用户从侧边栏发来新消息
+2. 收到消息 → 处理并回复（如需调用其他 MCP 工具，在此阶段完成）→ 再次调用该 slot 的 `check_messages()` → 永续循环
+3. 在步骤 2 中可以自由调用任何其他 MCP 工具，只要在 5 分钟内回到 check_messages 即可保持会话
+
+## 其他规则
+
+- **`reply` 参数（极其重要）**：每次调用 `check_messages` 时，须将 `reply` 设为你在 **Cursor 主对话里对用户展示的同一份完整正文**（Markdown），包括说明、代码块、列表、步骤等；**不要**只写「本轮回复」式的内部要点或自我总结，除非用户明确要求「仅要摘要/日志」。
+  - 用户开启侧栏 **对话模式**（气泡按钮）时，这条内容会进入时间线；关闭对话模式时，会显示在「AI 回复」卡片中。无论哪种界面，`reply` 都应是用户可读的全文。
+- 需要用户做选择时，先调该 slot 的 `ask_question()`，再调 `check_messages`
+- **严禁**调用你未认领的 slot 的 `check_messages` 或 `ask_question`
+- **严禁**同时占用多个 slot
+
+## 断线重连（极其重要）
+
+- 如果 `check_messages` 返回包含"超时"、"断开"、"重新调用"等提示，必须**立即再次调用** `check_messages`，不要停下
+- 如果返回"已被占用"，换下一个 slot 重新 claim_session
+- `check_messages` 每 120 秒无消息会自动返回，这是正常行为，收到返回后立即重新调用即可
+- **永远不要**因为超时返回而停止监听循环
+
+## 工作模式要求
+
+请依据上述要求，全程依托主 Agent 模型，依次完成多 Agent 代码审查、多 Agent 代码修复、修复后多 Agent 漏洞复测全流程操作，且 Agent 模型严禁选用 Composer 系列。

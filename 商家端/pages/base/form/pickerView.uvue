@@ -1,0 +1,130 @@
+<template>
+	<scroll-view class="ux-body ux-page-color ux-flex1">
+		<text class="ux-h6 ux-color-grey ux-mt">pick-view 演示</text>
+		<view class="ux-padding ux-bg-white ux-mt">
+			<text 
+			class="ux-text" 
+			@tap="showPicker">日期 : {{year+"-"+month+"-"+day}}, 请点击这里选择日期</text>
+		</view>
+		
+		<!-- 使用 fixed 定位，将组件放置在页面底部 -->
+		<view 
+		class="ux-fixed" 
+		style="left:0rpx; right:0rpx;" 
+		:style="{'bottom':show?'0px':'-2000px'}">
+			<view 
+			class="ux-row ux-space-between ux-bg-grey5">
+				<view hover-class="ux-tap" style="width:150rpx;">
+					<text
+					class="ux-button ux-pl ux-pr ux-color-grey" 
+					@tap="closePicker">关闭</text>
+				</view>
+				<view hover-class="ux-tap" style="width:150rpx;">
+					<text 
+					class="ux-button ux-color-blue ux-pl ux-pr ux-primary-color" 
+					@tap="closePicker">确定</text>
+				</view>
+			</view>
+			<view class="">
+				<picker-view 
+				class="ux-picker-view" 
+				indicator-style="height:50px;" 
+				:value="value" 
+				@change="bindChange">
+					<picker-view-column 
+					style="width:250rpx;" 
+					class="ux-picker-view-column">
+						<view 
+						class="ux-picker-view-item" 
+						v-for="(item,index) in years" 
+						:key="index">
+							<text 
+							class="ux-picker-view-text">{{item}}年</text>
+						</view>
+					</picker-view-column>
+					<picker-view-column 
+					style="width:250rpx;" 
+					class="ux-picker-view-column">
+						<view 
+						class="ux-picker-view-item" 
+						v-for="(item,index) in months" 
+						:key="index">
+							<text 
+							class="ux-picker-view-text">{{item}}月</text>
+						</view>
+					</picker-view-column>
+					<picker-view-column 
+					style="width:250rpx;" 
+					class="ux-picker-view-column">
+						<view 
+						class="ux-picker-view-item" 
+						v-for="(item,index) in days" 
+						:key="index">
+							<text 
+							class="ux-picker-view-text">{{item}}日</text>
+						</view>
+					</picker-view-column>
+				</picker-view>
+			</view>
+		</view>
+	</scroll-view>
+</template>
+<script lang="uts">
+export default {
+	data() {
+	   const date = new Date()
+	   const _years : number[] = []
+	   const _year = date.getFullYear()
+	   const _months : number[] = []
+	   const _month : number = date.getMonth() + 1
+	   const _days : number[] = []
+	   const _day = date.getDate()
+	   for (let i = 2000; i <= _year; i++) {
+		   _years.push(i)
+	   }
+	   for (let i = 1; i <= 12; i++) {
+		   _months.push(i)
+	   }
+	   for (let i = 1; i <= 31; i++) {
+		   _days.push(i)
+	   }
+	   return {
+		   years: _years as number[],
+		   year: _year as number,
+		   months: _months as number[],
+		   month: _month as number,
+		   days: _days as number[],
+		   day: _day as number,
+		   value: [_year - 2000, _month - 1, _day - 1] as number[],
+		   result: [] as number[],
+		   show : false
+	   }
+	},
+	methods: {
+		bindChange(e:PickerViewChangeEvent) {
+			const val = e.detail.value;
+			this.result = val;
+			this.year = this.years[val[0]];
+			this.month = this.months[val[1]];
+			this.day = this.days[val[2]];
+			console.log(this.year, this.month, this.day);
+		},
+		setValue() {
+		   this.value = [0, 0, 0] as number[]
+		},
+		setValue1() {
+		   this.value = [10, 10, 10] as number[]
+		},
+		showPicker : function(){
+			this.show = true;
+		},
+		closePicker : function(){
+			this.show = false;
+		}
+	}
+}
+</script>
+
+<style scoped>
+
+</style>

@@ -1,0 +1,52 @@
+<template>
+	<view class="ux-body ux-page-color ux-flex1">
+		<view style="padding:20rpx 100rpx;">
+			<ux-search-bar 
+			@inputting="inputting" 
+			@clear="clear"></ux-search-bar>
+		</view>
+		<view class="ux-pt-small ux-pb-small">
+			<text class="ux-h6">{{choosedCity == '' ? '请选择城市':'已选择 : ' + choosedCity}}</text>
+		</view>
+		<view class="ux-demo ux-flex1">
+			<ux-choose-city 
+			ref="chooseCityRef" 
+			@choose="choose"></ux-choose-city>
+		</view>
+		<view style="height:20rpx;"></view>
+	</view>
+</template>
+<script lang="uts">
+export default {
+	data() {
+		return {
+			choosedCity:"",
+			searchTimer :-1
+		}
+	},
+	methods: {
+		choose : function(data:any[]){
+			this.choosedCity = data[0] as string;
+			// code
+			console.log(data[1]);
+			// pinyin
+			console.log(data[2]);
+		},
+		inputting : function(kwd:string){
+			if(this.searchTimer > 0){
+				clearTimeout(this.searchTimer);
+			}
+			this.searchTimer = setTimeout(()=>{
+				var chooseCityRef = this.$refs['chooseCityRef'] as UxChooseCityComponentPublicInstance;
+				chooseCityRef.search(kwd);
+			}, 300)
+		},
+		clear : function(){
+			var chooseCityRef = this.$refs['chooseCityRef'] as UxChooseCityComponentPublicInstance;
+			chooseCityRef.search("");
+		}
+	}
+}
+</script>
+<style scoped>
+</style>

@@ -1,0 +1,252 @@
+// 验证规则类
+export class UXDataCheckRule{
+	name:string=""
+	type:string=""
+	rule:any=""
+	errorMsg:string=""
+	// 构造函数
+	constructor(name:string, type:string, rule:any, errorMsg:string){
+		this.name = name;
+		this.rule = rule;
+		this.type = type;
+		this.errorMsg = errorMsg;
+	}
+}
+
+// 验证类
+export class UXDataChecker{
+	error:string = ""
+	isNumber(data:any):boolean{
+		try{
+			data as number
+		}catch(e){
+			return false;
+		}
+		return true;
+	}
+	check(dataBeCheck:UTSJSONObject, rule:UXDataCheckRule[]):boolean{
+		let dataBeCheckString = JSON.stringify(dataBeCheck);
+		var data = JSON.parse(dataBeCheckString) as UTSJSONObject;
+		for(var i = 0; i < rule.length; i++){
+			if (rule[i].type == ""){ continue;}
+			if (rule[i].name == ""){continue;}
+			if (rule[i].errorMsg == "") {continue;}
+			if (
+				typeof(data[rule[i].name]) == 'undefined'
+				 || 
+				data[rule[i].name] === ''
+			){
+				this.error = rule[i].errorMsg; 
+				return false;
+			}
+			// 按照类型检查
+			rule[i].type = rule[i].type.toLowerCase();
+			switch (rule[i].type){
+				case 'string':
+					// 检查前去除内容的空格及换行
+					let stringData:string = data[rule[i].name]!.toString()
+					var reg = new RegExp("\\s", "g");
+					data[rule[i].name] = stringData.replace(reg,"");
+					reg = new RegExp('^.{' + rule[i].rule.toString() + '}$');
+					if(!reg.test(data[rule[i].name]!.toString())) {
+						this.error = rule[i].errorMsg;
+						return false;
+					}
+				break;
+				case 'phonenumber':
+					var reg = new RegExp("^1[0-9]{10,10}$");
+					if(!reg.test(data[rule[i].name]!.toString())) {
+						this.error = rule[i].errorMsg;
+						return false;
+					}
+				break;
+				case 'email':
+					var reg = new RegExp("^\\w+([-+.']\\w+)*@\\w+([-.]]\\w+)*\\.\\w+([-.]\\w+)*$");
+					if (!reg.test(data[rule[i].name]!.toString())){
+						this.error = rule[i].errorMsg; 
+						return false; 
+					}
+				break;
+				case 'zipcode':
+					var reg = new RegExp("^[0-9]{6}$");
+					if (!reg.test(data[rule[i].name]!.toString())){
+						this.error = rule[i].errorMsg; 
+						return false;
+					}
+				break;
+				case 'samewith': 
+					if(data[rule[i].name]!.toString() != data[rule[i].rule]!.toString()){
+						this.error = rule[i].errorMsg; 
+						return false;
+					}
+				break;
+				case 'same':
+					if(data[rule[i].name]!.toString() != rule[i].rule.toString()){
+						this.error = rule[i].errorMsg; 
+						return false;
+					}
+				break;
+				case 'notsame':
+					if(data[rule[i].name]!.toString() == rule[i].rule.toString()){
+						this.error = rule[i].errorMsg; 
+						return false;
+					}
+				break;
+				case 'reg':
+					var reg = new RegExp(rule[i].rule.toString());
+					if (!reg.test(data[rule[i].name]!.toString())){
+						this.error = rule[i].errorMsg; 
+						return false;
+					}
+				break;
+				case 'qq':
+					var reg = new RegExp("^[1-9]\\d{4,16}$");
+					if (!reg.test(data[rule[i].name]!.toString())){
+						this.error = rule[i].errorMsg; 
+						return false;
+					}
+				break;
+				case 'idcard': 
+					var checkResult = checkIDCard(data[rule[i].name]!.toString());
+					if(checkResult != "ok"){
+						this.error = rule[i].errorMsg;
+						return false; 
+					} 
+				break;
+				case "gt":
+					if(data[rule[i].name] == null){
+						this.error = rule[i].errorMsg;
+						return false; 
+					}
+					if((data[rule[i].name] as number) <= (rule[i].rule as number)){
+						this.error = rule[i].errorMsg;
+						return false; 
+					}
+				break;
+				case "gtandsame":
+					if(data[rule[i].name] == null){
+						this.error = rule[i].errorMsg;
+						return false; 
+					}
+					if((data[rule[i].name] as number) < (rule[i].rule as number)){
+						this.error = rule[i].errorMsg;
+						return false; 
+					}
+				break;
+				case "numbersame":
+					if(data[rule[i].name] == null){
+						this.error = rule[i].errorMsg;
+						return false; 
+					}
+					if((data[rule[i].name] as number) != (rule[i].rule as number)){
+						this.error = rule[i].errorMsg;
+						return false; 
+					}
+				break;
+				case "lt":
+					if(data[rule[i].name] == null){
+						this.error = rule[i].errorMsg;
+						return false; 
+					}
+					if((data[rule[i].name] as number) >= (rule[i].rule as number)){
+						this.error = rule[i].errorMsg;
+						return false; 
+					}
+				break;
+				case "ltandsame":
+					if(data[rule[i].name] == null){
+						this.error = rule[i].errorMsg;
+						return false; 
+					}
+					if((data[rule[i].name] as number) > (rule[i].rule as number)){
+						this.error = rule[i].errorMsg;
+						return false; 
+					}
+				break;
+			}
+		}
+		return true;
+	}
+}
+
+function checkIDCard(idcard:string):string{
+	var Errors = new Array(
+		"ok",
+		"身份证号码位数错误",
+		"身份证号码出生日期错误",
+		"身份证号码校验错误",
+		"身份证地区错误"
+	);
+	var area = {
+		"11":"北京","12":"天津","13":"河北","14":"山西","15":"内蒙古",
+		"21":"辽宁","22":"吉林","23":"黑龙江","31":"上海","32":"江苏",
+		"33":"浙江","34":"安徽","35":"福建","36":"江西",
+		"37":"山东","41":"河南","42":"湖北","43":"湖南","44":"广东",
+		"45":"广西","46":"海南","50":"重庆","51":"四川","52":"贵州",
+		"53":"云南","54":"西藏 ","61":"陕西","62":"甘肃","63":"青海",
+		"64":"宁夏","65":"新疆","71":"台湾","81":"香港","82":"澳门"
+	} as UTSJSONObject;
+
+	var ereg:RegExp;
+	var idcard_array     = idcard.split("");
+	//地区检验
+	if (area.getString(idcard.substring(0, 2)) == null){
+		return Errors[4];
+	}
+	//身份号码位数及格式检验
+	if(idcard.length == 15) {
+		if (
+		(parseInt(idcard.substring(6, 8)) + 1900) % 4 == 0
+		 || 
+		((parseInt(idcard.substring(6, 8)) + 1900) % 100 == 0
+		 && 
+		(parseInt(idcard.substring(6, 8)) + 1900) % 4 == 0)
+		){
+			ereg = /^[1-9][0-9]{5}[0-9]{2}((01|03|05|07|08|10|12)(0[1-9]|[1-2][0-9]|3[0-1])|(04|06|09|11)(0[1-9]|[1-2][0-9]|30)|02(0[1-9]|[1-2][0-9]))[0-9]{3}$/; //测试出生日期的合法性
+		} else {
+			ereg = /^[1-9][0-9]{5}[0-9]{2}((01|03|05|07|08|10|12)(0[1-9]|[1-2][0-9]|3[0-1])|(04|06|09|11)(0[1-9]|[1-2][0-9]|30)|02(0[1-9]|1[0-9]|2[0-8]))[0-9]{3}$/; //测试出生日期的合法性
+		}
+		if (ereg.test(idcard)){
+			return Errors[0];
+		}
+		return Errors[2];
+	}else if(idcard.length == 18){
+		//18位身份号码检测
+		//出生日期的合法性检查
+		//闰年月日:((01|03|05|07|08|10|12)(0[1-9]|[1-2][0-9]|3[0-1])|(04|06|09|11)(0[1-9]|[1-2][0-9]|30)|02(0[1-9]|[1-2][0-9]))
+		//平年月日:((01|03|05|07|08|10|12)(0[1-9]|[1-2][0-9]|3[0-1])|(04|06|09|11)(0[1-9]|[1-2][0-9]|30)|02(0[1-9]|1[0-9]|2[0-8]))
+		var RYear:string= idcard.substring(6, 10)
+		if (parseInt(RYear) % 4 == 0 || (parseInt(RYear) % 100 == 0 && parseInt(RYear) % 4 == 0)
+		){
+			ereg = /^[1-9][0-9]{5}[1-2]+[0-9]{3}((01|03|05|07|08|10|12)(0[1-9]|[1-2][0-9]|3[0-1])|(04|06|09|11)(0[1-9]|[1-2][0-9]|30)|02(0[1-9]|[1-2][0-9]))[0-9]{3}[0-9Xx]$/; //闰年出生日期的合法性正则表达式
+		} else {
+			ereg = /^[1-9][0-9]{5}[1-2]+[0-9]{3}((01|03|05|07|08|10|12)(0[1-9]|[1-2][0-9]|3[0-1])|(04|06|09|11)(0[1-9]|[1-2][0-9]|30)|02(0[1-9]|1[0-9]|2[0-8]))[0-9]{3}[0-9Xx]$/; //平年出生日期的合法性正则表达式
+		}
+		// 测试出生日期的合法性
+		if (ereg.test(idcard)) {
+			//计算校验位
+			var S 
+			= (parseInt(idcard_array[0]) + parseInt(idcard_array[10])) * 7
+			+ (parseInt(idcard_array[1]) + parseInt(idcard_array[11])) * 9
+			+ (parseInt(idcard_array[2]) + parseInt(idcard_array[12])) * 10
+			+ (parseInt(idcard_array[3]) + parseInt(idcard_array[13])) * 5
+			+ (parseInt(idcard_array[4]) + parseInt(idcard_array[14])) * 8
+			+ (parseInt(idcard_array[5]) + parseInt(idcard_array[15])) * 4
+			+ (parseInt(idcard_array[6]) + parseInt(idcard_array[16])) * 2
+			+ parseInt(idcard_array[7]) * 1
+			+ parseInt(idcard_array[8]) * 6
+			+ parseInt(idcard_array[9]) * 3;
+			var Y = S % 11;
+			var JYM = "10X98765432";
+			var M = JYM.substring(Y, Y+1); //判断校验位
+			if (M == idcard_array[17]){
+				return Errors[0]; //检测ID的校验位
+			}
+			return Errors[3];
+		}else {
+			return Errors[2];
+		}
+	}else{
+		return Errors[1];
+	}
+}

@@ -1,0 +1,103 @@
+<template>
+	<scroll-view class="ux-body ux-page-color ux-flex1">
+		<text class="ux-h6 ux-color-grey ux-mt">您的称呼</text>
+		<view class="ux-mt ux-bg-white demo">
+			<input 
+			type="text" 
+			class="ux-form-input" 
+			v-model="name" />
+		</view>
+		<text class="ux-h6 ux-color-grey ux-mt">手机号码</text>
+		<view class="ux-mt ux-bg-white demo">
+			<input 
+			type="number" 
+			class="ux-form-input" 
+			v-model="phoneNumber" />
+		</view>
+		<text class="ux-h6 ux-color-grey ux-mt">您的年龄</text>
+		<view class="ux-mt ux-bg-white demo">
+			<input 
+			type="number" 
+			class="ux-form-input" 
+			v-model="age" />
+		</view>
+		<text class="ux-h6 ux-color-grey ux-mt">身份证</text>
+		<view class="ux-mt ux-bg-white demo">
+			<input 
+			type="number" 
+			class="ux-form-input" 
+			v-model="idCard" />
+		</view>
+		<text class="ux-h6 ux-color-grey ux-mt">自我介绍</text>
+		<view class="ux-mt ux-bg-white demo">
+			<textarea 
+			v-model="desc" 
+			class="ux-textarea" 
+			style="padding:20rpx 0;"></textarea>
+		</view>
+		<!-- 按钮 -->
+		<view class="ux-row ux-space-between ux-mt">
+			<view class=""></view>
+			<button 
+			type="primary" 
+			class="ux-button ux-noborder ux-bg-primary" 
+			@tap="submit">
+				<text class="ux-button-text ux-color-white">提交</text>
+			</button>
+		</view>
+	</scroll-view>
+</template>
+<script lang="ts">
+import {UXDataChecker, UXDataCheckRule} from "@/uni_modules/unix-ui/uxts/dataChecker.uts";
+export default {
+	data() {
+		return {
+			name : "uxui",
+			phoneNumber:"18888888888",
+			age : "18",
+			desc : "介绍......",
+			idCard : ""
+		}
+	},
+	methods: {
+		submit : function(){
+			// 收集表单数据
+			let formData = {
+				"name":this.name,
+				"phoneNumber":this.phoneNumber,
+				"age":parseInt(this.age),
+				"desc":this.desc,
+				"idCard":this.idCard
+			} as UTSJSONObject;
+
+			//定义表单规则
+			var rule = [
+				new UXDataCheckRule("name", "string", "1,5", "请输入称呼 1 ~ 5 个字符"),
+				new UXDataCheckRule("phoneNumber", "phoneNumber", "", "请正确输入手机号"),
+				new UXDataCheckRule("age", "gt", 0, "请正确输入年龄"),
+				new UXDataCheckRule("age", "lt", 200, "请正确输入年龄"),
+				new UXDataCheckRule("idCard", "idCard", "", "请正确输入身份证"),
+			];
+			// 检查数据
+			let uxuiChecker = new UXDataChecker();
+			let checkRes = uxuiChecker.check(formData, rule);
+			if(checkRes){
+				// 自定义验证
+				// 当验证 js 不适用某个检查时
+				// 使用自定义函数进行检查
+				var desc = formData.getString("desc");
+				if(desc == null || desc.length < 5){
+					uni.showToast({title:"请完善自我介绍", icon:"none"});
+					return ;
+				}
+				uni.showToast({title:"验证通过!", icon:"none"});
+			}else{
+				uni.showToast({ title: uxuiChecker.error, icon: "none" });
+			}
+		}
+	}
+}
+</script>
+<style scoped>
+.demo{padding:0 30rpx; margin-top:16rpx;}
+</style>

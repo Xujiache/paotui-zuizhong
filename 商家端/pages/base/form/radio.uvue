@@ -1,0 +1,34 @@
+<template>
+	<scroll-view class="ux-body ux-page-color ux-flex1">
+		<text class="ux-h6 ux-color-grey ux-mt">点选组件演示</text>
+		<view class="ux-mt ux-bg-white ux-padding">
+			<ux-radio 
+			@change="change" 
+			:parameter="['a', 1]">
+				<view class="ux-flex ux-row">
+					<text 
+					class="ux-text gui-primary-text">我同意并遵守</text>
+					<text 
+					class="ux-text ux-color-blue">《注册协议》</text>
+				</view>
+			</ux-radio>
+		</view>
+	</scroll-view>
+</template>
+<script>
+export default {
+	data() {
+		return {
+			
+		}
+	},
+	methods: {
+		change : function(data : any[]){
+			console.log(data[0] as boolean);
+			console.log(data[1]);
+		}
+	}
+}
+</script>
+<style>
+</style>

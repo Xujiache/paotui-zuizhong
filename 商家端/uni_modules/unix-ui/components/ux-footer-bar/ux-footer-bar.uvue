@@ -1,0 +1,40 @@
+<template>
+	<view 
+	v-if="space" 
+	:style="{height:height+'rpx'}"></view>
+	<view 
+	:style="{
+		height:(height+bottom)+'rpx',
+		zIndex:zIndex,
+		bottom:bottom+'px'
+	}" 
+	class="ux-footer-bar">
+		<slot></slot>
+	</view>
+</template>
+<script lang="uts">
+export default {
+	name:"ux-footer-bar",
+	props:{
+		height:{type:Number, default:100},
+		zIndex:{type:Number, default:999},
+		space :{type:Boolean, default:true},
+	},
+	data() {
+		return {
+			bottom : 0
+		}
+	},
+	methods: {
+		
+	},
+	mounted:function(){
+		let info = uni.getWindowInfo();
+		let bottom = info.safeAreaInsets.bottom;
+		this.bottom = bottom
+	}
+}
+</script>
+<style scoped>
+.ux-footer-bar{position:fixed; bottom:0; left:0; right:0; width:750rpx; overflow: hidden;}
+</style>

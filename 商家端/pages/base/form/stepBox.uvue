@@ -1,0 +1,47 @@
+<template>
+	<scroll-view class="ux-body ux-page-color ux-flex1">
+		<text class="ux-h6 ux-color-grey ux-mt-large">步进器 默认属性</text>
+		<view class="ux-flex ux-row ux-nowrap ux-mt-small">
+			<view class="ux-bg-white">
+				<ux-step-box @change="stepBoxChange1"></ux-step-box>
+			</view>
+		</view>
+		<text class="ux-h6 ux-color-grey ux-mt-large">步进器 属性配置</text>
+		<view class="ux-flex ux-row ux-nowrap ux-mt-small">
+			<view class="ux-bg-white">
+				<ux-step-box 
+				backgroundColor="#3688FF" 
+				:inputClass="['ux-step-box-input','ux-border-radius', 'ux-color-white']"
+				border="1px solid #3688FF" 
+				borderRadius="6rpx" 
+				:step="0.1" 
+				:max-num="5.2" 
+				:min-num="4.8" 
+				:value="5" 
+				:decimal="2" 
+				:buttonClass="['ux-step-box-button', 'ux-color-white', 'ux-bg-primary']"
+				@change="stepBoxChange2"></ux-step-box>
+			</view>
+		</view>
+	</scroll-view>
+</template>
+<script lang="uts">
+export default {
+	data() {
+		return {
+			
+		}
+	},
+	methods: {
+		stepBoxChange1 : function(data:any[]){
+			console.log(data);
+		},
+		stepBoxChange2 : function(data:any[]){
+			console.log(data);
+		}
+	}
+}
+</script>
+<style scoped>
+	
+</style>

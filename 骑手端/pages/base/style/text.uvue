@@ -1,0 +1,48 @@
+<template>
+	<scroll-view class="ux-page-color ux-flex1">
+		<view class="ux-body">
+			<text class="ux-h6 ux-color-grey ux-mt">文本尺寸</text>
+			<view class="ux-bg-white ux-border-radius ux-mt-small" 
+			style="padding:20rpx">
+				<text 
+				v-for="(item, idx) in 6" 
+				:key="idx" 
+				:class="['ux-h'+item]"
+				class="ux-color-grey">.{{'ux-h'+item}}</text>
+				<text class="ux-text ux-color-grey">.ux-text</text>
+				<text class="ux-text-small ux-color-grey">.ux-text-small</text>
+			</view>
+			<text class="ux-h6 ux-color-grey ux-mt">文本对齐</text>
+			<view class="ux-bg-white ux-border-radius ux-mt-small" 
+			style="padding:20rpx">
+				<text class="ux-text ux-text-left ux-color-grey">.ux-text-left</text>
+				<text class="ux-text ux-text-center ux-color-grey">.ux-text-center</text>
+				<text class="ux-text ux-text-right ux-color-grey">.ux-text-right</text>
+			</view>
+			<text class="ux-h6 ux-color-grey ux-mt">文本修饰</text>
+			<view class="ux-bg-white ux-border-radius ux-mt-small" 
+			style="padding:20rpx">
+				<text class="ux-text ux-bold ux-color-grey">.ux-bold</text>
+				<text class="ux-text ux-italic ux-color-grey">.ux-italic</text>
+				<text 
+				class="ux-text ux-ellipsis" 
+				style="width:380rpx; overflow:hidden;">.ux-ellipsis 白日依山尽 黄河入海流</text>
+			</view>
+		</view>
+	</scroll-view>
+</template>
+<script lang="uts">
+export default {
+	data() {
+		return {
+			
+		}
+	},
+	methods: {
+		
+	}
+}
+</script>
+<style scoped>
+.ux-text,.ux-h1,.ux-h2,.ux-h3,.ux-h4,.ux-h5,.ux-h6{line-height:2 !important;}
+</style>

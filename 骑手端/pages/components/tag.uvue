@@ -1,0 +1,82 @@
+<template>
+	<view class="ux-body ux-page-color ux-flex1">
+		<text class="ux-h6 ux-color-grey ux-mt-large">属性调整</text>
+		<view class="ux-demo ux-row ux-wrap ux-align-items-start">
+			<ux-tag 
+			text="小标签" 
+			:size="22"></ux-tag>
+			<ux-tag 
+			text="普通标签" 
+			:customClass="['ux-bg-grey5','ux-color-black']" 
+			padding="12rpx" 
+			:size="26"></ux-tag>
+			<ux-tag 
+			text="大标签" 
+			:size="32" 
+			padding="15rpx"></ux-tag>
+			<ux-tag 
+			text="无圆角标签" 
+			:size="26" 
+			:borderRadius="0"></ux-tag>
+			<ux-tag 
+			text="大圆角标签" 
+			padding="15rpx" 
+			:customClass="['ux-bg-orange','ux-color-white']" 
+			:borderRadius="50"></ux-tag>
+		</view>
+		<text class="ux-h6 ux-color-grey ux-mt-large">固定宽度</text>
+		<view class="ux-demo ux-row ux-wrap ux-align-items-start">
+			<ux-tag
+			text="固定宽度" 
+			:width="200" 
+			:size="28"></ux-tag>
+			<ux-tag 
+			:width="200" 
+			:border-radius="30" 
+			text="文本很长会被缩略" 
+			:customClass="['ux-bg-orange','ux-color-white', 'ux-line1']" 
+			:size="28"></ux-tag>
+		</view>
+		<text class="ux-h6 ux-color-grey ux-mt-large">点击事件</text>
+		<view class="ux-demo ux-row ux-wrap ux-align-items-start">
+			<ux-tag 
+			text="点击测试" 
+			:width="200" 
+			:data="['a',1]" 
+			@tapme="tapme"
+			:size="28"></ux-tag>
+		</view>
+		<text class="ux-h6 ux-color-grey ux-mt-large">边框标签</text>
+		<view class="ux-demo ux-row ux-wrap ux-align-items-start">
+			<ux-tag 
+			text="边框标签" 
+			:customClass="['ux-transparent-bg', 'ux-color-red']" 
+			:width="200" 
+			:size="28" 
+			borderColor="#FF0036"></ux-tag>
+			<ux-tag 
+			text="边框标签" 
+			:customClass="['ux-transparent-bg', 'ux-color-primary']" 
+			:width="200" 
+			:size="28" 
+			:border-radius="30" 
+			borderColor="#008AFF"></ux-tag>
+		</view>
+	</view>
+</template>
+<script lang="uts">
+export default {
+	data() {
+		return {
+			
+		}
+	},
+	methods: {
+		tapme : function(data:any[]){
+			console.log(data);
+		}
+	}
+}
+</script>
+<style scoped>
+</style>

@@ -1,0 +1,49 @@
+<template>
+	<view 
+	class="ux-flex ux-align-items-center ux-justify-content-center" 
+	:style="{
+		width:(size)+'rpx',
+		height:(size)+'rpx',
+		transform : 'rotateZ('+rotateNumber+'deg)',
+	}">
+		<text
+		class="ux-icon ux-circular" 
+		:style="{
+			fontSize:size+'rpx', 
+			transform : 'rotateZ('+rotateNumber+'deg)',
+			color : color,
+		}">{{"\ue95a"}}</text>
+	</view>
+</template>
+<script lang="uts">
+export default {
+	name:"ux-circular-loading",
+	props:{
+		size:{type:Number, default:38},
+		color:{type:String, default:"#3688FF"},
+		speed:{type:Number, default:6}
+	},
+	data() {
+		return {
+			rotateNumber : 0
+		}
+	},
+	created:function(){
+		setInterval(()=>{
+			if(this.rotateNumber >= 360){
+				this.rotateNumber = 1;
+			}
+			this.rotateNumber += 1
+		}, this.speed)
+	},
+	methods: {
+		
+	},
+}
+</script>
+<style scoped>
+.ux-circular{
+	transform: rotateZ(0deg);
+	text-align: center;
+}
+</style>

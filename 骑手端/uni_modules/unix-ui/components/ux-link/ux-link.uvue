@@ -1,0 +1,37 @@
+<template>
+	<view @tap.stop="openLink">
+		<slot></slot>
+	</view>
+</template>
+<script lang="uts">
+// #ifdef APP-ANDROID
+import Intent from 'android.content.Intent';
+import Uri from 'android.net.Uri';
+// #endif
+export default {
+	props:{
+		href : {type:String, default:""},
+	},
+	data() {
+		return {
+			
+		}
+	},
+	methods: {
+		openLink : function(){
+			// #ifdef APP-ANDROID
+			const context = UTSAndroid.getUniActivity()!;
+			const uri = Uri.parse(this.href);
+			const intent = new Intent(Intent.ACTION_VIEW, uri)
+			intent.setData(uri);
+			context.startActivity(intent);
+			// #endif
+			// #ifdef H5
+			location.href=this.href;
+			// #endif
+		}
+	}
+}
+</script>
+<style scoped>
+</style>

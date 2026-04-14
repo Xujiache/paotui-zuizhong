@@ -1,0 +1,19 @@
+export class UXUIDemoPage{
+	title:string = ""
+	subPages:UXUIDemoSubPage[]=[]
+	icon:string=""
+	constructor(title:string, icon:string, subPages:UXUIDemoSubPage[]){
+	    this.title = title;
+		this.icon=icon
+		this.subPages = subPages;
+	}
+}
+
+export class UXUIDemoSubPage{
+	title:string=""
+	path:string="" 
+	constructor(title:string,path:string){
+		this.title = title;
+		this.path = path;
+	}
+}

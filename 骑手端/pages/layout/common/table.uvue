@@ -1,0 +1,48 @@
+<template>
+	<scroll-view class="ux-flex1 ux-body ux-bg-white">
+		<text class="ux-h6 ux-color-grey ux-mt">表格布局</text>
+		<view class="ux-mt">
+			<view 
+				class="ux-flex ux-rows ux-nowrap ux-border-l ux-border-t ux-bg-grey5">
+					<text 
+					class="ux-th ux-border-r ux-border-b">姓名</text>
+					<text 
+					class="ux-th ux-border-r ux-border-b">班级</text>
+					<text 
+					class="ux-th ux-border-r ux-border-b">性别</text>
+					<text
+					class="ux-th ux-border-r ux-border-b">年龄</text>
+				</view>
+				<view class="ux-flex ux-rows ux-nowrap ux-border-l" 
+				v-for="(item, index) in students" 
+				:key="index">
+					<text class="ux-td ux-border-r ux-border-b">{{item[0]}}</text>
+					<text class="ux-td ux-border-r ux-border-b">{{item[1]}}</text>
+					<text class="ux-td ux-border-r ux-border-b">{{item[2]}}</text>
+					<text class="ux-td ux-border-r ux-border-b">{{item[3]}}</text>
+				</view>
+		</view>
+	</scroll-view>
+</template>
+<script lang="uts">
+export default {
+	data() {
+		return {
+			students : [
+				['小米', '一年二班', '男', 7],
+				['小明', '二年二班', '男', 6],
+				['小红', '一年三班', '女', 6],
+				['小雅', '一年五班', '女', 8],
+				['小艳', '一年二班', '女', 10]
+			]
+		}
+	},
+	methods: {
+		
+	}
+}
+</script>
+<style scoped>
+.ux-th{width:100rpx; font-size:28rpx; flex:1; overflow:hidden; padding:18rpx 10rpx; text-align:center;}
+.ux-td{width:100rpx; font-size:26rpx; flex:1; overflow:hidden; padding:18rpx 10rpx; text-align:center;}
+</style>

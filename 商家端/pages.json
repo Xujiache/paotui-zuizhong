@@ -1,0 +1,431 @@
+{
+	"pages": [
+		{
+			"path": "pages/switchPages/index",
+			"style": {
+				"navigationBarTitleText": "",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path" : "pages/switchPages/layout",
+			"style" : 
+			{
+				"navigationBarTitleText" : "",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path" : "pages/layout/base/flex",
+			"style" : 
+			{
+				"navigationBarTitleText" : "Flex 布局",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/layout/base/position",
+			"style" : 
+			{
+				"navigationBarTitleText" : "定位布局",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/base/style/text",
+			"style" : 
+			{
+				"navigationBarTitleText" : "文本样式",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/base/style/color",
+			"style" : 
+			{
+				"navigationBarTitleText" : "内置颜色",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/base/style/icon",
+			"style" : 
+			{
+				"navigationBarTitleText" : "图标扩展",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/base/style/title",
+			"style" : 
+			{
+				"navigationBarTitleText" : "通用标题",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/base/style/badge",
+			"style" : 
+			{
+				"navigationBarTitleText" : "徽章角标",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/components/image",
+			"style" : 
+			{
+				"navigationBarTitleText" : "图片组件",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/base/form/button",
+			"style" : 
+			{
+				"navigationBarTitleText" : "按钮样式",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/base/form/layout",
+			"style" : 
+			{
+				"navigationBarTitleText" : "表单元素",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/base/form/pickerView",
+			"style" : 
+			{
+				"navigationBarTitleText" : "picker-view",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/base/form/checker",
+			"style" : 
+			{
+				"navigationBarTitleText" : "表单验证",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/base/form/stepBox",
+			"style" : 
+			{
+				"navigationBarTitleText" : "步进器",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/base/form/radio",
+			"style" : 
+			{
+				"navigationBarTitleText" : "点选组件",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/base/popups/popup",
+			"style" : 
+			{
+				"navigationBarTitleText" : "弹层组件",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/base/popups/modal",
+			"style" : 
+			{
+				"navigationBarTitleText" : "模态对话框",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/base/popups/actionSheet",
+			"style" : 
+			{
+				"navigationBarTitleText" : "底部操作表",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/layout/common/list",
+			"style" : 
+			{
+				"navigationBarTitleText" : "通用列表",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/layout/common/cardList",
+			"style" : 
+			{
+				"navigationBarTitleText" : "卡片列表",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/layout/common/grid",
+			"style" : 
+			{
+				"navigationBarTitleText" : "宫格布局",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/layout/common/table",
+			"style" : 
+			{
+				"navigationBarTitleText" : "表格布局",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/layout/common/scroll",
+			"style" : 
+			{
+				"navigationBarTitleText" : "滚动布局",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/components/star",
+			"style" : 
+			{
+				"navigationBarTitleText" : "星级",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/components/countDown",
+			"style" : 
+			{
+				"navigationBarTitleText" : "倒计时组件",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/components/numberAnimate",
+			"style" : 
+			{
+				"navigationBarTitleText" : "数值动画",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/components/tag",
+			"style" : 
+			{
+				"navigationBarTitleText" : "展示标签",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/components/stag",
+			"style" : 
+			{
+				"navigationBarTitleText" : "功能标签",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/layout/refreshAndLoadMore/refresh",
+			"style" : 
+			{
+				"navigationBarTitleText" : "下拉刷新",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/layout/refreshAndLoadMore/loadmore",
+			"style" : 
+			{
+				"navigationBarTitleText" : "加载更多",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/layout/refreshAndLoadMore/refreshAndLoadMore",
+			"style" : 
+			{
+				"navigationBarTitleText" : "刷新+加载更多",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/components/orderTable",
+			"style" : 
+			{
+				"navigationBarTitleText" : "排序表格",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/components/link",
+			"style" : 
+			{
+				"navigationBarTitleText" : "链接组件",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/components/searchBar",
+			"style" : 
+			{
+				"navigationBarTitleText" : "搜索组件",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/components/chooseImages",
+			"style" : 
+			{
+				"navigationBarTitleText" : "图片选择",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/layout/switch/switchNavigation",
+			"style" : 
+			{
+				"navigationBarTitleText" : "切换导航",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/layout/switch/accordionCard",
+			"style" : 
+			{
+				"navigationBarTitleText" : "折叠面板",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/layout/switch/tab",
+			"style" : 
+			{
+				"navigationBarTitleText" : "局部选项卡",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/layout/switch/tabFullPage",
+			"style" : 
+			{
+				"navigationBarTitleText" : "全屏选项卡",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/layout/switch/segmentedControl",
+			"style" : 
+			{
+				"navigationBarTitleText" : "分段切换",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/components/speaker",
+			"style" : 
+			{
+				"navigationBarTitleText" : "滚动公告",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/layout/common/xBanner",
+			"style" : 
+			{
+				"navigationBarTitleText" : "横向公告",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/layout/refreshAndLoadMore/pageLoading",
+			"style" : 
+			{
+				"navigationBarTitleText" : "全屏加载",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/layout/navigation/footer-bar",
+			"style" : 
+			{
+				"navigationBarTitleText" : "自定义底部导航",
+				"enablePullDownRefresh" : false
+			}
+		},
+		{
+			"path" : "pages/layout/navigation/header-bar",
+			"style" : 
+			{
+				"navigationBarTitleText" : "自定义头部导航",
+				"enablePullDownRefresh" : false,
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path" : "pages/layout/navigation/transparent-header",
+			"style" : 
+			{
+				"navigationBarTitleText" : "",
+				"enablePullDownRefresh" : false,
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path" : "pages/base/form/chooseCity",
+			"style" : 
+			{
+				"navigationBarTitleText" : "城市选择",
+				"enablePullDownRefresh" : false
+			}
+		}
+	],
+	"globalStyle": {
+		"pageOrientation": "portrait",
+		"navigationBarTitleText": "UXUI",
+		"navigationBarTextStyle": "white",
+		"navigationBarBackgroundColor": "#008AFF",
+		"backgroundColor": "#F8F8F8",
+		"backgroundColorTop": "#F4F5F6",
+		"backgroundColorBottom": "#F4F5F6",
+		"h5": {
+		  "maxWidth": 1190,
+		  "navigationBarTextStyle": "black",
+		  "navigationBarBackgroundColor": "#F1F1F1"
+		}
+	},
+	"uniIdRouter": {},
+	"condition": { //模式配置，仅开发期间生效
+		"current": 0, //当前激活的模式(list 的索引项)
+		"list": [
+			{
+				"name": "", //模式名称
+				"path": "", //启动页面，必选
+				"query": "" //启动参数，在页面的onLoad函数里面得到
+			}
+		]
+	},
+	"tabBar": {
+		"selectedColor": "#008AFF",
+		"list": [
+			{
+				"pagePath": "pages/switchPages/index",
+				"iconPath": "static/uxui/images/tabBar/1.png",
+				"selectedIconPath": "static/uxui/images/tabBar/1-a.png",
+				"text": "基础 · 组件"
+			},
+			{
+				"pagePath": "pages/switchPages/layout",
+				"iconPath": "static/uxui/images/tabBar/2.png",
+				"selectedIconPath": "static/uxui/images/tabBar/2-a.png",
+				"text": "布局"
+			}
+		]
+	}
+}

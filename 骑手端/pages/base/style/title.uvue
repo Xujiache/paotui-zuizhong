@@ -1,0 +1,55 @@
+<template>
+	<scroll-view class="ux-body ux-page-color ux-flex1">
+		<!-- 居中标题 -->
+		<view class="ux-mt-large">
+			<view class="ux-rows ux-nowrap ux-justify-content-center ux-align-items-center">
+				<text class="ux-color-grey2 ux-icon small-text">{{'\ue69b'}}</text>
+				<text
+				class="ux-primary-text ux-h6 ux-title-text" 
+				style="padding-left:20rpx; padding-right:20rpx;">居中标题</text>
+				<text class="ux-color-grey2 ux-icon small-text">{{'\ue69b'}}</text>
+			</view>
+			<text class="ux-text-small ux-color-grey2 ux-text-center">描述文本不用可以删除</text>
+		</view>
+		
+		<view style="height:80rpx;"></view>
+		<!-- 居中标题 左右线条 -->
+		<!-- 线条颜色通过修改 ux-title-line 的 background-color: 样式来修改 -->
+		<view class="ux-flex ux-rows ux-nowrap ux-align-items-center">
+			<view class="ux-title-line"></view>
+			<text 
+			class="ux-primary-text ux-h6" 
+			style="padding-left:50rpx; padding-right:50rpx;">居中标题带有线条</text>
+			<view class="ux-title-line"></view>
+		</view>
+		
+		<!-- 左右布局 -->
+		<view style="height:80rpx;"></view>
+		<view class="ux-flex ux-rows ux-nowrap ux-align-items-center">
+			<text class="ux-icon ux-title-icon ux-primary-color">{{"\ue624"}}</text>
+			<text class="ux-primary-color ux-h6 ux-flex1">标题信息</text>
+			<text class="ux-icon ux-text-small ux-color-grey2">更多 {{"\ue6eb"}}</text>
+		</view>
+		
+		<!-- 左右布局 -->
+		<view style="height:80rpx;"></view>
+		<view class="ux-flex ux-rows ux-nowrap ux-align-items-center">
+			<text class="ux-primary-color ux-h6 ux-flex1">标题信息</text>
+			<text class="ux-icon ux-text-small ux-color-grey2">换一批 {{"\ue61a"}}</text>
+		</view>
+	</scroll-view>
+</template>
+<script lang="uts">
+export default {
+	data() {
+		return {
+			
+		}
+	},
+	methods: {
+		
+	}
+}
+</script>
+<style>
+</style>

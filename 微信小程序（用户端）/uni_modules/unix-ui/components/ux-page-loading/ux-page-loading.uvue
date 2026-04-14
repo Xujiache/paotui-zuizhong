@@ -1,0 +1,115 @@
+<template>
+	<view 
+	class="ux-page-loading ux-flex ux-nowrap ux-align-items-center ux-justify-content-center ux-page-loading-bg"
+	@tap.stop="stopfun" 
+	:style="{
+		backgroundColor:backgroundColor,
+		zIndex:zIndex,
+		width:isLoading?'750rpx':'0rpx'
+	}">
+		<view class="ux-column">
+			<view class="ux-page-loading-point ux-flex ux-rows ux-justify-content-center">
+				<view 
+				:style="{
+					backgroundColor:pointColor,
+					width:pointSize,
+					height:pointSize
+				}" 
+				class="ux-page-loading-points" 
+				:class="[animatinClass0]"></view>
+				<view
+				:style="{
+					backgroundColor:pointColor,
+					width:pointSize,
+					height:pointSize
+				}" 
+				class="ux-page-loading-points" 
+				:class="[animatinClass1]"></view>
+				<view
+				:style="{
+					backgroundColor:pointColor,
+					width:pointSize,
+					height:pointSize
+				}" 
+				class="ux-page-loading-points" 
+				:class="[animatinClass2]"></view>
+			</view>
+			<view class="ux-row ux-justify-content-center">
+				<slot></slot>
+			</view>
+		</view>
+	</view>
+</template>
+<script lang="uts">
+export default{
+	name  : "ux-page-loading",
+	props : {
+		backgroundColor:{type:String, default:"rgba(255,255,255,0.88)"},
+		zIndex:{type:Number, default:999},
+		pointColor:{type:String, default:"#3688FF"},
+		pointSize:{type:String, default:"20rpx"},
+	},
+	data() {
+		return {
+			isLoading       : true as boolean,
+			animatinClass0  : '',
+			animatinClass1  : '',
+			animatinClass2  : '',
+			timeoutId       : 0 as number,
+			duration        : 1000 as number,
+		}
+	},
+	methods:{
+		stopfun        : function(){
+			return;
+		},
+		open           : function(){
+			this.isLoading = true;
+			this.$nextTick(()=>{
+				this.startAnimation();
+			});
+		},
+		close          : function(){
+			this.isLoading = false; 
+			if(this.timeoutId > 0){
+				clearTimeout(this.timeoutId);
+			}
+		},
+		startAnimation : function(){
+			this.animatinClass0 = "";
+			this.animatinClass1 = "";
+			this.animatinClass2 = "";
+			this.$nextTick(()=>{
+				setTimeout(()=>{
+					this.animatinClass1 = "ux-page-loading-points-animation";
+				}, 50);
+				this.animatinClass0 = "ux-page-loading-points-animation";
+				setTimeout(()=>{
+					this.animatinClass1 = "ux-page-loading-points-animation";
+				}, 100);
+				setTimeout(()=>{
+					this.animatinClass2 = "ux-page-loading-points-animation";
+				}, 150);
+			});
+			this.timeoutId = setTimeout(()=>{
+				this.startAnimation();
+			}, this.duration);
+		}
+	}
+}
+</script>
+<style scoped>
+.ux-page-loading{width:750rpx; position:fixed; left:0; top:0; bottom:0; right:0; flex:1; z-index:999; overflow:hidden;}
+.ux-page-loading-points{
+	border-radius:50rpx; 
+	margin:10rpx; 
+	opacity:0.2;
+	transform: scale(0.2, 0.2);
+}
+.ux-page-loading-points-animation{
+	transform: scale(1, 1);
+	opacity:0.96;
+	transition-property:transform, opacity;
+	transition-duration:350ms;
+}
+</style>

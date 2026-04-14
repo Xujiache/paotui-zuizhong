@@ -1,0 +1,69 @@
+<template>
+	<view 
+	class="ux-flex ux-row ux-nowrap ux-align-items-center">
+		<view>
+			<slot name="icon"></slot>
+		</view>
+		<view class="ux-flex1">
+			<swiper 
+			@change="change" 
+			:autoplay="true" 
+			:circular="true" 
+			:interval="interval" 
+			:style="{height:height+'rpx'}">
+				<swiper-item  
+				v-for="(item, index) in itemsIn" 
+				:key="index" 
+				:style="{height:height+'rpx'}">
+					<navigator 
+					:url="item.path" 
+					:open-type="item.openType">
+						<text 
+						:style="{height:height+'rpx', lineHeight:height+'rpx'}" 
+						class="ux-ellipsis itemsIn" 
+						:class="itemClass">{{item.title}}</text>
+					</navigator>
+				</swiper-item>
+			</swiper>
+		</view>
+	</view>
+</template>
+<script>
+import {UXSpeakerItem} from "@/uni_modules/unix-ui/uxts/classes.uts";
+export default{
+	name  : "ux-speaker",
+	props : {
+		items     : {
+			type : Array as PropType<Array<UXSpeakerItem>>, 
+			default:function():UXSpeakerItem[]{
+				return [] as UXSpeakerItem[];
+			}
+		},
+		interval  : {type:Number,  default:5000},
+		itemClass : {
+			type : Array as PropType<Array<string>>, 
+			default : function():string[]{
+				return ['ux-text', 'ux-primary-text'] as string[];
+			}
+		},
+		height    : {type:Number,  default : 66}
+	},
+	data() {
+		return {
+			itemsIn : new Array<UXSpeakerItem>()
+		}
+	},
+	methods:{
+		change:function (e:SwiperChangeEvent) {
+			this.$emit('change', e.detail.current);
+		}
+	},
+	mounted:function(){
+		this.itemsIn = this.items as UXSpeakerItem[];
+	},
+	emits : ['change']
+}
+</script>
+<style scoped>
+.itemsIn{line-height:66rpx; height:66rpx; overflow:hidden;}
+</style>

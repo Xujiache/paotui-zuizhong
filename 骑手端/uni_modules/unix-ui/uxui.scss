@@ -1,0 +1,236 @@
+@import "./color.scss";
+
+/* 图标 */
+.ux-icon, .ux-icons{font-family:uxui;}
+
+/* 主体 */
+.ux-body{padding-left:$ux-body-space; padding-right:$ux-body-space;}
+.ux-page-color{background-color:$ux-page-color;}
+/* #ifdef H5 */
+uni-app.uni-app--showtabbar uni-page-body::after {height:0px !important; overflow: hidden; min-height: 0;}
+/* #endif */
+
+/* #ifdef H5 */
+.uni-picker-view-wrapper{width:100%;}
+/* #endif */
+
+/* 点击效果 */
+.ux-tap{background-color:$ux-tap-color;}
+
+
+/* 间距 */
+.ux-margin{margin:$ux-space;}
+.ux-mt{margin-top:$ux-space;}
+.ux-mb{margin-bottom:$ux-space;}
+.ux-ml{margin-left:$ux-space;}
+.ux-mr{margin-right:$ux-space;}
+.ux-margin-large{margin:$ux-space-large;}
+.ux-mt-large{margin-top:$ux-space-large;}
+.ux-mb-large{margin-bottom:$ux-space-large;}
+.ux-ml-large{margin-left:$ux-space-large;}
+.ux-mr-large{margin-right:$ux-space-large;}
+.ux-margin-small{margin:$ux-space-large;}
+.ux-mt-small{margin-top:$ux-space-small;}
+.ux-mb-small{margin-bottom:$ux-space-small;}
+.ux-ml-small{margin-left:$ux-space-small;}
+.ux-mr-small{margin-right:$ux-space-small;}
+
+.ux-padding{padding:$ux-space;}
+.ux-pt{padding-top:$ux-space;}
+.ux-pb{padding-bottom:$ux-space;}
+.ux-pl{padding-left:$ux-space;}
+.ux-pr{padding-right:$ux-space;}
+.ux-padding-large{padding:$ux-space-large;}
+.ux-pt-large{padding-top:$ux-space-large;}
+.ux-pb-large{padding-bottom:$ux-space-large;}
+.ux-pl-large{padding-left:$ux-space-large;}
+.ux-pr-large{padding-right:$ux-space-large;}
+.ux-padding-small{padding:$ux-space-small;}
+.ux-pt-small{padding-top:$ux-space-small;}
+.ux-pb-small{padding-bottom:$ux-space-small;}
+.ux-pl-small{padding-left:$ux-space-small;}
+.ux-mr-small{padding-right:$ux-space-small;}
+
+
+/* flex 布局 */
+.ux-flex{display:flex;}
+.ux-row, .ux-rows{flex-direction:row;}
+.ux-column{flex-direction:column;}
+.ux-wrap{flex-direction:row; flex-wrap:wrap;}
+.ux-nowrap{flex-direction:row; flex-wrap:nowrap;}
+.ux-space-around{justify-content:space-around;}
+.ux-space-between{justify-content:space-between;}
+.ux-justify-content-start{justify-content:flex-start;}
+.ux-justify-content-center{justify-content:center;}
+.ux-justify-content-end{justify-content:flex-end;}
+.ux-align-items-start{align-items:flex-start;}
+.ux-align-items-center{align-items:center;}
+.ux-align-items-end{align-items:flex-end;}
+.ux-flex1{flex:1;}
+.ux-flex-shrink1{flex-shrink:1;}
+
+/* 透明度 */
+.ux-opacity-10{opacity:1;}
+.ux-opacity-9{opacity:0.9;}
+.ux-opacity-8{opacity:0.8;}
+.ux-opacity-7{opacity:0.7;}
+.ux-opacity-6{opacity:0.6;}
+.ux-opacity-5{opacity:0.5;}
+.ux-opacity-4{opacity:0.4;}
+.ux-opacity-3{opacity:0.3;}
+.ux-opacity-2{opacity:0.2;}
+.ux-opacity-1{opacity:0.1;}
+.ux-opacity-0{opacity:0.0;}
+
+/* 文本修饰 */
+.ux-bold{font-weight:bold;} 
+.ux-italic{font-style:italic;}
+
+/* 文本颜色 */
+.ux-primary-text{color:$ux-primary-text-color;}
+.ux-secondary-text{color:$ux-secondary-text-color;}
+.ux-third-text{color:$ux-third-text-color;}
+
+/* 阴影 */
+.ux-box-shadow{box-shadow:0px 2px 12rpx rgba(0,0,0,0.2);}
+
+/* 文本尺寸 */
+.ux-text{font-size:$ux-text;}
+.ux-text-small{font-size:$ux-text-small;}
+.ux-h1{font-size:$ux-h1;}
+.ux-h2{font-size:$ux-h2;}
+.ux-h3{font-size:$ux-h3;}
+.ux-h4{font-size:$ux-h4;}
+.ux-h5{font-size:$ux-h5;}
+.ux-h6{font-size:$ux-h6;}
+
+/* 文本对齐 */
+.ux-text-left{text-align:left;}
+.ux-text-center{text-align:center;}
+.ux-text-right{text-align:right;}
+
+/* 文本修饰 */
+.ux-bold{font-weight:bold;} 
+.ux-italic{font-style:italic;}
+/* #ifdef APP */
+.ux-ellipsis{overflow:hidden; text-overflow:ellipsis; lines:1;}
+/* #endif */
+/* #ifdef H5 || MP */
+.ux-ellipsis{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+/* #endif */
+.ux-line1{lines:1;}
+.ux-line2{lines:2;}
+.ux-line3{lines:3;}
+.ux-line4{lines:4;}
+.ux-line5{lines:5;}
+
+/* 边框 */
+.ux-border{border:1px solid $ux-border-color;}
+.ux-border-l{border-left:1px solid $ux-border-color;}
+.ux-border-r{border-right:1px solid $ux-border-color;}
+.ux-border-t{border-top:1px solid $ux-border-color;}
+.ux-border-b{border-bottom:1px solid $ux-border-color;}
+.ux-noborder{border:none;}
+
+/* 定位 */
+.ux-relative{position: relative;}
+.ux-absolute{position:absolute;}
+.ux-fixed{position:fixed;}
+.ux-top{top:0;}
+.ux-bottom{bottom:0;}
+.ux-left{left:0;}
+.ux-right{right:0;}
+
+/* 圆角 */
+.ux-border-radius-small{border-radius:$ux-radius-sm;}
+.ux-border-radius{border-radius:$ux-radius;}
+.ux-border-radius-large{border-radius:$ux-radius-lg;}
+
+/* 按钮 */
+.ux-button{line-height:$ux-button-size; border-radius:$ux-button-border-radius; text-align:center;}
+.ux-button-text{font-size:$ux-button-text-size; line-height:$ux-button-size; text-align:center;}
+.ux-button-text-mini{font-size:$ux-button-mini-text-size; line-height:$ux-button-mini-size; text-align:center;}
+.ux-button-mini{height:$ux-button-mini-size; line-height:$ux-button-mini-size; font-size:$ux-button-mini-text-size;}
+/* 折叠面板 */
+.ux-accordion-title{padding:25rpx;}
+.ux-accordion-item{padding:25rpx;}
+.ux-accordion-text{font-size:30rpx; line-height:50rpx;}
+.ux-accordion-icon{font-size:32rpx; line-height:50rpx;}
+
+/* 通用标题 */
+.ux-title-line{width:50rpx; height:1px; background-color:#E1E2E3; flex:1;}
+.ux-title-text{line-height:60rpx;}
+.ux-title-icon{width:50rpx; font-size:32rpx;}
+
+/* 徽章角标 */
+.ux-badge{border-radius:38rpx; height:38rpx; line-height:38rpx; padding:0 13rpx; font-size:22rpx;}
+.ux-badge-absolute{position:absolute; right:0rpx; top:4rpx; z-index:1;}
+.ux-badge-point{width:20rpx; height:20rpx; border-radius:12rpx; position:absolute; right:4rpx; top:4rpx; z-index:1; background-color:#FF0000;}
+.ux-badge-gender{width:38rpx; height:38rpx; border-radius:30rpx; text-align:center; font-size:22rpx; line-height:38rpx; position:absolute; right:6rpx; top:4rpx; z-index:1;}
+
+/* 表单 */
+.ux-form-item{flex-direction:row; flex-wrap:nowrap; align-items:center;}
+.ux-form-label{width:130rpx; height:80rpx; font-size:28rpx; line-height:80rpx; overflow:hidden;}
+.ux-form-icon{width:60rpx; height:60rpx; line-height:60rpx; font-size:28rpx;}
+.ux-form-body{width:100rpx; margin-left:20rpx; overflow:hidden; flex:1;}
+.ux-form-input{height:40rpx; margin:25rpx 0; background-color:rgba(255,255,255,0); border-width:0px; font-size:28rpx;}
+.ux-check-item{margin:10rpx; padding:0 10rpx; flex-direction:row; flex-wrap:nowrap; align-items:center;}
+.ux-check-item-y{margin:10rpx 0;}
+.ux-textarea{height:180rpx; padding:20rpx; background-color:rgba(255,255,255,0); border-width:0px; font-size:28rpx;}
+
+/* picker-view */
+.ux-picker-view {width:750rpx; height:320px; display:flex; flex-direction:row; flex-wrap:nowrap;}
+.ux-picker-view-column{width:100rpx; flex:1;}
+.ux-picker-view-item{height:50px;}
+.ux-picker-view-text{text-align:center; height:50px; line-height:50px;}
+
+/* 步进器 */
+.ux-step-box-button{width:60rpx; height:60rpx; line-height:60rpx; font-size:38rpx;}
+.ux-step-box-input{width:60rpx; font-size:28rpx; margin:0rpx;}
+
+/* 列表样式 */
+.ux-list-items, .ux-list-title{display:flex;}
+.ux-list-items{padding:0 $ux-space; flex-direction:row; flex-wrap:nowrap; align-items:center; justify-content:center;}
+.ux-list-icon{width:80rpx; height:80rpx; line-height:80rpx; text-align:center; font-size:44rpx;}
+.ux-list-image{width:80rpx; height:80rpx; border-radius:80rpx;}
+.ux-list-body{padding:25rpx 0; margin-left:25rpx; width:200rpx; flex:1;}
+.ux-list-title{flex-direction:row; flex-wrap:nowrap; justify-content:space-between; align-items:center;}
+.ux-list-one-line{line-height:60rpx; height:60rpx; overflow:hidden;}
+.ux-list-title-text{font-size:28rpx; line-height:46rpx;}
+.ux-list-title-desc, .ux-list-body-desc{font-size:22rpx; line-height:30rpx;}
+.ux-list-arrow-right{width:50rpx; height:50rpx; line-height:50rpx; font-size:30rpx; text-align:right;}
+
+/* 底部操作表 */
+.ux-action-sheet-title{text-align:center; font-size:28rpx; line-height:100rpx; height:100rpx; font-weight:bold;}
+.ux-action-sheet-item{line-height:88rpx; text-align:center; font-size:28rpx;}
+
+/* 卡片列表 */
+.ux-card-list{display:flex;}
+.ux-card-list{flex-direction:row; flex-wrap:wrap; justify-content:space-between;}
+.ux-card-item{width:330rpx; margin-bottom:30rpx; position:relative;}
+.ux-card-img{width:330rpx; height:190rpx; overflow:hidden; position:relative;}
+.ux-card-title{margin-top:5px;}
+.ux-card-desc{margin-top:4px;}
+.ux-card-tip{width:68rpx; height:40rpx; font-size:20rpx; line-height:40rpx; text-align:center; position:absolute; z-index:1; border-radius:5rpx;}
+.ux-card-mask-title{line-height:66rpx; height:66rpx; padding:0 10rpx; overflow:hidden; position:absolute; z-index:1; left:0; right:0; bottom:0;}
+
+/* 宫格布局 */
+.ux-grid, .ux-grid-item{display:flex;}
+.ux-grid{flex-direction:row; flex-wrap:wrap;}
+.ux-grid-item{width:137rpx; flex-direction:column; align-items:center; margin:0;}
+.ux-grid-icon{height:80rpx; font-size:68rpx; line-height:80rpx; text-align:center;}
+.ux-grid-icon-img{width:80rpx; height:80rpx; border-radius:20rpx;}
+.ux-grid-text{line-height:50rpx; text-align:center; font-size:24rpx; margin-top:2px;}
+
+/* 滚动区域 */
+.ux-scroll-x{display:flex; flex-direction:row; overflow:hidden;}
+
+/* 演示样式 */
+.ux-demo{display:flex; margin-top:$ux-space-small; background-color:#FFFFFF; padding:$ux-space-small;}
+
+/* 横向公告 */
+.ux-box-items{width:100rpx; flex:1;}
+.ux-box-item{display:flex; flex-direction:row; justify-content:center; align-items:center; padding-bottom:8rpx;}
+.ux-box-line{width:1px; height:50rpx; border-right:1px solid #F1F1F1;}
+.ux-box-ml{margin-left:5rpx;}
+.ux-box-footer-text{font-size:24rpx; text-align:center;}

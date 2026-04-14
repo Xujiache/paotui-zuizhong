@@ -1,0 +1,106 @@
+{
+	"id": "unix-ui",
+	"name": "uXui",
+	"displayName": "uXui 【主流平台全兼容版】一款基于 uni-app x 的、免费、开源的 UI 框架",
+	"version": "1.2.0",
+	"description": "uXui 是一款基于 uni-app x 的、免费、开源的 UI 框架。高频更新中，请加入 uXui QQ 群 : 527580758 交流、反馈。", 
+	"keywords": [
+        "uXui",
+        "uni-app",
+        "uni-app",
+        "x",
+        "框架",
+        "uts"
+    ],
+	"repository": "",
+	"author": "",
+	"license": "MIT",
+	"dependencies": {},
+	"engines": {
+		"HBuilderX": "^4.66"
+	},
+	"dcloudext": {
+		"sale": {
+			"regular": {
+				"price": "0.00"
+			},
+			"sourcecode": {
+				"price": "0.00"
+			}
+		},
+		"contact": {
+			"qq": "---"
+		},
+		"declaration": {
+			"ads": "无",
+			"data": "不采集任何数据",
+			"permissions": "无"
+		},
+		"npmurl": "",
+		"type": "component-uts"
+	},
+	"uni_modules": {
+		"dependencies": [],
+		"encrypt": [],
+		"platforms": {
+			"cloud": {
+				"tcb": "y",
+                "aliyun": "y",
+                "alipay": "n"
+			},
+			"client": {
+                "App": {
+                    "app-android": {
+                        "minVersion": "27"
+                    },
+                    "app-ios": {
+                        "minVersion": "14"
+                    },
+                    "app-harmony": "y"
+                },
+				"H5-mobile": {
+					"Safari": {
+                        "minVersion": "4.01"
+                    },
+					"Android Browser": {
+                        "minVersion": "4.01"
+                    },
+					"微信浏览器(Android)": {
+                        "minVersion": "4.01"
+                    },
+					"QQ浏览器(Android)": {
+                        "minVersion": "4.01"
+                    }
+				},
+				"H5-pc": {
+					"Chrome": {
+                        "minVersion": "4.01"
+                    },
+					"IE": "n",
+					"Edge": "n",
+					"Firefox": "n",
+					"Safari": "n"
+				},
+				"小程序": {
+					"微信": "y",
+					"阿里": "n",
+					"百度": "n",
+					"字节跳动": "n",
+					"QQ": "n",
+					"京东": "n",
+					"钉钉": "n",
+					"快手": "n",
+					"飞书": "n"
+				},
+				"快应用": {
+					"华为": "n",
+					"联盟": "n"
+				},
+				"Vue": {
+					"vue2": "n",
+					"vue3": "y"
+				}
+			}
+		}
+	}
+}

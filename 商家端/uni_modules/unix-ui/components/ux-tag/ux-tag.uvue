@@ -1,0 +1,49 @@
+<template>
+	<text 
+	class="ux-tag ux-ellipsis ux-border" 
+	:class="customClass" 
+	:style="{
+		width: width < 1 ? '' : width+'rpx', 
+		padding:padding,
+		fontSize:size+'rpx', 
+		borderRadius:borderRadius+'rpx',
+		margin:margin, 
+		borderColor:borderColor
+	}" 
+	@tap="tapme">{{text}}</text>
+</template>
+<script>
+export default{
+	name  : "ux-tag",
+	props : {
+		width        : {type:Number, default:0},
+		text         : {type:String, default:''},
+		size         : {type:Number, default:26},
+		padding      : {type:String, default:'6rpx'},
+		margin       : {type:String, default:'10rpx'},
+		customClass  : {
+			type:Array as PropType<Array<string>>, 
+			default:function():string[]{
+				return ['ux-bg-primary', 'ux-color-white'] as string[];
+			}
+		},
+		borderRadius : {type:Number, default:6},
+		data         : {type:Array,  default:null},
+		borderColor  : {type:String, default:'rgba(255,255,255,0)'},
+	},
+	data() {
+		return {
+			tapping : false
+		}
+	},
+	methods:{
+		tapme : function(){
+			this.$emit('tapme', this.data);
+		}
+	},
+	emits : ['tapme']
+}
+</script>
+<style scoped>
+.ux-tag{text-align:center;}
+</style>

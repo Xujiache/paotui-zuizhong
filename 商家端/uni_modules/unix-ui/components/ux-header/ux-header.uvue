@@ -1,0 +1,56 @@
+<template>
+	<view 
+	v-if="space" 
+	:style="{height:heightWrap+'px'}"></view>
+	<view 
+	:style="{
+		height:heightWrap+'px',
+		zIndex:zIndex,
+		backgroundColor:background
+	}" 
+	class="ux-header">
+		<ux-status-bar 
+		@ready="statusBarReady"
+		:background="statusBarBg"></ux-status-bar>
+		<view class="ux-flex ux-rows ux-nowrap">
+			<view class="ux-flex1">
+				<slot></slot>
+			</view>
+			<!-- #ifdef MP-WEIXIN -->
+			<view style="width:180rpx;"></view>
+			<!-- #endif -->
+		</view>
+	</view>
+</template>
+<script lang="uts">
+import uxStatusBar from "../ux-status-bar/ux-status-bar.uvue"
+export default {
+	name:"ux-header",
+	components:{
+		uxStatusBar
+	},
+	props:{
+		height:{type:Number, default:100},
+		zIndex:{type:Number, default:999},
+		space :{type:Boolean, default:true},
+		statusBarBg:{type:String, default:"rgba(0,0,255,0.35"},
+		background:{type:String, default:"#3888FF"}
+	},
+	data() {
+		return {
+			heightWrap:0
+		}
+	},
+	mounted:function(){
+		
+	},
+	methods: {
+		statusBarReady:function(h:number){
+			this.heightWrap = h + uni.rpx2px(this.height)
+		}
+	}
+}
+</script>
+<style scoped>
+.ux-header{position:fixed; top:0; left:0; right:0; width:100%; overflow: hidden;}
+</style>

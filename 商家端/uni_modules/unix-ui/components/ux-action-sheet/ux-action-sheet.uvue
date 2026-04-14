@@ -1,0 +1,127 @@
+<template>
+	<ux-popup 
+	ref="popupRef" 
+	position="bottom" 
+	:zIndex="zIndex" 
+	:isSwitchPage="true" 
+	:width="width+'rpx'" 
+	:canCloseByShade="canCloseByShade">
+		<view  
+		:style="{
+			'margin-bottom':'25rpx',
+			'margin-left':((750-width)/2)+'rpx'
+		}" @tap.stop="stopfun">
+			<view 
+			class="ux-bg-white"
+			:style="{
+				width:width+'rpx', 
+				borderRadius:borderRadius
+			}">
+				<text 
+				v-if="title != ''" 
+				class="ux-action-sheet-title ux-border-b" 
+				:class="titleClass">{{title}}</text>
+				<scroll-view 
+				scroll-y="true" 
+				class="ux-border-box" 
+				:style="{
+					width:width+'rpx', 
+					height:height+'rpx'
+				}">
+					<view 
+					hover-class="ux-tap" 
+					v-for="(item, index) in items"
+					:key="index" 
+					@tap.stop="selected(index)" >
+						<text
+						class="ux-text-center" 
+						:class="listClass">{{item}}</text>
+					</view>
+				</scroll-view>
+				<view class="ux-bg-white ux-border-t" 
+				hover-class="ux-tap">
+					<text 
+					style="padding:25rpx 0;" 
+					:class="cancelBtnClasses" 
+					v-if="isCancelBtn" 
+					@tap.stop="cancel">{{cancelBtnName}}</text>
+				</view>
+			</view>
+		</view>
+	</ux-popup>
+</template>
+<script lang="uts">
+export default{
+	name  : "ux-action-sheet",
+	props : {
+		width           : { type : Number,  default : 650},
+		height          : { type : Number,  default : 399},
+		borderRadius    : { type : String,  default : '10rpx'},
+		title           : { type : String,  default : ''},
+		titleClass      : { 
+			type : Array as PropType<Array<string>>, 
+			default : function():Array<string>{
+				return Array<string>('ux-color-primary');
+			}
+		},
+		items           : { 
+			type : Array as PropType<Array<string>>, 
+			default : function():Array<string>{
+				return Array<string>();
+			}
+		},
+		listClass       : { 
+			type : Array as PropType<Array<string>>, 
+			default : function():Array<string>{
+				return Array<string>(
+					'ux-primary-text', 'ux-border-b', 'ux-action-sheet-item'
+				);
+			}
+		},
+		isCancelBtn     : { type : Boolean, default : true},
+		cancelBtnName   : { type : String,  default : '取消'},
+		canCloseByShade : { type : Boolean, default : false},
+		cancelBtnClasses: { 
+			type : Array as PropType<Array<string>>,   
+			default : function():Array<string>{
+				return Array<string>(
+					'ux-text', 'ux-color-grey2', 'ux-text-center'
+				);
+			}
+		},
+		zIndex          : { type : Number, default : 999}
+	},
+	data(){
+		return {
+			popupRef : null as UxPopupComponentPublicInstance | null,
+		}
+	},
+	mounted:function(){
+		this.popupRef = this.$refs['popupRef'] as UxPopupComponentPublicInstance;
+	},
+	methods:{
+		open  : function(){
+			this.popupRef?.$callMethod("open");
+			this.$emit('open');
+		},
+		close : function(){
+			this.popupRef?.$callMethod("close");
+			this.$emit('close');
+		},
+		stopfun : function(){
+			return;
+		},
+		cancel : function () {
+			this.$emit('cancel');
+			this.close();
+		},
+		selected:function (idx:number) {
+			this.$emit('selected', idx);
+			this.close();
+		},
+	},
+	emits : ['open', 'close', 'selected', 'cancel']
+}
+</script>
+<style scoped>
+</style>

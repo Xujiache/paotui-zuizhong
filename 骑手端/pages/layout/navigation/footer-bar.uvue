@@ -1,0 +1,74 @@
+<template>
+	<view class="ux-body ux-page-color ux-flex1">
+		<text class="ux-h6 ux-color-grey ux-mt-large">自定义底部导航</text>
+		<view class="ux-demo ux-mt-large ux-flex1 ux-flex ux-column ux-justify-content-center">
+			<text class="ux-h2 ux-color-grey3 ux-text-center">{{footerBars[currentPageIndex].label}}</text>
+		</view>
+		<view style="height:30rpx;"></view>
+		<ux-footer-bar :height="110">
+			<view 
+			style="padding:5rpx 0;"
+			class="ux-bg-white ux-grid ux-nowrap ux-space-between ux-align-items-center ux-border-t">
+				<view 
+				v-for="(item, index) in footerBars" 
+				class="ux-grid-item" 
+				hover-class="ux-tap" 
+				@tap="footerBarChange(index)">
+					<text 
+					class="ux-grid-icon ux-icons" 
+					:class="[currentPageIndex == index?'ux-color-primary':'ux-color-grey2']">{{item.icon}}</text>
+					<text 
+					class="ux-grid-text ux-icons" 
+					:class="[currentPageIndex == index?'ux-color-primary':'ux-color-grey2']">{{item.label}}</text>
+				</view>
+			</view>
+		</ux-footer-bar>
+	</view>
+</template>
+<script lang="uts">
+type footerBarItem = {
+	icon:string,
+	label:string
+};
+export default {
+	data() {
+		return {
+			// 当前索引
+			currentPageIndex:0,
+			// 导航项目
+			footerBars : [
+				{
+					icon:"\ue655",
+					label:"首页"
+				},
+				{
+					icon:"\ue6ac",
+					label:"新闻"
+				},
+				{
+					icon:"\ue7fa",
+					label:"视频"
+				},
+				{
+					icon:"\ue611",
+					label:"好友"
+				},
+				{
+					icon:"\ue60d",
+					label:"账户"
+				}
+			] as footerBarItem[]
+		}
+	},
+	methods: {
+		footerBarChange:function(index:number){
+			this.currentPageIndex = index;
+		}
+	}
+}
+</script>
+<style scoped>
+.ux-grid-item{width:20%;}
+.ux-grid-icon{height:65rpx; font-size:46rpx; line-height:65rpx; overflow:hidden;}
+.ux-grid-text{font-size:25rpx; line-height:35rpx; margin-top:0;}
+</style>

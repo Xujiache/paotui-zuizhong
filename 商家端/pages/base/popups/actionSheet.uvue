@@ -1,0 +1,64 @@
+<template>
+	<scroll-view class="ux-body ux-page-color ux-flex1">
+		<text class="ux-h6 ux-color-grey ux-mt">底部操作表</text>
+		<view 
+		class="ux-bg-white ux-mt">
+			<view 
+			class="ux-list-items" 
+			@tap="open1">
+				<view 
+				class="ux-list-body ux-border-b" 
+				hover-class="ux-tap">
+					<view 
+					class="ux-list-title">
+						<text 
+						class="ux-list-title-text ux-list-one-line ux-primary-text">点击这里打开操作列表</text>
+					</view>
+				</view>
+				<text 
+				class="ux-list-arrow-right ux-icons ux-color-grey">{{"\ue601"}}</text>
+			</view>
+		</view>
+		
+		<!-- 组件 -->
+		<ux-action-sheet 
+		ref="uxactionsheet" 
+		@selected="selected" 
+		title="请选择您的班级" 
+		:items="actionSheetItems">
+		</ux-action-sheet>
+	</scroll-view>
+</template>
+<script>
+export default {
+	data() {
+		return {
+			ref1 : null as UxActionSheetComponentPublicInstance | null,
+			actionSheetItems : [
+				'一年一班','一年二班','一年三班',
+				'一年四班','一年五班','一年六班'
+			] as string[]
+		}
+	},
+	mounted:function(){
+		this.ref1 = this.$refs['uxactionsheet'] as UxActionSheetComponentPublicInstance;
+		this.ref1?.$callMethod("open");
+	},
+	methods: {
+		open1  : function () {
+			this.ref1?.$callMethod("open");
+		},
+		close1 : function () {
+			this.ref1?.$callMethod("close");
+		},
+		selected : function(idx:number){
+			console.log(idx);
+			console.log(this.actionSheetItems[idx]);
+			this.ref1?.$callMethod("close");
+		}
+	}
+}
+</script>
+<style scoped>
+.modal-btns{line-height:88rpx; font-size:26rpx; text-align:center; width:200rpx;}
+</style>

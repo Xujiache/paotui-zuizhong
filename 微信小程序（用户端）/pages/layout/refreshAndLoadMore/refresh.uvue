@@ -1,0 +1,101 @@
+<template>
+	<!-- #ifdef APP -->
+	<list-view
+	class="ux-flex1" 
+	:bounces="true" 
+	:refresher-enabled="true" 
+	:refresher-threshold="refresherThreshold" 
+	:refresher-triggered="refresherTriggered" 
+	refresher-default-style="none" 
+	@refresherpulling="onRefresherpulling" 
+	@refresherrefresh="onRefresherrefresh">
+		<list-item v-for="i in dataList">
+			<text 
+			class="demo ux-text-center ux-color-grey3 ux-text-small ux-bg-grey6">item-{{i}}</text>
+		</list-item>
+		<list-item slot="refresher">
+			<ux-refresh-box :status="status"></ux-refresh-box>
+		</list-item>
+	</list-view>
+	<!-- #endif -->
+	<!-- #ifndef APP -->
+	<scroll-view 
+	class="ux-flex1" 
+	:scroll-y="true" 
+	:refresher-enabled="true" 
+	:refresher-threshold="refresherThreshold" 
+	:refresher-triggered="refresherTriggered" 
+	refresher-default-style="none" 
+	@refresherpulling="onRefresherpulling" 
+	@refresherrefresh="onRefresherrefresh" 
+	@refresherabort="onRefresherabort">
+		<view slot="refresher" style="width:100%;">
+			<ux-refresh-box 
+			:status="status"></ux-refresh-box>
+		</view>
+		<view v-for="i in dataList">
+			<text 
+			class="demo ux-text-center ux-color-grey3 ux-text-small ux-bg-grey6">item-{{i}}</text>
+		</view>
+	</scroll-view>
+	<!-- #endif -->
+</template>
+<script lang="uts">
+export default {
+	data() {
+		return {
+			pullingDistance : 0.0,
+			refresherTriggered : false,
+			status : 1,
+			refresherThreshold:40,
+			dataList : [] as number[]
+		}
+	},
+	mounted:function(){
+		this.getData(false);
+	},
+	methods: {
+		onRefresherabort : function(){
+			this.status = 1;
+		},
+		onRefresherpulling : function(e:RefresherEvent){
+			// 判断状态实现节流
+			if(this.status > 2){
+				return ;
+			}
+			this.status = 2;
+		},
+		onRefresherrefresh:function(){
+			console.log(this.status)
+			// 判断状态实现节流
+			if(this.status > 2){
+				return ;
+			}
+			this.refresherTriggered = true;
+			this.status = 3;
+			this.getData(true);
+		},
+		// 模拟数据加载请求
+		getData : function(isRefresh:boolean){
+			// 此处实际开发中
+			// 可以为一次 api 数据请求
+			setTimeout(()=>{
+				this.dataList = new Array<number>(1,2,3,4,5,6,7,8,9,10);
+				if(isRefresh){
+					this.status = 4;
+					// 请求结束后恢复 loading
+					setTimeout(()=>{
+						this.refresherTriggered = false;
+					}, 1500);
+					setTimeout(()=>{
+						this.status = 1;
+					}, 2000);
+				}
+			}, 500);
+		}
+	}
+}
+</script>
+<style scoped>
+.demo{margin:30rpx; padding:80rpx;}
+</style>

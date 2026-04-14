@@ -1,0 +1,178 @@
+<template>
+	<scroll-view 
+	:scroll-with-animation="scorllAnimation" 
+	direction="horizontal" 
+	:show-scrollbar="false" 
+	:class="['ux-scroll-x', isCenter ? 'ux-nav-center' : '']" 
+	:style="{width:width+'rpx'}" 
+	:scroll-into-view="scrollIntoView" 
+	:scroll-left="scrollLeft">
+		<view class="ux-column" 
+		:style="{
+			width:size == 0 ? 'auto' : size+'rpx', 
+			marginRight:margin+'rpx', 
+			paddingLeft:padding, 
+			paddingRight:padding
+		}" 
+		v-for="(item, index) in itemsIn" 
+		:key="index" 
+		@tap="change(index)" 
+		:id="item.viewId">
+			<view 
+			class="ux-flex ux-nowrap ux-align-items-start" 
+			:class="[textAlign == 'center' ? 'ux-justify-content-center' : '']">
+				<text 
+				:class="[titleClass, index == currentIndexIn ? titleActiveClass : []]" 
+				:style="{
+					lineHeight:lineHeight, 
+					fontSize:currentIndexIn == index ? activeFontSize : fontSize, 
+					fontWeight:currentIndexIn == index ? activeFontWeight : '',
+					'text-align':'center'
+				}">{{item.name}}</text>
+				<view v-if="item.tips">
+					<text 
+					v-if="item.tips != 1" 
+					class="ux-nav-tips" 
+					:style="tipsStyle">{{item.tips}}</text>
+					<text
+					v-else 
+					class="ux-nav-tips" 
+					:style="tipsStyle+'; width:12rpx; height:12rpx; padding:0rpx; margin:10rpx 0 0 6rpx;'"></text>
+				</view>
+			</view>
+			<view 
+			class="ux-flex ux-row" 
+			:style="{justifyContent:activeDirection}">
+				<view 
+				class="nav-active-line" 
+				:class="currentIndexIn == index ? activeLineClass : []" 
+				:style="{
+					width:activeLineWidth, 
+					height:activeLineHeight, 
+					borderRadius:activeLineRadius
+				}" 
+				v-if="currentIndexIn == index"></view>
+			</view>
+		</view>
+	</scroll-view>
+</template>
+<script lang="uts">
+import {UXNavItem} from "@/uni_modules/unix-ui/uxts/classes.uts";
+export default {
+	name  : "ux-switch-navigation",
+	props : {
+		width              : {type : Number,  default : 690},
+		isCenter           : {type : Boolean, default : false},
+		currentIndex       : {type : Number,  default : 0},
+		size               : {type : Number,  default : 108 as number},
+		fontSize           : {type : String,  default : '28rpx'},
+		activeFontSize     : {type : String,  default : '28rpx'},
+		items              : {
+			type : Array as PropType<Array<UXNavItem>>, 
+			default : function():UXNavItem[]{
+				return [] as Array<UXNavItem>;
+			}
+		},
+		activeLineClass    : {
+			type : Array as PropType<Array<string>>, 
+			default : function():string[]{
+				return ['ux-bg-blue1'] as string[];
+			}
+		},
+		titleClass         : {
+			type : Array as PropType<Array<string>>, 
+			default : function():string[]{
+				return ['ux-primary-text'] as Array<string>;
+			}
+		},
+		titleActiveClass   : {
+			type : Array as PropType<Array<string>>, 
+			default : function():string[]{
+				return ['ux-primary-text']  as string[];
+			}
+		},
+		activeLineHeight   : {type : String,  default : '5rpx'},
+		activeLineWidth    : {type : String,  default : "36rpx"},
+		activeLineRadius   : {type : String,  default : "0rpx"},
+		activeDirection    : {type : String,  default : ""},
+		activeFontWeight   : {type : Number,  default : 700},
+		margin             : {type : Number,  default : 0 as number},
+		textAlign          : {type : String,  default : ''},
+		lineHeight         : {type : String,  default : '50rpx'},
+		padding            : {type : String,  default : '0rpx'},
+		scorllAnimation    : {type : Boolean, default : true},
+		tipsStyle          : {
+			type : String,  
+			default : 'background-color:#FF0000; color:#FFFFFF; font-size:22rpx'
+		}
+	},
+	data(){
+		return {
+			currentIndexIn : 0 as number,
+			itemsIn        : [] as UXNavItem[],
+			random         : 1,
+			scrllTimer     : null as null|number,
+			scrollIntoView : '',
+			scrollLeft     : 0
+		}
+	},
+	created:function(){
+		this.currentIndexIn = this.currentIndex;
+		for(var i = 0; i < this.items.length; i++){
+			var item = this.items[i] as UXNavItem;
+			item.viewId = "UXNav_"+i+this.random;
+			this.itemsIn.push(item);
+		}
+		this.itemsIn = this.itemsIn as Array<UXNavItem>;
+	},
+	watch:{
+		currentIndex : function(value:number){
+			this.currentIndexIn = value as number;
+		},
+		currentIndexIn : function(){
+			this.setLeft();
+		},
+		items        : function(value:UXNavItem[]){ 
+			this.itemsIn = value;
+		}
+	},
+	methods:{
+		change    : function(index:number){
+			this.currentIndexIn = index;
+			this.$emit('change', index)
+		},
+		randomNum : function () :number{
+			return Math.floor(Math.random() * 1000);
+		},
+		setLeft   : function () {
+			if(this.size < 1){
+				this.scrollIntoView = this.itemsIn[this.currentIndexIn].viewId;
+				return;
+			}
+			if(this.currentIndexIn < 1){
+				this.scrollLeft = 0;
+				return ;
+			}
+			var itemWidth = (this.margin) + (this.size);
+			var left      = (this.currentIndexIn + 1) * itemWidth - (this.width) / 2 - itemWidth / 2;
+			var maxLeft   = (this.itemsIn.length) * itemWidth - (this.width);
+
+			maxLeft       = uni.rpx2px(maxLeft - 30);
+			left          = uni.rpx2px(left);
+			if(left > maxLeft){left = maxLeft;}
+			if(left < 0){left = 0;}
+			if(this.currentIndexIn + 1 == this.itemsIn.length){
+				this.scrollLeft = left + 20; 
+			}else{
+				this.scrollLeft = left;
+			}
+		}
+	},
+	emits : ['change']
+}
+</script>
+<style scoped>
+.nav-active-line{margin-top:6rpx;}
+.ux-nav-center{justify-content:center;}
+.ux-nav-tips{border-radius:30rpx; overflow:hidden; padding:0 8rpx; margin-left:5rpx;}
+</style>

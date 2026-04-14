@@ -1,0 +1,79 @@
+<template>
+	<ux-popup 
+	ref="popupRef" 
+	:width="width" 
+	:canCloseByShade="canCloseByShade" 
+	:zIndex="zIndex" 
+	@close="eClose">
+		<view 
+		:style="{width:width}" 
+		:class="customClass" 
+		class="ux-relative" 
+		@tap.stop="stopfun">
+			<view>
+				<text 
+				class="ux-text-center ux-primary-text" 
+				:style="titleStyle" 
+				v-if="title != ''">{{title}}</text>
+			</view>
+			<view>
+				<slot name="content"></slot>
+			</view>
+			<view>
+				<slot name="btns"></slot>
+			</view>
+			<text 
+			class="ux-absolute ux-top ux-right ux-icons ux-color-grey2" 
+			:style="'width:76rpx; height:76rpx; line-height:76rpx; text-align:center;'+closeBtnStyle" 
+			@tap.stop="close" 
+			v-if="isCloseBtn">{{"\ue7a5"}}</text>
+		</view>
+	</ux-popup>
+</template>
+<script lang="uts">
+export default{
+	name  : "ux-modal",
+	props : {
+		width           : { type  : String,  default : '580rpx'},
+		isCloseBtn      : { type  : Boolean, default : true },
+		closeBtnStyle   : { type  : String,  default : 'font-size:28rpx;' },
+		title           : { type  : String,  default : '' },
+		titleStyle      : { type  : String,  default : 'line-height:100rpx; font-size:28rpx; font-weight:700;'},
+		canCloseByShade : { type  : Boolean, default : true },
+		zIndex          : { type  : Number,  default : 99 },
+		customClass     : { 
+			type : Array as PropType<Array<string>>, 
+			default : function():string[]{
+				return ['ux-bg-white'] as string[];
+			}
+		}
+	},
+	data(){
+		return {
+			popupRef : null as UxPopupComponentPublicInstance | null,
+		};
+	},
+	mounted:function(){
+		this.popupRef = this.$refs['popupRef'] as UxPopupComponentPublicInstance;
+	},
+	methods:{
+		open  : function(){
+			this.popupRef?.$callMethod("open");
+			this.$emit('open');
+		},
+		close : function(){
+			this.popupRef?.$callMethod("close");
+			this.$emit('close');
+		},
+		stopfun : function(){
+			return ;
+		},
+		eClose : function(){
+			this.$emit('close');
+		}
+	},
+	emits : ['open', 'close']
+}
+</script>
+<style scoped>
+</style>

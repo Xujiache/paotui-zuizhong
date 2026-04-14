@@ -1,0 +1,57 @@
+<template>
+	<view 
+	class="ux-flex ux-row ux-nowrap ux-align-items-center ux-justify-content-center" 
+	:style="{height:status > 0 ? '40px' : '0px'}">
+		<ux-circular-loading 
+		:size="iconSize" 
+		:color="loadingColor" 
+		:speed="speed" 
+		v-if="status == 3"></ux-circular-loading>
+		<text 
+		v-if="status == 1 || status == 2" 
+		:style="{color:color, fontSize:fontSize+'rpx'}" 
+		class="u-text ux-icon">{{"\ue669"}}</text>
+		<text
+		v-if="status == 4" 
+		:size="iconSize" 
+		:style="{color:doneColor, fontSize:iconSize+'rpx'}" 
+		class="u-text ux-icon">{{"\ue66a"}}</text>
+		<text 
+		class="ux-ml-small" 
+		:style="{color: status == 4 ? doneColor : color, fontSize:fontSize+'rpx'}">{{labels[status]}}</text>
+	</view>
+</template>
+<script lang="uts">
+export default {
+	name:"ux-refresh-box",
+	props:{
+		iconSize     : {type:Number, default:38},
+		fontSize     : {type:Number, default:26},
+		color        : {type:String, default:"#585858"},
+		loadingColor : {type:String, default:"#3688FF"},
+		doneColor    : {type:String, default:"#11AA99"},
+		speed        : {type:Number, default:6},
+		labels       : {
+			type : Array as PropType<Array<string>>,
+			default: function():string[]{
+				return [
+					'',
+					'继续下拉刷新',
+					'松开手指开始刷新', 
+					'数据刷新中', 
+					'数据已刷新'
+				] as Array<string>;
+			}
+		},
+		status : {type:Number, default:0},
+	},
+	data() {
+		return {}
+	},
+	methods: {
+		
+	},
+}
+</script>
+<style scoped>
+</style>

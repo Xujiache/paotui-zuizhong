@@ -1,0 +1,37 @@
+<template>
+	<scroll-view style="flex:1">
+		<view style="margin:100rpx; height:550rpx;" 
+		class="ux-bg-blue5 ux-relative ux-border-radius">
+			<view 
+			class="demo ux-absolute ux-border-radius" 
+			style="z-index:1; left:10rpx; top:10rpx;"></view>
+			<view
+			class="demo ux-absolute ux-border-radius" 
+			style="z-index:1; right:10rpx; top:10rpx;"></view>
+			<view
+			class="demo ux-absolute ux-border-radius" 
+			style="z-index:1; left:10rpx; bottom:10rpx;"></view>
+			<view
+			class="demo ux-absolute ux-border-radius" 
+			style="z-index:1; right:10rpx; bottom:10rpx;"></view>
+		</view>
+		<view 
+		class="ux-fixed demo ux-bg-red ux-border-radius" 
+		style="bottom:80rpx; right:30rpx;"></view>
+	</scroll-view>
+</template>
+<script lang="uts">
+	export default {
+		data() {
+			return {
+				
+			}
+		},
+		methods: {
+			
+		}
+	}
+</script>
+<style scoped>
+.demo{width:100rpx; height:100rpx; background:aliceblue;}
+</style>

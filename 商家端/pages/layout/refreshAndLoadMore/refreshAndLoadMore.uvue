@@ -1,0 +1,183 @@
+<template>
+	<!-- #ifdef APP -->
+	<list-view 
+	class="ux-flex1" 
+	direction="vertical" 
+	@scrolltolower="getData" 
+	:refresher-enabled="true" 
+	:refresher-threshold="refresherThreshold" 
+	:refresher-triggered="refresherTriggered" 
+	refresher-default-style="none" 
+	@refresherpulling="onRefresherpulling" 
+	@refresherrefresh="onRefresherrefresh">
+		<list-item v-for="item in dataList">
+			<text 
+			class="demo ux-text-center ux-color-grey3 ux-text-small ux-bg-grey6">{{item.plugin_name}}</text>
+		</list-item>
+		<list-item>
+			<ux-load-more-box 
+			:status="loadMoreStatus"></ux-load-more-box>
+		</list-item>
+		<list-item slot="refresher">
+			<ux-refresh-box
+			:status="refreshStatus"></ux-refresh-box>
+		</list-item>
+	</list-view>
+	<!-- #endif -->
+	<!-- #ifndef APP -->
+	<scroll-view
+	class="ux-flex1" 
+	:scroll-y="true" 
+	@scrolltolower="getData" 
+	:refresher-enabled="true" 
+	:refresher-threshold="refresherThreshold" 
+	:refresher-triggered="refresherTriggered" 
+	refresher-default-style="none" 
+	@refresherpulling="onRefresherpulling" 
+	@refresherrefresh="onRefresherrefresh">
+		<view slot="refresher" style="width:100%;">
+			<ux-refresh-box
+			:status="refreshStatus"></ux-refresh-box>
+		</view>
+		<view v-for="item in dataList">
+			<text 
+			class="demo ux-text-center ux-color-grey3 ux-text-small ux-bg-grey6">{{item.plugin_name}}</text>
+		</view>
+		<view>
+			<ux-load-more-box 
+			:status="loadMoreStatus"></ux-load-more-box>
+		</view>
+	</scroll-view>
+	<!-- #endif -->
+</template>
+<script lang="uts">
+const SERVER_URL = "https://ext.dcloud.net.cn/plugin/uniappx-plugin-list"
+const PAGE_SIZE = 10; // 每页数据量 10
+type ListItem = {
+    plugin_id : number,
+    plugin_img_link : string,
+    plugin_name : string,
+    plugin_intro : string,
+    score : number,
+    tags : Array<string>,
+    update_date : string,
+    author_name : string,
+}
+
+type ResponseDataType = {
+	code : number,
+	data : ListItem[]
+}
+
+export default {
+	data() {
+		return {
+			// 数据列表
+			dataList : [] as ListItem[],
+			// 模拟页码
+			page : 1,
+			// 加载更多状态
+			loadMoreStatus : 0,
+			// 下拉刷新相关
+			pullingDistance : 0.0,
+			refresherTriggered : false,
+			refreshStatus : 1,
+			refresherThreshold:40,
+		}
+	},
+	created:function(){
+		this.getData();
+	},
+	methods: {
+		// 刷新数据
+		refreshData : function(){
+			// 重置页码
+			this.page = 1;
+			// 发起请求
+			uni.request<ResponseDataType>({
+				url: SERVER_URL,
+				data: {
+					type: '',
+					page: this.page,
+					page_size: PAGE_SIZE
+				},
+				success: (res) => {
+					const responseData = res.data
+					if (responseData == null) {
+					  return
+					}
+					this.dataList = responseData.data;
+					this.page = this.page + 1;
+					this.loadMoreStatus = 0;
+					this.refreshStatus = 4;
+					// 请求结束后恢复 loading
+					setTimeout(()=>{
+						this.refresherTriggered = false;
+					}, 1500);
+					setTimeout(()=>{
+						this.refreshStatus = 1;
+					}, 2000);
+				},
+			});
+		},
+		// 加载数据
+		getData : function(){
+			// 防抖
+			if(this.loadMoreStatus > 0){
+				return; 
+			}
+			this.loadMoreStatus = 1;
+			uni.request<ResponseDataType>({
+				url: SERVER_URL,
+				data: {
+					type: '',
+					page: this.page,
+					page_size: PAGE_SIZE
+				},
+				success: (res) => {
+					const responseData = res.data
+					if (responseData == null) {
+					  return
+					}
+					// 第一页
+					if(this.page == 1){
+						this.dataList = responseData.data;
+						this.loadMoreStatus = 0;
+						this.page = this.page + 1;
+					}else{
+						// 假设3页后加载全部数据
+						// 实际开发中利用接口返回值判断
+						if(this.page >= 3){
+							this.loadMoreStatus = 2;
+						}else{
+							this.loadMoreStatus = 0;
+						}
+						this.page = this.page + 1;
+						// 填充数据
+						this.dataList.push(...responseData.data);
+					}
+				},
+			});
+		},
+		onRefresherpulling : function(e:RefresherEvent){
+			// 判断状态实现节流
+			if(this.refreshStatus > 2 || this.loadMoreStatus != 0){
+				return ;
+			}
+			this.refreshStatus = 2;
+		},
+		onRefresherrefresh:function(){
+			// 判断状态实现节流
+			if(this.refreshStatus > 2){
+				return ;
+			}
+			this.refresherTriggered = true;
+			this.refreshStatus = 3;
+			this.refreshData();
+		},
+	}
+}
+</script>
+<style scoped>
+.demo{margin:30rpx; padding:60rpx;}
+</style>

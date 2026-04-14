@@ -1,0 +1,76 @@
+{
+  "mcpServers": {
+    "mcpmessenger_slot1": {
+      "command": "C:\\Program Files\\Cursor\\Cursor.exe",
+      "args": [
+        "c:\\Users\\Administrator\\.cursor\\extensions\\startheme.mcpmessenger-2.1.25\\dist\\mcp-server.mjs"
+      ],
+      "disabled": false,
+      "env": {
+        "MESSENGER_DATA_DIR": "C:\\Users\\Administrator\\.mcpmessenger\\ws_5ce77c17\\slot_1",
+        "MESSENGER_SLOT": "1",
+        "MESSENGER_WINDOW_ID": "16528db5725507bc"
+      }
+    },
+    "mcpmessenger_slot2": {
+      "command": "C:\\Program Files\\Cursor\\Cursor.exe",
+      "args": [
+        "c:\\Users\\Administrator\\.cursor\\extensions\\startheme.mcpmessenger-2.1.25\\dist\\mcp-server.mjs"
+      ],
+      "disabled": false,
+      "env": {
+        "MESSENGER_DATA_DIR": "C:\\Users\\Administrator\\.mcpmessenger\\ws_5ce77c17\\slot_2",
+        "MESSENGER_SLOT": "2",
+        "MESSENGER_WINDOW_ID": "16528db5725507bc"
+      }
+    },
+    "mcpmessenger_slot3": {
+      "command": "C:\\Program Files\\Cursor\\Cursor.exe",
+      "args": [
+        "c:\\Users\\Administrator\\.cursor\\extensions\\startheme.mcpmessenger-2.1.25\\dist\\mcp-server.mjs"
+      ],
+      "disabled": false,
+      "env": {
+        "MESSENGER_DATA_DIR": "C:\\Users\\Administrator\\.mcpmessenger\\ws_5ce77c17\\slot_3",
+        "MESSENGER_SLOT": "3",
+        "MESSENGER_WINDOW_ID": "16528db5725507bc"
+      }
+    },
+    "mcpmessenger_slot4": {
+      "command": "C:\\Program Files\\Cursor\\Cursor.exe",
+      "args": [
+        "c:\\Users\\Administrator\\.cursor\\extensions\\startheme.mcpmessenger-2.1.25\\dist\\mcp-server.mjs"
+      ],
+      "disabled": false,
+      "env": {
+        "MESSENGER_DATA_DIR": "C:\\Users\\Administrator\\.mcpmessenger\\ws_5ce77c17\\slot_4",
+        "MESSENGER_SLOT": "4",
+        "MESSENGER_WINDOW_ID": "16528db5725507bc"
+      }
+    },
+    "mcpmessenger_slot5": {
+      "command": "C:\\Program Files\\Cursor\\Cursor.exe",
+      "args": [
+        "c:\\Users\\Administrator\\.cursor\\extensions\\startheme.mcpmessenger-2.1.25\\dist\\mcp-server.mjs"
+      ],
+      "disabled": false,
+      "env": {
+        "MESSENGER_DATA_DIR": "C:\\Users\\Administrator\\.mcpmessenger\\ws_5ce77c17\\slot_5",
+        "MESSENGER_SLOT": "5",
+        "MESSENGER_WINDOW_ID": "16528db5725507bc"
+      }
+    },
+    "mcpmessenger_slot6": {
+      "command": "C:\\Program Files\\Cursor\\Cursor.exe",
+      "args": [
+        "c:\\Users\\Administrator\\.cursor\\extensions\\startheme.mcpmessenger-2.1.25\\dist\\mcp-server.mjs"
+      ],
+      "disabled": false,
+      "env": {
+        "MESSENGER_DATA_DIR": "C:\\Users\\Administrator\\.mcpmessenger\\ws_5ce77c17\\slot_6",
+        "MESSENGER_SLOT": "6",
+        "MESSENGER_WINDOW_ID": "16528db5725507bc"
+      }
+    }
+  }
+}

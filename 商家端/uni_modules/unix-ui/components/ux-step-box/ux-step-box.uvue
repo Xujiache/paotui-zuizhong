@@ -1,0 +1,125 @@
+<template>
+	<view 
+	class="ux-flex ux-rows ux-nowrap ux-align-items-center ux-space-between ux-flex1" 
+	:style="{width:width, border:border, backgroundColor:backgroundColor, borderRadius:borderRadius}">
+		<view 
+		hover-class="ux-tap">
+			<text
+			class="ux-text-center" 
+			:class="buttonClass" 
+			@tap.stop="reduce">-</text>
+		</view>
+		<input 
+		style="width:100rpx;" 
+		class="ux-form-input ux-text-center ux-flex1" 
+		:class="inputClass" 
+		:disabled="disabled"
+		v-model="inputNumberString" 
+		@blur="inputChange" 
+		type="digit" />
+		<view hover-class="ux-tap">
+			<text 
+			class="ux-text-center" 
+			:class="buttonClass" 
+			@tap.stop="add">+</text>
+		</view>
+	</view>
+</template>
+<script lang="uts">
+export default {
+	name  : "ux-step-box",
+	props : {
+		width          : { type : String,  default : '200rpx' },
+		value          : { type : Number,  default : 0 },
+		step           : { type : Number,  default : 1 },
+		maxNum         : { type : Number,  default : 9999 },
+		minNum         : { type : Number,  default : 0 },
+		buttonClass    : { 
+			type : Array as PropType<Array<string>>, 
+			default : function():string[]{
+				return ['ux-step-box-button', 'ux-color-gray'] as string[];
+			}
+		},
+		inputClass     : { 
+			type : Array as PropType<Array<string>>, 
+			default : function():string[]{
+				return ['ux-step-box-input','ux-border-radius'] as string[];
+			}
+		},
+		disabled       : { type : Boolean, default : false },
+		index          : { type : Number,  default : 0 },
+		datas          : { type : Array,   default : null},
+		decimal        : { type : Number,  default : 0},
+		border         : { type : String,  default : "none"},
+		backgroundColor:{ type : String,  default : "#FFFFFF"},
+		borderRadius :   { type : String, default : "0rpx"}
+	},
+	data() {
+		return {
+			inputNumber    : 0 as number,
+			inputNumberString    : '0',
+		}
+	},
+	created:function(){
+		this.inputNumber = this.value;
+		this.inputNumberString = this.value.toString();
+	},
+	watch:{
+		value : function(val:number){
+			this.inputNumber = val;
+		},
+		inputNumber :function(val:number){
+			this.inputNumberString = val.toString();
+		},
+	},
+	methods : {
+		add : function(){
+			var newValString = (this.inputNumber + this.step).toFixed(this.decimal);
+			var newVal = parseFloat(newValString);
+			newVal = this.decimalVal(newVal);
+			this.inputNumber = newVal;
+			this.$nextTick(()=>{
+				this.$emit('change', [this.inputNumber, this.index, this.datas]);
+			});
+		},
+		reduce   : function () {
+			var newValString = (this.inputNumber - this.step).toFixed(this.decimal);
+			var newVal = parseFloat(newValString);
+			newVal = this.decimalVal(newVal);
+			this.inputNumber = newVal;
+			this.$nextTick(()=>{
+				this.$emit('change', [this.inputNumber, this.index, this.datas]);
+			});
+		},
+		decimalVal : function (val:number):number{
+			if(this.decimal > 0){
+				var valString = val.toString();
+				var isDecimal = valString.indexOf(".");
+				if(isDecimal != -1){
+					val = parseFloat(val.toFixed(this.decimal));
+					var valArr = valString.split('.');
+					if(valArr[1].length > this.decimal){
+						valArr[1] = valArr[1].substring(0, this.decimal);
+						val = parseFloat(valArr.join('.'));
+					} 
+				}
+			}
+			if(val < this.minNum){return this.minNum;}
+			if(val > this.maxNum){return this.maxNum;}
+			return val ;
+		},
+		inputChange : function(){
+			setTimeout(()=>{
+				this.inputNumber = this.decimalVal(parseFloat(this.inputNumberString));
+				console.log(this.inputNumber)
+				this.$nextTick(()=>{
+					this.inputNumberString = this.inputNumber.toString();
+				});
+			}, 500);
+		}
+	},
+	emits:['change']
+}
+</script>
+<style scoped>
+</style>

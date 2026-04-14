@@ -1,0 +1,39 @@
+<template>
+	<scroll-view class="ux-body ux-flex1 ux-page-color">
+		<text class="ux-h6 ux-color-grey ux-mt-large">图标扩展</text>
+		<view class="ux-border-radius ux-mt-small ux-row ux-wrap ux-space-between">
+			<text class="demo ux-icon ux-color-blue4">{{"\ue666"}}</text>
+			<text class="demo ux-icon ux-color-blue4">{{"\ue626"}}</text>
+			<text class="demo ux-icon ux-color-blue4">{{"\ue634"}}</text>
+			<text class="demo ux-icon ux-color-blue4">{{"\ue613"}}</text>
+			<text class="demo ux-icon ux-color-blue4">{{"\ue61f"}}</text>
+			<text class="demo ux-icon ux-color-blue4">{{"\ue6ad"}}</text>
+		</view>
+		<text class="ux-h6 ux-color-grey ux-mt-large">图标说明</text>
+		<view class="ux-mt-small ux-bg-white" style="padding:20rpx;">
+			<text class="ux-text ux-color-grey">我们为您提供了图标扩展步骤说明，请根据自己的项目需要自行扩展图标。</text>
+		</view>
+		<text class="ux-h6 ux-color-grey ux-mt-large">图标扩展步骤</text>
+		<view class="ux-mt-small ux-bg-white" style="padding:20rpx;">
+			<text class="ux-text ux-color-grey">1. 准备图标字体 .ttf 文件, (如 : 阿里图标库)；</text>
+			<text class="ux-text ux-color-grey ux-mt">2. 在 app.vue 种使用 uni.loadFontFace() 加载字体；</text>
+			<text class="ux-text ux-color-grey ux-mt">3. 定义一个样式使用字体 .icon{font-family:"第2步声明的字体名称";}；</text>
+			<text class="ux-text ux-color-grey ux-mt">4. 在需要的页面使用字体，使用方法见本页面源码；</text>
+		</view>
+	</scroll-view>
+</template>
+<script>
+export default {
+	data() {
+		return {
+			
+		}
+	},
+	methods: {
+		
+	}
+}
+</script>
+<style scoped>
+.demo{width:100rpx; height:100rpx; font-size:58rpx; text-align:center; line-height:100rpx; background-color:white; border-radius:16rpx;}
+</style>

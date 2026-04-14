@@ -1,0 +1,187 @@
+.ux-bg-transparent{background:transparent;}
+
+.ux-primary-color, .ux-color-primary{color:$primaryColor;}
+.ux-bg-primary{background-color:$primaryColor;}
+
+/* 黑色 */
+.ux-color-black{color:#000000;}
+.ux-bg-black{background-color:#000000;}
+.ux-color-black1{color:#212121;}
+.ux-bg-black1{background-color:#212121;}
+.ux-color-black2{color:#303030;}
+.ux-bg-black2{background-color:#303030;}
+.ux-color-black3{color:#424242;}
+.ux-bg-black3{background-color:#424242;}
+
+.ux-bg-black-opacity1{background-color:rgba(0, 0, 0, 0.1);}
+.ux-bg-black-opacity2{background-color:rgba(0, 0, 0, 0.2);}
+.ux-bg-black-opacity3{background-color:rgba(0, 0, 0, 0.3);}
+.ux-bg-black-opacity4{background-color:rgba(0, 0, 0, 0.4);}
+.ux-bg-black-opacity5{background-color:rgba(0, 0, 0, 0.5);}
+.ux-bg-black-opacity6{background-color:rgba(0, 0, 0, 0.6);}
+.ux-bg-black-opacity7{background-color:rgba(0, 0, 0, 0.7);}
+.ux-bg-black-opacity8{background-color:rgba(0, 0, 0, 0.8);}
+
+/* 白色 */
+.ux-color-white{color:#FFFFFF;}
+.ux-bg-white{background-color:#FFFFFF;}
+
+/* 灰色 */
+.ux-color-grey{color:#616161;}
+.ux-bg-grey{background-color:#616161;}
+.ux-color-grey1{color:#757575;}
+.ux-bg-grey1{background-color:#757575;}
+.ux-color-grey2{color:#9E9E9E;}
+.ux-bg-grey2{background-color:#9E9E9E;}
+.ux-color-grey3{color:#BDBDBD;}
+.ux-bg-grey3{background-color:#BDBDBD;}
+.ux-color-grey4{color:#D6D6D6;}
+.ux-bg-grey4{background-color:#D6D6D6;}
+.ux-color-grey5{color:#E0E0E0;}
+.ux-bg-grey5{background-color:#E0E0E0;}
+.ux-color-grey5{color:#EEEEEE;}
+.ux-bg-grey5{background-color:#EEEEEE;}
+.ux-color-grey6{color:#F5F5F5;}
+.ux-bg-grey6{background-color:#F5F5F5;}
+.ux-color-grey7{color:#FAFAFA;}
+.ux-bg-grey7{background-color:#FAFAFA;}
+
+/* 红色 */
+.ux-color-red{color:#FF0000;}
+.ux-bg-red{background-color:#FF0000;}
+.ux-color-red1{color:#FF0036;}
+.ux-bg-red1{background-color:#FF0036;}
+.ux-color-red2{color:#F44336;}
+.ux-bg-red2{background-color:#F44336;}
+.ux-color-red3{color:#EF5350;}
+.ux-bg-red3{background-color:#EF5350;}
+
+/* 粉色 */
+.ux-color-pink{color:#E91E63;}
+.ux-bg-pink{background-color:#E91E63;}
+.ux-color-pink1{color:#FF5081;}
+.ux-bg-pink1{background-color:#FF5081;}
+.ux-color-pink2{color:#F58FB1;}
+.ux-bg-pink2{background-color:#F58FB1;}
+.ux-color-pink3{color:#FCE4EC;}
+.ux-bg-pink3{background-color:#FCE4EC;}
+
+/* 橙色 */
+.ux-color-orange{color:#FF3D00;}
+.ux-bg-orange{background-color:#FF3D00;}
+.ux-color-orange1{color:#FF6E40;}
+.ux-bg-orange1{background-color:#FF6E40;}
+.ux-color-orange2{color:#FFAB91;}
+.ux-bg-orange2{background-color:#FFAB91;}
+.ux-color-orange3{color:#FFCCBC;}
+.ux-bg-orange3{background-color:#FFCCBC;}
+
+/* 黄色 */
+.ux-color-yellow{color:#FFFF00;}
+.ux-bg-yellow{background-color:#FFFF00;}
+.ux-color-yellow1{color:#FFEB3B;}
+.ux-bg-yellow1{background-color:#FFEB3B;}
+.ux-color-yellow2{color:#FFEE58;}
+.ux-bg-yellow2{background-color:#FFEE58;}
+.ux-color-yellow3{color:#FFF9C5;}
+.ux-bg-yellow3{background-color:#FFF9C5;}
+
+/* 绿色 */
+.ux-color-green{color:#00FF00;}
+.ux-bg-green{background-color:#00FF00;}
+.ux-color-green1{color:#4CAF50;}
+.ux-bg-green1{background-color:#4CAF50;}
+.ux-color-green2{color:#66BB6A;}
+.ux-bg-green2{background-color:#66BB6A;}
+.ux-color-green3{color:#81C785;}
+.ux-bg-green3{background-color:#81C785;}
+.ux-color-green4{color:#A5D6A7;}
+.ux-bg-green4{background-color:#A5D6A7;}
+.ux-color-green4{color:#C8E6C9;}
+.ux-bg-green4{background-color:#C8E6C9;}
+.ux-color-green5{color:#E8F5E9;}
+.ux-bg-green5{background-color:#E8F5E9;}
+.ux-color-green5{color:#76FF03;}
+.ux-bg-green5{background-color:#76FF03;}
+.ux-color-green6{color:#9CCC65;}
+.ux-bg-green6{background-color:#9CCC65;}
+.ux-color-green7{color:#F1F8E9;}
+.ux-bg-green7{background-color:#F1F8E9;}
+
+/* 水鸭色 */
+.ux-color-teal{color:#00796B;}
+.ux-bg-teal{background-color:#00796B;}
+.ux-color-teal1{color:#00897B;}
+.ux-bg-teal1{background-color:#00897B;}
+.ux-color-teal2{color:#26A69A;}
+.ux-bg-teal2{background-color:#26A69A;}
+.ux-color-teal3{color:#B2DFDB;}
+.ux-bg-teal3{background-color:#B2DFDB;}
+
+/* 蓝色 */
+.ux-color-blue{color:#1565C0;}
+.ux-bg-blue{background-color:#1565C0;}
+.ux-color-blue1{color:#3688FF;}
+.ux-bg-blue1{background-color:#3688FF;}
+.ux-color-blue2{color:#1E88E5;}
+.ux-bg-blue2{background-color:#1E88E5;}
+.ux-color-blue3{color:#2196F3;}
+.ux-bg-blue3{background-color:#2196F3;}
+.ux-color-blue4{color:#42A5F5;}
+.ux-bg-blue4{background-color:#42A5F5;}
+.ux-color-blue5{color:#90CAF9;}
+.ux-bg-blue5{background-color:#90CAF9;}
+.ux-color-blue6{color:#BBDEFB;}
+.ux-bg-blue6{background-color:#BBDEFB;}
+.ux-color-blue7{color:#E3F2FD;}
+.ux-bg-blue7{background-color:#E3F2FD;}
+
+/* 蓝灰 */
+.ux-color-bluegrey{color:#455A64;}
+.ux-bg-bluegrey{background-color:#455A64;}
+.ux-color-bluegrey1{color:#546E7A;}
+.ux-bg-bluegrey1{background-color:#546E7A;}
+.ux-color-bluegrey2{color:#607D8B;}
+.ux-bg-bluegrey2{background-color:#607D8B;}
+.ux-color-bluegrey3{color:#78909C;}
+.ux-bg-bluegrey3{background-color:#78909C;}
+.ux-color-bluegrey4{color:#90A4Ae;}
+.ux-bg-bluegrey4{background-color:#90A4Ae;}
+.ux-color-bluegrey5{color:#B0BEC5;}
+.ux-bg-bluegrey5{background-color:#B0BEC5;}
+.ux-color-bluegrey6{color:#CFD8DC;}
+.ux-bg-bluegrey6{background-color:#CFD8DC;}
+.ux-color-bluegrey6{color:#ECEFF1;}
+.ux-bg-bluegrey6{background-color:#ECEFF1;}
+
+/* 青色 */
+.ux-color-cyan{color:#006065;}
+.ux-bg-cyan{background-color:#006065;}
+.ux-color-cyan1{color:#0097A7;}
+.ux-bg-cyan1{background-color:#0097A7;}
+.ux-color-cyan2{color:#80DEEA;}
+.ux-bg-cyan2{background-color:#80DEEA;}
+.ux-color-cyan3{color:#E0F7FA;}
+.ux-bg-cyan3{background-color:#E0F7FA;}
+
+/* 紫色 */
+.ux-color-purple{color:#9C27B0;}
+.ux-bg-purple{background-color:#9C27B0;}
+.ux-color-purple1{color:#E040FB;}
+.ux-bg-purple1{background-color:#E040FB;}
+.ux-color-purple2{color:#E1BEE7;}
+.ux-bg-purple2{background-color:#E1BEE7;}
+.ux-color-purple3{color:#F3E5F5;}
+.ux-bg-purple3{background-color:#F3E5F5;}
+
+/* 棕色 */
+.ux-color-brown{color:#5D4037;}
+.ux-bg-brown{background-color:#5D4037;}
+.ux-color-brown1{color:#795558;}
+.ux-bg-brown1{background-color:#795558;}
+.ux-color-brown2{color:#8D6E63;}
+.ux-bg-brown2{background-color:#8D6E63;}
+.ux-color-brown3{color:#D7CCC8;}
+.ux-bg-brown3{background-color:#D7CCC8;}
+
+.ux-transparent-bg{background:transparent;}

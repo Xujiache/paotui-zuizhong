@@ -1,0 +1,39 @@
+<template>
+	<view 
+	class="ux-flex ux-row ux-nowrap ux-align-items-center ux-justify-content-center" 
+	style="height:40px;">
+		<ux-circular-loading 
+		:size="iconSize" 
+		:color="iconColor" 
+		:speed="speed" 
+		v-if="status == 1"></ux-circular-loading>
+		<text 
+		:class="[status == 1 ? 'ux-ml-small' : '']" 
+		:style="{color:color, fontSize:fontSize+'rpx'}">{{labels[status]}}</text>
+	</view>
+</template>
+<script lang="uts">
+export default {
+	name:"ux-refresh-box",
+	props:{
+		iconSize     : {type:Number, default:32},
+		fontSize     : {type:Number, default:26},
+		color        : {type:String, default:"#585858"},
+		iconColor    : {type:String, default:"#585858"},
+		speed        : {type:Number, default:6},
+		labels       : {
+			type : Array as PropType<Array<string>>,
+			default:function():string[]{
+				return ['','数据加载中', '已加载全部'] as string[];
+			}
+		},
+		status : {type:Number, default:0},
+	},
+	data() {
+		return {}
+	},
+	methods: {},
+}
+</script>
+<style scoped>
+</style>

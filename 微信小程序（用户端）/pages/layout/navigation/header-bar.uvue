@@ -1,0 +1,56 @@
+<template>
+	<ux-header>
+		<view class="ux-flex ux-row ux-align-items-center ux-space-between">
+			<!-- 页面功能按钮，返回 回首页等 -->
+			<view class="ux-flex ux-row ux-align-items-center">
+				<view hover-class="ux-tap">
+					<text 
+					@tap="back" 
+					class="ux-icon header-icon-button ux-text-center">{{"\ue643"}}</text>
+					<!-- 其他按钮 -->
+				</view>
+			</view>
+			<!-- 中间标题文本 -->
+			<view class="ux-flex ux-row ux-align-items-center ux-flex1">
+				<text class="ux-text ux-color-white">自定义标题</text>
+				<!-- 其他内容 -->
+			</view>
+			<!-- 右侧功能 -->
+			<!-- #ifndef MP-WEIXIN -->
+			<view class="ux-flex ux-row ux-align-items-center">
+				<view hover-class="ux-tap">
+					<text 
+					@tap="messageTag" 
+					style="font-size:38rpx;"
+					class="ux-icon header-icon-button ux-text-center">{{"\ue666"}}</text>
+				</view>
+				<!-- 其他按钮 -->
+			</view>
+			<!-- #endif -->
+		</view>
+	</ux-header>
+	<view class="ux-body">
+		<!-- 页面内容布局 -->
+		<text></text>
+	</view>
+</template>
+<script lang="uts">
+export default {
+	data() {
+		return {
+			
+		}
+	},
+	methods: {
+		back : function(){
+			uni.navigateBack()
+		},
+		messageTag : function(){
+			uni.showToast({icon:"none", title:"hi..."})
+		}
+	}
+}
+</script>
+<style scoped>
+.header-icon-button{width:100rpx; height:100rpx; font-size:32rpx; line-height:100rpx; color:#FFFFFF;}
+</style>

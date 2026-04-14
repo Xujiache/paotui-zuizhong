@@ -1,0 +1,76 @@
+class UXDatetime{
+	// --- 日期时间 ---
+	nowTimeStamp(increment:number|null):number{
+		if(increment ==  null){
+			increment = 0;
+		}
+		return new Date().getTime() + increment;
+	}
+	
+	nowString(increment:number|null):string{
+		var res = this.timeStampToDateArray(this.nowTimeStamp(increment));
+		return res[0]+'-'+res[1]+'-'+res[2]+' '+res[3]+':'+res[4]+':'+res[5];
+	}
+	
+	// 时间戳转 YY-mm-dd HH:ii:ss 数组
+	timeStampToDateArray(timeStamp:number):string[]{
+		var date = new Date();
+		if (timeStamp < 90000000000) {
+			date.setTime(timeStamp * 1000);
+		} else {
+			date.setTime(timeStamp);
+		}
+		var y = date.getFullYear();
+		var yString = y.toString();
+		var m = date.getMonth() + 1;
+		var mString = m < 10 ? ('0' + m) : m.toString();
+		var d = date.getDate();
+		var dString = d < 10 ? ('0' + d) : d.toString();
+		var h = date.getHours();
+		var hString = h < 10 ? ('0' + h) : h.toString();
+		var minute = date.getMinutes();
+		var minuteString = minute < 10 ? ('0' + minute) : minute.toString();
+		var second = date.getSeconds();
+		var secondString = second < 10 ? ('0' + second) : second.toString();
+		return [yString, mString, dString, hString, minuteString, secondString];
+	}
+	
+	// 字符串转时间戳
+	dateToTimeStamp(dateTime:string):number|null{
+		var reg = /^([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})$/;
+		var res = reg.exec(dateTime);
+		if(res == null){
+			return -999999;
+		}
+		return Date.parse(dateTime);
+	}
+	
+	// 时间戳转字符形式的日期时间
+	timeStampToDate(timer:number):string{
+		var arr = this.timeStampToDateArray(timer);
+		return arr[0]+'-'+arr[1]+'-'+arr[2]+' '+arr[3]+':'+arr[4]+':'+arr[5];
+	}
+	
+	// 根据时间戳计算多少分钟/小时/天之前
+	fromTime(time:number) :string {
+		if (time < 90000000000) {
+			time = time * 1000;
+		}
+		var timer = new Date().getTime() - time;
+		timer = Math.floor(timer / 1000);
+		if (timer < 180) {
+			return '刚刚';
+		} else if (timer >= 180 && timer < 3600) {
+			return Math.floor(timer / 60) + '分钟前';
+		} else if (timer >= 3600 && timer < 86400) {
+			return Math.floor(timer / 3600) + '小时前';
+		} else if (timer >= 86400 && timer < 2592000) {
+			return Math.floor(timer / 86400) + '天前';
+		} else {
+			return this.timeStampToDate(time);
+		}
+	}
+	
+}
+
+export default UXDatetime

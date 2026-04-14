@@ -1,0 +1,78 @@
+<template>
+	<scroll-view class="ux-page-color ux-flex1">
+		<view class="ux-body">
+			<text class="ux-h6 ux-color-grey ux-mt">颜色样式</text>
+			<view class="ux-mt-small">
+				<text class="ux-bg-black ux-color-white">.ux-bg/color-black</text>
+				<text
+				v-for="(item, index) in 3" 
+				:key="index" 
+				:class="['ux-bg-black'+item]" 
+				class="ux-color-white">.ux-bg/color-bg-black{{item}}</text>
+				
+				<text class="ux-bg-grey ux-color-white">.ux-bg/color-grey</text>
+				<text
+				v-for="(item, index) in 7" :key="index" 
+				:class="['ux-bg-grey'+item]" 
+				class="ux-color-white">.ux-bg/color-bg-grey{{item}}</text>
+				
+				<text class="ux-bg-red ux-color-white">.ux-bg/color-red</text>
+				<text
+				v-for="(item, index) in 3" :key="index" 
+				:class="['ux-bg-red'+item]" 
+				class="ux-color-white">.ux-bg/color-bg-red{{item}}</text>
+				
+				<text class="ux-bg-pink ux-color-white">.ux-bg/color-pink</text>
+				<text
+				v-for="(item, index) in 3" :key="index" 
+				:class="['ux-bg-pink'+item]" 
+				class="ux-color-white">.ux-bg/color-bg-pink{{item}}</text>
+				
+				<text class="ux-bg-orange ux-color-white">.ux-bg/color-orange</text>
+				<text
+				v-for="(item, index) in 3" :key="index" 
+				:class="['ux-bg-orange'+item]" 
+				class="ux-color-white">.ux-bg/color-bg-orange{{item}}</text>
+				
+				<text class="ux-bg-yellow ux-color-white">.ux-bg/color-yellow</text>
+				<text
+				v-for="(item, index) in 3" :key="index" 
+				:class="['ux-bg-yellow'+item]" 
+				class="ux-color-white">.ux-bg/color-bg-yellow{{item}}</text>
+				
+				<text class="ux-bg-green ux-color-white">.ux-bg/color-green</text>
+				<text
+				v-for="(item, index) in 7" :key="index" 
+				:class="['ux-bg-green'+item]" 
+				class="ux-color-white">.ux-bg/color-bg-green{{item}}</text>
+				
+				<text class="ux-bg-teal ux-color-white">.ux-bg/color-teal</text>
+				<text
+				v-for="(item, index) in 3" :key="index" 
+				:class="['ux-bg-teal'+item]" 
+				class="ux-color-white">.ux-bg/color-bg-teal{{item}}</text>
+				
+				<text class="ux-bg-blue ux-color-white">.ux-bg/color-bg-blue</text>
+				<text 
+				v-for="(item, index) in 7" :key="index" 
+				:class="['ux-bg-blue'+item]" 
+				class="ux-color-white">.ux-bg/color-bg-blue{{item}}</text>
+			</view>
+		</view>
+	</scroll-view>
+</template>
+<script lang="uts">
+export default {
+	data() {
+		return {
+			
+		}
+	},
+	methods: {
+		
+	}
+}
+</script>
+<style scoped>
+.ux-color-white{padding:8px;}
+</style>

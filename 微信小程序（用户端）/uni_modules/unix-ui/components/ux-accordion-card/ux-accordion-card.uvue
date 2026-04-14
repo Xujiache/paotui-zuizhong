@@ -1,0 +1,61 @@
+<template>
+	<view :style="styles">
+		<view 
+		hover-class="ux-tap" 
+		@tap="toggle">
+			<slot name="title"></slot>
+		</view>
+		<view v-if="show">
+			<slot name="body"></slot>
+		</view>
+	</view>
+</template>
+<script lang="uts">
+export default{
+	name  : "ux-accordion-card",
+	props : {
+		status      : {
+			type    : Boolean,
+			default : false
+		},
+		styles:{
+			type    : String,
+			default : ""
+		}
+	},
+	data() {
+		return {
+			show : false,
+			styleData : {}
+		}
+	},
+	mounted    : function(){
+		this.show = this.status;
+	},
+	watch      : {
+		status : function(val:boolean){
+			this.show = val;
+		}
+	},
+	methods    : {
+		toggle : function(){
+			if(this.show){
+				this.close();
+			}else{
+				this.open();
+			}
+		},
+		open   : function(){
+			this.show = true;
+			this.$emit('open');
+		},
+		close  : function () {
+			this.show = false;
+			this.$emit('close');
+		}
+	},
+	emits : ['open', 'close']
+}
+</script>
+<style scoped>
+</style>

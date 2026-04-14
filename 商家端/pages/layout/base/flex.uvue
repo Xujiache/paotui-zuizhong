@@ -1,0 +1,56 @@
+<template>
+	<scroll-view class="ux-body ux-page-color ux-flex1">
+		<text class="ux-h6 ux-color-grey ux-mt">横向压缩</text>
+		<view class="ux-flex ux-row ux-nowrap demo-mt">
+			<text class="demo ux-flex-shrink1"></text>
+			<text class="demo ux-flex-shrink1"></text>
+			<text class="demo ux-flex-shrink1"></text>
+			<text class="demo ux-flex-shrink1"></text>
+			<text class="demo"></text>
+		</view>
+		<text class="ux-h6 ux-color-grey ux-mt">横向换行</text>
+		<view class="ux-flex ux-row ux-wrap demo-mt">
+			<text class="demo"></text>
+			<text class="demo"></text>
+			<text class="demo"></text>
+			<text class="demo"></text>
+			<text class="demo"></text>
+		</view>
+		<text class="ux-h6 ux-color-grey ux-mt">横向占满</text>
+		<view class="ux-flex ux-row demo-mt">
+			<text class="demo"></text>
+			<text class="demo ux-flex1">.ux-flex1</text>
+		</view>
+		<text class="ux-h6 ux-color-grey ux-mt">横向两端</text>
+		<view class="ux-flex ux-row ux-space-between ux-align-items-center demo-mt">
+			<text class="demo" style="height:100rpx;"></text>
+			<text class="demo"></text>
+		</view>
+		<text class="ux-h6 ux-color-grey ux-mt">横向结束端对齐</text>
+		<view class="ux-flex ux-row ux-justify-content-end demo-mt">
+			<text class="demo"></text>
+			<text class="demo"></text>
+		</view>
+		<text class="ux-h6 ux-color-grey ux-mt">竖向布局</text>
+		<view class="ux-flex ux-column demo-mt">
+			<text class="demo"></text>
+			<text class="demo"></text>
+		</view>
+	</scroll-view>
+</template>
+<script lang="uts">
+export default {
+	data() {
+		return {
+			
+		}
+	},
+	methods: {
+		
+	}
+}
+</script>
+<style scoped>
+.demo-mt{margin-top:18rpx;}
+.demo{width:210rpx; height:80rpx; background:#EFF1F6; line-height:80rpx; font-size:22rpx; text-align:center; margin:6rpx 10rpx 6px 0;}
+</style>

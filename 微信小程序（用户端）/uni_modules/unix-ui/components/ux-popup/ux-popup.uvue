@@ -1,0 +1,145 @@
+<template>
+	<view>
+		<view 
+		class="ux-popup ux-flex ux-column" 
+		:class="[
+			position == 'center' ? 'ux-justify-content-center' : '',
+			position == 'center' ? 'ux-align-items-center' : '',
+			position == 'bottom' ? 'ux-justify-content-end' : '',
+			position == 'left' ? 'ux-align-items-start' : '',
+			position == 'right' ? 'ux-align-items-end' : '',
+			show ? 'ux-popup-show' : '' 
+		]"
+		@tap.stop="closebysd" 
+		:style="{
+			backgroundColor:bgColor, 
+			zIndex:zIndex, 
+			top:top+'px',
+		}">
+			<view 
+			class="ux-popup-content" 
+			:style="{with:width}" 
+			:class="[
+				position == 'center' ? 'ux-popup-content-center' : '', 
+				contentShow && position == 'center' ? 'ux-popup-content-center-show' : '',
+				position == 'top' ? 'ux-popup-content-top' : '',
+				contentShow && position == 'top' ? 'ux-popup-content-top-show' : '',
+				position == 'bottom' ? 'ux-popup-content-bottom' : '',
+				contentShow && position == 'bottom' ? 'ux-popup-content-bottom-show' : '',
+				position == 'left' || position == 'right' ? 'ux-flex' : '',
+				position == 'left' || position == 'right' ? 'ux-column' : '',
+				position == 'left' || position == 'right' ? 'ux-flex1' : '',
+				position == 'left' ? 'ux-popup-content-left' : '',
+				contentShow && position == 'left' ? 'ux-popup-content-left-show' : '',
+				position == 'right' ? 'ux-popup-content-right' : '',
+				contentShow && position == 'right' ? 'ux-popup-content-right-show' : '',
+			]" @tap.stop="stopfun">
+				<slot></slot>
+			</view>
+		</view>
+	</view>
+</template>
+<script lang="uts">
+export default{
+	props : {
+		bgColor         : { type : String,  default : 'rgba(0, 0, 0, 0.5)'},
+		position        : { type : String,  default : 'center'},
+		width           : { type : String,  default : '580rpx'},
+		canCloseByShade : { type : Boolean, default : true },
+		zIndex          : { type : Number,  default : 999},
+		top             : { type : Number,  default : 0},
+		isSwitchPage    : { type : Boolean, default : false}
+	},
+	data(){
+		return {
+			show : false as boolean,
+			contentShow : false as boolean,
+			uxuiPopup : null as Element | null,
+		}
+	},
+	methods:{
+		open    : function(){
+			this.show = true;
+			setTimeout(()=>{this.contentShow = true;}, 50);
+			this.$emit("open");
+		},
+		closebysd : function () {
+			if(this.canCloseByShade){this.close();}
+		},
+		close   : function(){
+			this.show = false;
+			setTimeout(()=>{this.contentShow = false;}, 50);
+			this.$emit("close");
+		},
+		stopfun : function(){return;}, 
+	},
+	emits : ['close', 'open']
+}
+</script>
+<style scoped>
+/* 遮罩层 */
+.ux-popup{
+	width:750rpx; 
+	position:fixed; 
+	z-index:999; 
+	left:-5000rpx; 
+	top:0; 
+	bottom: 0;
+	opacity:0;
+}
+.ux-popup-show{
+	left: 0;
+	opacity:1;
+}
+.ux-popup-content{overflow:hidden;}
+.ux-popup-content-center{
+	transform: scale(0.1, 0.1);
+	transition-property:transform;
+	transition-duration:10ms;
+}
+.ux-popup-content-center-show{
+	transform: scale(1,1);
+	transition-property:transform;
+	transition-duration:100ms;
+}
+.ux-popup-content-top{
+	transform:translateY(-3000rpx);
+	transition-property:transform;
+	transition-duration:10ms;
+}
+.ux-popup-content-top-show{
+	transform:translateY(0rpx);
+	transition-property:transform;
+	transition-duration:100ms;
+}
+.ux-popup-content-bottom{
+	transform:translateY(3000rpx);
+	transition-property:transform;
+	transition-duration:10ms;
+}
+.ux-popup-content-bottom-show{
+	transform:translateY(0rpx);
+	transition-property:transform;
+	transition-duration:100ms;
+}
+.ux-popup-content-left{
+	transform:translateX(-1000rpx);
+	transition-property:transform;
+	transition-duration:10ms;
+}
+.ux-popup-content-left-show{
+	transform:translateX(0rpx);
+	transition-property:transform;
+	transition-duration:100ms;
+}
+.ux-popup-content-right{
+	transform:translateX(1000rpx);
+	transition-property:transform;
+	transition-duration:10ms;
+}
+.ux-popup-content-right-show{
+	transform:translateX(0rpx);
+	transition-property:transform;
+	transition-duration:100ms;
+}
+</style>

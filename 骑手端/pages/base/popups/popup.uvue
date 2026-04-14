@@ -1,0 +1,232 @@
+<template>
+	<scroll-view class="ux-body ux-page-color ux-flex1">
+		<text class="ux-h6 ux-color-grey ux-mt">弹层组件演示</text>
+		<view 
+		class="ux-bg-white ux-mt">
+			<view 
+			class="ux-list-items" 
+			@tap="open1">
+				<view 
+				class="ux-list-body ux-border-b" 
+				hover-class="ux-tap">
+					<view 
+					class="ux-list-title">
+						<text 
+						class="ux-list-title-text ux-list-one-line ux-primary-text">居中弹出</text>
+					</view>
+				</view>
+				<text 
+				class="ux-list-arrow-right ux-icons ux-color-gray">{{"\ue601"}}</text>
+			</view>
+			<view
+			class="ux-list-items" 
+			@tap="open2">
+				<view 
+				class="ux-list-body ux-border-b" 
+				hover-class="ux-tap">
+					<view 
+					class="ux-list-title">
+						<text 
+						class="ux-list-title-text ux-list-one-line ux-primary-text">顶部弹出</text>
+					</view>
+				</view>
+				<text 
+				class="ux-list-arrow-right ux-icons ux-color-gray">{{"\ue601"}}</text>
+			</view>
+			<view
+			class="ux-list-items" 
+			@tap="open3">
+				<view 
+				class="ux-list-body ux-border-b" 
+				hover-class="ux-tap">
+					<view 
+					class="ux-list-title">
+						<text 
+						class="ux-list-title-text ux-list-one-line ux-primary-text">底部弹出</text>
+					</view>
+				</view>
+				<text 
+				class="ux-list-arrow-right ux-icons ux-color-gray">{{"\ue601"}}</text>
+			</view>
+			<view
+			class="ux-list-items" 
+			@tap="open4">
+				<view 
+				class="ux-list-body ux-border-b" 
+				hover-class="ux-tap">
+					<view 
+					class="ux-list-title">
+						<text 
+						class="ux-list-title-text ux-list-one-line ux-primary-text">左侧弹出</text>
+					</view>
+				</view>
+				<text 
+				class="ux-list-arrow-right ux-icons ux-color-gray">{{"\ue601"}}</text>
+			</view>
+			<view
+			class="ux-list-items" 
+			@tap="open5">
+				<view 
+				class="ux-list-body ux-border-b" 
+				hover-class="ux-tap">
+					<view 
+					class="ux-list-title">
+						<text 
+						class="ux-list-title-text ux-list-one-line ux-primary-text">右侧弹出</text>
+					</view>
+				</view>
+				<text 
+				class="ux-list-arrow-right ux-icons ux-color-gray">{{"\ue601"}}</text>
+			</view>
+		</view>
+		
+		<!-- 居中弹出 -->
+		<ux-popup 
+		ref="popup1" 
+		width="580rpx">
+			<view 
+			class="ux-relative">
+				<image 
+				style="width:580rpx;" 
+				mode="widthFix" 
+				src="https://img1.baidu.com/it/u=4004488573,395462305&fm=253&fmt=auto&app=138&f=JPEG?w=500&h=749"></image>
+				<!-- 关闭按钮 -->
+				<text 
+				class="demo-close ux-icons ux-color-white ux-absolute ux-top ux-right" 
+				@tap="close1">{{"\ue78a"}}</text>
+			</view>
+		</ux-popup>
+		
+		<!-- 顶部弹出 -->
+		<ux-popup 
+		position="top" 
+		width="750rpx" 
+		ref="popup2">
+			<view 
+			class="ux-relative">
+				<image 
+				style="width:750rpx;" 
+				mode="widthFix" 
+				src="https://img0.baidu.com/it/u=781839341,2633324180&fm=253&fmt=auto&app=120&f=JPEG?w=1140&h=641"></image>
+				<!-- 关闭按钮 -->
+				<text 
+				class="demo-close ux-icons ux-color-white ux-absolute ux-top ux-right" 
+				@tap="close2">{{"\ue78a"}}</text>
+			</view>
+		</ux-popup>
+		
+		<!-- 底部弹出 -->
+		<ux-popup 
+		position="bottom" 
+		width="750rpx" 
+		ref="popup3">
+			<view 
+			class="ux-relative">
+				<image 
+				style="width:750rpx;" 
+				mode="widthFix" 
+				src="https://img0.baidu.com/it/u=781839341,2633324180&fm=253&fmt=auto&app=120&f=JPEG?w=1140&h=641"></image>
+				<!-- 关闭按钮 -->
+				<text 
+				class="demo-close ux-icons ux-color-white ux-absolute ux-top ux-right" 
+				@tap="close3">{{"\ue78a"}}</text>
+			</view>
+		</ux-popup>
+		
+		<!-- 左侧弹出 -->
+		<ux-popup 
+		position="left" 
+		width="320rpx" 
+		ref="popup4">
+			<!-- 如果项目非常多，可以使用竖向滚动区域来实现 -->
+			<scroll-view 
+			direction="vertical" 
+			class="ux-relative ux-bg-white demo-lr">
+				<!-- 自定义DOM -->
+				<text 
+				class="demo-lr-items" 
+				v-for="(item, idx) in 30" :key="idx">列表项目-{{item}}</text>
+			</scroll-view>
+		</ux-popup>
+		
+		<!-- 右侧弹出 -->
+		<ux-popup 
+		position="right" 
+		width="320rpx" 
+		ref="popup5" 
+		@open="onOpen" 
+		@close="onClose">
+			<!-- 如果项目非常多，可以使用竖向滚动区域来实现 -->
+			<scroll-view 
+			class="ux-relative ux-bg-white demo-lr">
+				<!-- 自定义DOM -->
+				<text 
+				class="demo-lr-items" 
+				v-for="(item, idx) in 30" :key="idx">列表项目-{{item}}</text>
+			</scroll-view>
+		</ux-popup>
+	</scroll-view>
+</template>
+<script>
+export default {
+	data() {
+		return {
+			popupRef1 : null as UxPopupComponentPublicInstance | null,
+			popupRef2 : null as UxPopupComponentPublicInstance | null,
+			popupRef3 : null as UxPopupComponentPublicInstance | null,
+			popupRef4 : null as UxPopupComponentPublicInstance | null,
+			popupRef5 : null as UxPopupComponentPublicInstance | null,
+		}
+	},
+	onReady:function(){
+		this.popupRef1 = this.$refs['popup1'] as UxPopupComponentPublicInstance;
+		this.popupRef2 = this.$refs['popup2'] as UxPopupComponentPublicInstance;
+		this.popupRef3 = this.$refs['popup3'] as UxPopupComponentPublicInstance;
+		this.popupRef4 = this.$refs['popup4'] as UxPopupComponentPublicInstance;
+		this.popupRef5 = this.$refs['popup5'] as UxPopupComponentPublicInstance;
+	},
+	methods: {
+		open1  : function () {
+			this.popupRef1?.$callMethod("open");
+		},
+		close1 : function () {
+			this.popupRef1?.$callMethod("close");
+		},
+		open2  : function () {
+			this.popupRef2?.$callMethod("open");
+		},
+		close2 : function () {
+			this.popupRef2?.$callMethod("close");
+		},
+		open3  : function () {
+			this.popupRef3?.$callMethod("open");
+		},
+		close3 : function () {
+			this.popupRef3?.$callMethod("close");
+		},
+		open4  : function () {
+			this.popupRef4?.$callMethod("open");
+		},
+		close4 : function () {
+			this.popupRef4?.$callMethod("close");
+		},
+		open5  : function () {
+			this.popupRef5?.$callMethod("open");
+		},
+		close5 : function () {
+			this.popupRef5?.$callMethod("close");
+		},
+		onOpen : function(){
+			console.log("open");
+		},
+		onClose : function(){
+			console.log("close");
+		}
+	}
+}
+</script>
+<style scoped>
+.demo-close{width:100rpx; height:100rpx; line-height:100rpx; opacity:0.88; text-align:center; font-size:50rpx;}
+.demo-lr{flex:1; height:200rpx; width:320rpx;}
+.demo-lr-items{height:90rpx; line-height:90rpx; font-size:28rpx; text-align:center; overflow:hidden;}
+</style>

@@ -1,0 +1,118 @@
+<template>
+	<view 
+	class="ux-flex ux-row ux-nowrap ux-justify-content-center" 
+	:class="customClass" 
+	:style="customStyle">
+		<text 
+		v-for="(item, index) in itemsIn" 
+		class="ux-segmented-control-item" 
+		:key="index" 
+		:style="{
+			color : currentIn == index ? activeColor : itemColor,
+			backgroundColor : currentIn == index ? activeBGColor : 'transparent',
+			borderRadius:borderRadius
+		}"
+		@tap="changeSC(index)">{{item.label}}</text>
+	</view>
+</template>
+<script lang="uts">
+class UXSegmentedControlItem  {
+	label:string;
+	checked:number;
+	constructor(label:string, checked:number){
+		this.label = label;
+		this.checked = checked;
+	}
+}
+export default{
+	name   : "ux-segmented-control", 
+	props  : {
+		// 自定义行内样式
+		customStyle  : {
+			type     : String,
+			default  : ''
+		},
+		// 自定义样式
+		customClass  : {
+			type : Array as PropType<Array<string>>,
+			default  : function():string[]{
+				return ['ux-bg-white', 'ux-padding-small'] as string[];
+			}
+		},
+		items        : {
+			type : Array as PropType<Array<string>>,
+			default  : function():string[]{
+				return [] as string[];
+			}
+		},
+		itemClass    : {
+			type : Array as PropType<Array<string>>,
+			default  : function():string[]{
+				return ['ux-text'] as string[];
+			}
+		},
+		itemColor : {
+			type     : String,
+			default  : '#353535'
+		},
+		activeColor  : {
+			type     : String,
+			default  : '#FFFFFF'
+		},
+		activeBGColor  : {
+			type     : String,
+			default  : '#3688FF'
+		},
+		current      : { 
+			type     : Number, 
+			default  : 0
+		},
+		borderRadius : {
+			type     : String, 
+			default  : '6rpx'
+		}
+	},
+	data(){
+		return {
+			currentIn: 0,
+			itemsIn : [] as UXSegmentedControlItem[]
+		}
+	},
+	mounted : function(){
+		this.currentIn = this.current;
+		this.initItems();
+	},
+	watch   : {
+		current : function (val:number) {
+			this.currentIn = val;
+		},
+		currentIn : function () {
+			// this.initItems()
+		}
+	},
+	methods : {
+		changeSC  : function (index:number){
+			this.currentIn = index;
+			this.$emit('change', index);
+		},
+		initItems : function (){
+			var newItems = new Array<UXSegmentedControlItem>();
+			for(var i = 0; i < this.items.length; i++){
+				if(i == this.currentIn){
+					newItems.push(new UXSegmentedControlItem(this.items[i] as string, 1));
+				}else{
+					newItems.push(new UXSegmentedControlItem(this.items[i] as string, 0));
+				}
+			}
+			this.itemsIn = [];
+			this.$nextTick(()=>{
+				this.itemsIn = newItems as Array<UXSegmentedControlItem>;
+			})
+		}
+	},
+	emits : ['change']
+}
+</script>
+<style scoped>
+.ux-segmented-control-item{width:100rpx; border-radius:6rpx; height:68rpx; line-height:68rpx; flex:1; text-align:center; overflow:hidden;}
+</style>

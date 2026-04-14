@@ -1,0 +1,43 @@
+# 依赖
+**/node_modules/
+
+# 构建产物
+**/dist/
+**/dist-ssr/
+**/unpackage/
+**/.output/
+
+# 环境变量与密钥（勿提交）
+.env
+.env.*
+!.env.example
+
+# 日志
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 编辑器与系统
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# 测试与覆盖率
+coverage/
+.nyc_output/
+
+# 临时文件
+*.tmp
+*.temp
+.cache/
+
+# 可选：本地 MCP / 工具缓存（按需取消注释）
+# .cursor/

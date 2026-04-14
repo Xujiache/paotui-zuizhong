@@ -1,0 +1,96 @@
+<template>
+	<view 
+	class="ux-img" 
+	:class="[bgClass]" 
+	:style="{
+		width:width+'rpx', 
+		height:height == 0 ? imgHeight+'rpx' : height+'rpx',
+		borderRadius:borderRadius
+	}">
+		<image 
+		:src="src" 
+		@load="imgLoad" 
+		@error="error" 
+		:mode="mode" 
+		:style="{
+			width:width+'rpx', 
+			height:imgHeight+'rpx', 
+			borderRadius:borderRadius, 
+			opacity:opacity,
+			padding:padding
+		}"></image>
+		<text 
+		class="ux-img-loading ux-icon ux-color-grey4" 
+		v-if="isLoading" 
+		:style="{
+			width:width+'rpx', 
+			height:height == 0 ? imgHeight+'rpx' : height+'rpx', 
+			lineHeight:height == 0 ? imgHeight+'rpx' : height+'rpx', 
+			borderRadius:borderRadius, 
+			fontSize:iconSize}">{{'\ue63a'}}</text>
+		<text 
+		class="ux-img-loading ux-icon ux-color-grey4" 
+		v-if="failed"
+		:style="{
+			width:width+'rpx', 
+			height:height == 0 ? imgHeight+'rpx' : height+'rpx', 
+			lineHeight:height == 0 ? imgHeight+'rpx' : height+'rpx', 
+			borderRadius:borderRadius, 
+			fontSize:iconSize}">{{'\ue65b'}}</text>
+	</view>
+</template>
+<script lang="uts">
+export default{
+	name  : "ux-image",
+	props : {
+		src          : {type:String, default:''},
+		width        : {type:Number, default:400},
+		height       : {type:Number, default:0},
+		timer        : {type:Number, default:100},
+		borderRadius : {type:String, default:'0rpx'},
+		mode         : {type:String, default:'aspectFill'},
+		bgClass      : {type:String, default:'ux-bg-grey6'},
+		padding      : {type:String, default:'0rpx'},
+		iconSize     : {type:String, default:'50rpx'},
+	},
+	data() {
+		return {
+			isLoading : true,
+			imgHeight : 180,
+			opacity   : 0,
+			failed    : false
+		}
+	},
+	methods:{
+		imgLoad : function (e:ImageLoadEvent) {
+			
+			// #ifdef APP-ANDROID
+			let width = e.detail.width.toDouble();
+			let height = e.detail.height.toDouble();
+			// #endif
+			// #ifndef APP-ANDROID
+			let width = e.detail.width;
+			let height = e.detail.height;
+			// #endif
+			let scale      = width/height;
+			if(this.mode == "widthFix"){
+				this.imgHeight = this.width / scale;
+			}else{
+				this.imgHeight = this.height;
+			}
+			setTimeout(() => {
+				this.isLoading = false; 
+				this.opacity = 1;
+			}, this.timer);
+		},
+		error : function(){
+			this.isLoading = false;
+			this.failed    = true;
+		}
+	}
+}
+</script>
+<style scoped>
+.ux-img{width:300rpx; height:300rpx; overflow:hidden; position:relative;}
+.ux-img-loading{position:absolute; left:0; top:0; text-align:center;}
+</style>

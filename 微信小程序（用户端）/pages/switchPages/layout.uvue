@@ -1,0 +1,177 @@
+<template>
+	<view class="ux-column ux-page-color ux-flex1">
+		<ux-status-bar 
+		background="rgba(0,0,255,0.35)"></ux-status-bar>
+		<view class="ux-body ux-mt-large">
+			<demo-logo title="布局"></demo-logo>
+		</view>
+		<scroll-view 
+		class="ux-flex1 ux-body ux-mt-large">
+			<view class="ux-mb"
+			v-for="(item, idx) in demoPages"
+			:key="idx" >
+				<ux-accordion-card 
+				styles="background:#FFFFFF; border-radius:10rpx;" 
+				:status="currentIndex == idx" 
+				@open="open(idx)" 
+				@close="close">
+					<template v-slot:title>
+						<view 
+						class="ux-accordion-title ux-row ux-nowrap ux-align-items-center ux-space-between">
+							<text 
+							:class="[currentIndex == idx ? 'ux-primary-color' : 'ux-color-black2']" 
+							class="ux-h4">{{item.title}}</text>
+							<text 
+							:class="[currentIndex == idx ? 'ux-primary-color' : 'ux-color-grey']" 
+							class="ux-accordion-icon ux-icon">{{item.icon}}</text>
+						</view>
+					</template>
+					<template v-slot:body>
+						<view 
+						v-for="(page, index) in item.subPages" 
+						:key="index" 
+						:class="index < (item.subPages.length - 1) ? 'ux-border-b' : ''" 
+						class="ux-accordion-item ux-nowrap ux-space-between ux-align-items-center" 
+						hover-class="ux-tap" 
+						@tap="goto(page.path)">
+							<text 
+							class="ux-secondary-text ux-text">{{page.title}}</text>
+							<text class="ux-color-grey ux-text ux-icon">{{"\ue601"}}</text>
+						</view>
+					</template>
+				</ux-accordion-card>
+			</view>
+		</scroll-view>
+	</view>
+</template>
+<script lang="uts">
+import { UXUIDemoPage,  UXUIDemoSubPage} from "@/pages/data/uxuiDemo.uts";
+export default {
+	data() {
+		return {
+			currentIndex : 0,
+			demoPages:[
+				new UXUIDemoPage(
+					"布局样式",
+					"\ue652",
+					[
+						new UXUIDemoSubPage(
+							"Flex 布局", 
+							"/pages/layout/base/flex"
+						),
+						new UXUIDemoSubPage(
+							"定位布局", 
+							"/pages/layout/base/position"
+						),
+						new UXUIDemoSubPage(
+							"通用列表", 
+							"/pages/layout/common/list"
+						),
+						new UXUIDemoSubPage(
+							"卡片列表", 
+							"/pages/layout/common/cardList"
+						),
+						new UXUIDemoSubPage(
+							"宫格布局", 
+							"/pages/layout/common/grid"
+						),
+						new UXUIDemoSubPage(
+							"表格布局", 
+							"/pages/layout/common/table"
+						),
+						new UXUIDemoSubPage(
+							"滚动布局", 
+							"/pages/layout/common/scroll"
+						),
+						new UXUIDemoSubPage(
+							"横向公告", 
+							"/pages/layout/common/xBanner"
+						),
+					]
+				),
+				new UXUIDemoPage(
+					"导航布局",
+					"\ue655",
+					[
+						new UXUIDemoSubPage(
+							"自定义头部导航", 
+							"/pages/layout/navigation/header-bar"
+						),
+						new UXUIDemoSubPage(
+							"头部透明导航", 
+							"/pages/layout/navigation/transparent-header"
+						),
+						new UXUIDemoSubPage(
+							"自定义底部导航", 
+							"/pages/layout/navigation/footer-bar"
+						),
+					],
+				),
+				new UXUIDemoPage(
+					"刷新加载",
+					"\ue9db",
+					[
+						new UXUIDemoSubPage(
+							"下拉刷新", 
+							"/pages/layout/refreshAndLoadMore/refresh"
+						),
+						new UXUIDemoSubPage(
+							"加载更多", 
+							"/pages/layout/refreshAndLoadMore/loadmore"
+						),
+						new UXUIDemoSubPage(
+							"刷新 + 加载更多", 
+							"/pages/layout/refreshAndLoadMore/refreshAndLoadMore"
+						),
+						new UXUIDemoSubPage(
+							"全屏加载动画", 
+							"/pages/layout/refreshAndLoadMore/pageLoading"
+						)
+					],
+				),
+				new UXUIDemoPage(
+					"切换布局",
+					"\ue660",
+					[
+						new UXUIDemoSubPage(
+							"切换导航", 
+							"/pages/layout/switch/switchNavigation"
+						),
+						new UXUIDemoSubPage(
+							"折叠面板", 
+							"/pages/layout/switch/accordionCard"
+						),
+						new UXUIDemoSubPage(
+							"局部选项卡", 
+							"/pages/layout/switch/tab"
+						),
+						new UXUIDemoSubPage(
+							"全屏选项卡", 
+							"/pages/layout/switch/tabFullPage"
+						),
+						new UXUIDemoSubPage(
+							"分段切换", 
+							"/pages/layout/switch/segmentedControl"
+						),			
+					],
+				)
+			] as UXUIDemoPage[]
+		}
+	},
+	methods: {
+		open : function(index:number){
+			this.currentIndex = index;
+		},
+		close : function(){
+			this.currentIndex = -1
+		},
+		goto : function(path:string){
+			uni.navigateTo({
+				url:path
+			})
+		}
+	},
+}
+</script>
+<style scoped>
+</style>

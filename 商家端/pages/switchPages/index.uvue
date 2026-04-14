@@ -1,0 +1,211 @@
+<template>
+	<view class="ux-column ux-page-color ux-flex1">
+		<ux-status-bar 
+		background="rgba(0,0,255,0.35)"></ux-status-bar>
+		<view class="ux-body ux-mt-large">
+			<demo-logo title="基础"></demo-logo>
+		</view>
+		<scroll-view 
+		class="ux-flex1 ux-body ux-mt-large">
+			<view class="ux-mb" 
+			v-for="(item, idx) in demoPages"
+			:key="idx" >
+				<ux-accordion-card 
+				styles="background:#FFFFFF; border-radius:10rpx;" 
+				:status="currentIndex == idx" 
+				@open="open(idx)" 
+				@close="close">
+					<template v-slot:title>
+						<view 
+						class="ux-accordion-title ux-row ux-nowrap ux-align-items-center ux-space-between">
+							<text 
+							:class="[currentIndex == idx ? 'ux-primary-color' : 'ux-color-black2']" 
+							class="ux-h4">{{item.title}}</text>
+							<text 
+							:class="[currentIndex == idx ? 'ux-primary-color' : 'ux-color-grey']" 
+							class="ux-accordion-icon ux-icon">{{item.icon}}</text>
+						</view>
+					</template>
+					<template v-slot:body>
+						<view 
+						v-for="(page, index) in item.subPages" 
+						:key="index" 
+						:class="index < (item.subPages.length - 1) ? 'ux-border-b' : ''" 
+						class="ux-accordion-item ux-nowrap ux-space-between ux-align-items-center" 
+						hover-class="ux-tap" 
+						@tap="goto(page.path)">
+							<text 
+							class="ux-secondary-text ux-text">{{page.title}}</text>
+							<text class="ux-color-grey ux-text ux-icon">{{"\ue601"}}</text>
+						</view>
+					</template>
+				</ux-accordion-card>
+			</view>
+		</scroll-view>
+	</view>
+</template>
+<script lang="uts">
+import { UXUIDemoPage,  UXUIDemoSubPage} from "@/pages/data/uxuiDemo.uts";
+// #ifdef APP-HARMONY
+import {LoadFontCommon} from "@/uni_modules/unix-ui/fonts/loadFont.uts"
+// #endif
+export default {
+	data() {
+		return {
+			currentIndex : 0,
+			demoPages:[
+				new UXUIDemoPage(
+					"基础样式",
+					"\ue652",
+					[
+						new UXUIDemoSubPage(
+							"文本样式", 
+							"/pages/base/style/text"
+						),
+						new UXUIDemoSubPage(
+							"内置颜色", 
+							"/pages/base/style/color"
+						),
+						new UXUIDemoSubPage(
+							"框架图标", 
+							"/pages/base/style/icon"
+						),
+						new UXUIDemoSubPage(
+							"通用标题", 
+							"/pages/base/style/title"
+						),
+						new UXUIDemoSubPage(
+							"徽章角标", 
+							"/pages/base/style/badge"
+						),
+					]
+				),
+				new UXUIDemoPage(
+					"表单相关",
+					"\ue667",
+					[
+						new UXUIDemoSubPage(
+							"按钮样式", 
+							"/pages/base/form/button"
+						),
+						new UXUIDemoSubPage(
+							"表单布局", 
+							"/pages/base/form/layout"
+						),
+						new UXUIDemoSubPage(
+							"picker-view", 
+							"/pages/base/form/pickerView"
+						),
+						new UXUIDemoSubPage(
+							"表单验证", 
+							"/pages/base/form/checker"
+						),
+						new UXUIDemoSubPage(
+							"步进器", 
+							"/pages/base/form/stepBox"
+						),
+						new UXUIDemoSubPage(
+							"点选组件", 
+							"/pages/base/form/radio"
+						),
+						new UXUIDemoSubPage(
+							"城市选择", 
+							"/pages/base/form/chooseCity"
+						),
+					]
+				),
+				new UXUIDemoPage(
+					"内置组件",
+					"\ue665",
+					[
+						new UXUIDemoSubPage(
+							"图片组件", 
+							"/pages/components/image"
+						),
+						new UXUIDemoSubPage(
+							"星级组件", 
+							"/pages/components/star"
+						),
+						new UXUIDemoSubPage(
+							"倒计时组件", 
+							"/pages/components/countDown"
+						),
+						new UXUIDemoSubPage(
+							"数值动画", 
+							"/pages/components/numberAnimate"
+						),
+						new UXUIDemoSubPage(
+							"展示标签", 
+							"/pages/components/tag"
+						),
+						new UXUIDemoSubPage(
+							"功能标签", 
+							"/pages/components/stag"
+						),
+						new UXUIDemoSubPage(
+							"排序按钮", 
+							"/pages/components/orderTable"
+						),
+						new UXUIDemoSubPage(
+							"链接组件", 
+							"/pages/components/link"
+						),
+						new UXUIDemoSubPage(
+							"搜索组件", 
+							"/pages/components/searchBar"
+						),
+						new UXUIDemoSubPage(
+							"图片选择", 
+							"/pages/components/chooseImages"
+						),
+						new UXUIDemoSubPage(
+							"滚动公告", 
+							"/pages/components/speaker"
+						),
+					]
+				),
+				new UXUIDemoPage(
+					"对话弹窗",
+					"\ue668",
+					[
+						new UXUIDemoSubPage(
+							"遮罩弹层", 
+							"/pages/base/popups/popup"
+						),
+						new UXUIDemoSubPage(
+							"模态对话框", 
+							"/pages/base/popups/modal"
+						),
+						new UXUIDemoSubPage(
+							"底部操作表", 
+							"/pages/base/popups/actionSheet"
+						),
+					]
+				),
+				
+			] as UXUIDemoPage[]
+		}
+	},
+	methods: {
+		open : function(index:number){
+			this.currentIndex = index;
+		},
+		close : function(){
+			this.currentIndex = -1
+		},
+		goto : function(path:string){
+			uni.navigateTo({
+				url:path
+			})
+		}
+	},
+	mounted:function(){
+		// #ifdef APP-HARMONY
+		LoadFontCommon();
+		// #endif
+	}
+}
+</script>
+<style scoped>
+
+</style>

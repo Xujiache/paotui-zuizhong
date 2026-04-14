@@ -1,0 +1,64 @@
+{
+	"name": "uXui",
+	"appid": "",
+	"description": "",
+	"versionName": "1.1.0",
+	"versionCode": 2003110,
+	"uni-app-x": {
+		"singleThread": true
+	},
+	/* 小程序特有相关 */
+	"mp-weixin": {
+		"appid": "",
+		"setting": {
+			"urlCheck": false
+		},
+		"usingComponents": true
+	},
+	"mp-alipay": {
+		"usingComponents": true
+	},
+	"mp-baidu": {
+		"usingComponents": true
+	},
+	"mp-toutiao": {
+		"usingComponents": true
+	},
+	"uniStatistics": {
+		"enable": false
+	},
+	"vueVersion": "3",
+	"app": {
+		"distribute": {
+			"icons": {
+				"android": {
+					"hdpi": "unpackage/res/icons/72x72.png",
+					"xhdpi": "unpackage/res/icons/96x96.png",
+					"xxhdpi": "unpackage/res/icons/144x144.png",
+					"xxxhdpi": "unpackage/res/icons/192x192.png"
+				}
+			}
+		}
+	},
+	"app-android": {
+		"distribute": {
+			"modules": {},
+			"icons": {
+				"hdpi": "unpackage/res/icons/72x72.png",
+				"xhdpi": "unpackage/res/icons/96x96.png",
+				"xxhdpi": "unpackage/res/icons/144x144.png",
+				"xxxhdpi": "unpackage/res/icons/192x192.png"
+			},
+			"splashScreens": {
+				"default": {}
+			}
+		}
+	},
+	"app-ios": {
+		"distribute": {
+			"modules": {},
+			"icons": {},
+			"splashScreens": {}
+		}
+	}
+}

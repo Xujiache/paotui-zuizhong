@@ -1,0 +1,132 @@
+<template>
+	<view 
+	@tap="changeOrderBy" 
+	class="ux-flex ux-row ux-nowrap ux-align-items-center ux-justify-content-center">
+		<view>
+			<slot></slot>
+		</view>
+		<view 
+		v-if="orderByIn == 0" 
+		class="ux-order ux-flex ux-column">
+			<text 
+			class="ux-icons ux-order-icon" 
+			:style="{
+				width:(size+10)+'rpx', 
+				height:(size)+'rpx', 
+				lineHeight:(size)+'rpx', 
+				fontSize:fontSize+'rpx', 
+				color:color
+			}">{{"\ue647"}}</text>
+			<text 
+			class="ux-order-icon ux-icons" 
+			:style="{
+				width:(size+10)+'rpx', 
+				height:(size)+'rpx', 
+				lineHeight:(size)+'rpx', 
+				fontSize:fontSize+'rpx', 
+				color:color
+			}">{{"\ue661"}}</text>
+		</view>
+		<view 
+		v-if="orderByIn == 1" 
+		class="ux-order ux-flex ux-columns">
+			<text 
+			class="ux-icons ux-order-icon" 
+			:style="{
+				width:(size+10)+'rpx', 
+				height:(size)+'rpx', 
+				lineHeight:(size)+'rpx', 
+				fontSize:fontSize+'rpx', 
+				color:activeColor
+			}">{{"\ue647"}}</text>
+			<text 
+			class="ux-icons ux-order-icon" 
+			:style="{
+				width:(size+10)+'rpx', 
+				height:(size)+'rpx', 
+				lineHeight:(size)+'rpx', 
+				fontSize:fontSize+'rpx', 
+				color:color
+			}">{{"\ue661"}}</text>
+		</view>
+		<view 
+		v-if="orderByIn == 2" 
+		class="ux-order ux-flex ux-columns">
+			<text 
+			class="ux-icons ux-order-icon" 
+			:style="{
+				width:(size+10)+'rpx', 
+				height:(size)+'rpx', 
+				lineHeight:(size)+'rpx', 
+				fontSize:fontSize+'rpx', 
+				color:color
+			}">{{"\ue647"}}</text>
+			<text 
+			class="ux-icons ux-order-icon" 
+			:style="{
+				width:(size+10)+'rpx', 
+				height:(size)+'rpx', 
+				lineHeight:(size)+'rpx', 
+				fontSize:fontSize+'rpx', 
+				color:activeColor
+			}">{{"\ue661"}}</text>
+		</view>
+	</view>
+</template>
+<script lang="uts">
+export default{
+	name  : "ux-order",
+	props : {
+		size        : {type:Number, default:16},
+		fontSize    : {type:Number, default:36},
+		color       : {type:String, default:'rgba(0, 0, 0, 0.5)'},
+		activeColor : {type:String, default:'#FF0036'},
+		orderBy     : {type:Number, default:0},
+		limit       : {
+			type:Array<number>, 
+			default:function():number[]{
+				return Array<number>(1,2);
+			}
+		}
+	},
+	data() {
+		return {
+			orderByIn : 0 as number,
+			limitIn : [] as Array<number>
+		}
+	},
+	created:function(){
+		this.limitIn   = this.limit as Array<number>; 
+		this.orderByIn = this.orderBy;
+		this.init();
+	},
+	watch:{
+		limit : function(v:number[]){
+			this.limitIn = v;
+		},
+		orderBy : function(v:number){
+			this.orderByIn = v;
+			this.init();
+		}
+	},
+	methods:{
+		changeOrderBy:function(){
+			this.orderByIn++;
+			let limitIn = this.limit as Array<number>;
+			if(this.orderByIn > limitIn[1]){
+				this.orderByIn = limitIn[0];
+			}
+			this.$emit('change', this.orderByIn);
+		},
+		init:function(){
+			if(this.orderByIn < 0){this.orderByIn = 0;}
+			else if(this.orderByIn > 2){this.orderByIn = 2;}
+		}
+	},
+	emits : ['change']
+}
+</script>
+<style scoped>
+.ux-order{margin-left:10rpx;}
+.ux-order-icon{text-align:center; overflow:hidden;}
+</style>

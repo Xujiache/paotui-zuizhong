@@ -1,0 +1,41 @@
+<template>
+	<view>
+		<view class="ux-row">
+			<image 
+			mode="widthFix" 
+			class="ux-logo" 
+			src="/static/uxui/images/logo.png"></image>
+			<view>
+				<text 
+				class="title ux-color-grey1">{{title}}</text>
+			</view>
+		</view>
+		<view class="desc">
+			<text 
+			class="ux-text-small ux-third-text">uxui 一款基于 uni-app x 的 UI 框架</text>
+		</view>
+	</view>
+</template>
+<script lang="uts">
+export default {
+	props:{
+		title:{
+			type:String,
+			default:"1.0.1"
+		}
+	},
+	data() {
+		return {
+			
+		}
+	},
+	methods: {
+		
+	}
+}
+</script>
+<style scoped>
+.ux-logo{width:118rpx;}
+.title{font-size:30rpx; margin-left:16rpx; margin-top:6rpx;}
+.desc{margin-top:12rpx;}
+</style>

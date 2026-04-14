@@ -1,0 +1,57 @@
+<template>
+	<scroll-view class="ux-flex1 ux-page-color">
+		<text class="ux-h6 ux-color-grey ux-padding">横向滚动</text>
+		<view class="ux-bg-white ux-padding">
+			<scroll-view 
+			class="ux-scroll-x" 
+			:show-scrollbar="false" 
+			direction="horizontal" 
+			:scroll-left="120">
+				<view 
+				class="scroll-x-items" 
+				v-for="item in 6" 
+				:key="item">
+					<image class="scroll-x-image" 
+					mode="aspectFill" 
+					:src="img"></image>
+				</view>
+			</scroll-view>
+		</view>
+		<text class="ux-h6 ux-color-grey ux-padding">竖向滚动</text>
+		<view class="ux-bg-white ux-padding">
+			<scroll-view 
+			:show-scrollbar="false" 
+			:rebound="false" 
+			:scroll-y="true" 
+			style="height:300rpx;">
+				<view 
+				class="scroll-y-items" 
+				v-for="item in 6" 
+				:key="item">
+					<image class="scroll-y-image" 
+					mode="aspectFill" 
+					:src="img"></image>
+				</view>
+			</scroll-view>
+		</view>
+	</scroll-view>
+</template>
+<script>
+export default {
+	data() {
+		return {
+			img : "https://img1.baidu.com/it/u=3515163383,4118478370&fm=253&fmt=auto&app=120&f=JPEG?w=1280&h=800"
+		}
+	},
+	methods: {
+		
+	}
+}
+</script>
+
+<style scoped>
+.scroll-x-items{width:350rpx; margin-right:18rpx;}
+.scroll-x-image{width:350rpx; height:180rpx;}
+.scroll-y-items{margin-bottom:18rpx;}
+.scroll-y-image{width:690rpx; height:280rpx;}
+</style>

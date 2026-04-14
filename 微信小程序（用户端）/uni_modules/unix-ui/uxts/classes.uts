@@ -1,0 +1,31 @@
+// 滚动公告项目数据结构
+export type UXSpeakerItem = {
+	title:string
+	path:string
+	openType:string
+}
+
+// 切换导航项目数据结构
+export class UXNavItem{
+	name:string=""
+	id:number=0
+	tips:number=0
+	viewId:string=""
+	constructor(id:number, name:string, tips:number){
+	    this.id = id;
+		this.name=name
+		this.tips = tips;
+	}
+} 
+
+// 功能标签项目数据结构
+export class UXStagData{
+	id:number=0
+	label:string=""
+	checked:boolean=false
+	constructor(id:number, label:string, checked:boolean){
+	    this.id = id;
+		this.label=label
+		this.checked = checked;
+	}
+}

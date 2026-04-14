@@ -1,0 +1,135 @@
+<template>
+	<view class="ux-flex ux-row ux-wrap">
+		<text 
+		v-if="type != 'remove'" 
+		v-for="(tag, idx) in tagsIn" 
+		:key="idx" 
+		:class="[width > 0 ? 'ux-ellipsis' : '']" 
+		:style="{
+			width:width < 1 ? '' : width+'rpx',
+			padding:padding,
+			margin:margin,
+			fontSize:size+'rpx',
+			borderRadius:borderRadius+'rpx',
+			color:tag.checked ? checkedColor : fontColor,
+			backgroundColor:tag.checked ? checkedBGColor : bgColor ,
+			textAlign:'center'
+		}" 
+		@tap="tapme(idx)">{{tag.label}}</text>
+		<view
+		class="ux-flex ux-row ux-space-between ux-align-items-center" 
+		v-for="(tag, idx) in tagsIn" 
+		:key="idx" 
+		:style="{
+			width:width == 0 ? '' : width+'rpx',
+			borderRadius:borderRadius+'rpx',
+			padding:padding,
+			margin:margin,
+			backgroundColor:tag.checked ? checkedBGColor : bgColor 
+		}" 
+		v-if="type == 'remove'" 
+		@tap="tapme(idx)">
+			<text 
+			:class="[width > 0 ? 'ux-ellipsis' : '']" 
+			:style="{
+				fontSize:size+'rpx',
+				color:tag.checked ? checkedColor : fontColor 
+			}">{{tag.label}}</text>
+			<text 
+			class="ux-icons ux-tags-remove-btn"
+			:style="{
+				fontSize:(size - 4)+'rpx',
+				color:tag.checked ? checkedColor : fontColor 
+			}">{{"\ue7a5"}}</text>
+		</view>
+	</view>
+</template>
+<script lang="uts">
+import {UXStagData} from "@/uni_modules/unix-ui/uxts/classes.uts"
+export default{
+	name  : "ux-stags", 
+	props : {
+		width        : {type:Number, default: 0},
+		size         : {type:Number, default: 26},
+		padding      : {type:String, default: '15rpx'},
+		margin       : {type:String, default: '0 15rpx 0 0'},
+		fontColor    : {type:String, default: '#666666'},
+		checkedColor : {type:String, default: '#FFFFFF'},
+		bgColor      : {type:String, default: '#F6F6F6'},
+		checkedBGColor : {type:String, default: '#3688FF'},
+		borderRadius : {type:Number, default: 6},
+		data         : {
+			type:Array as PropType<Array<any>>, 
+			default: function():any[]{
+				return new Array<any>();
+			}
+		},
+		tags         : {
+			type:Array as PropType<Array<UXStagData>>, 
+			default: function():UXStagData[]{
+				return new Array<UXStagData>();
+			}
+		},
+		type         : {type:String, default: 'radio'},
+	},
+	data() {
+		return {
+			tagsIn: new Array<UXStagData>()
+		}
+	},
+	mounted:function () {
+		this.tagsIn = this.tags as Array<UXStagData>;
+	},
+	watch:{
+		tags : function (val:Array<UXStagData>) {
+			this.tagsIn = val;
+		}
+	},
+	methods:{
+		tapme : function(idx:number){
+			var tagData = this.tagsIn;
+			if(this.type == "radio"){
+				if(tagData[idx].checked){
+					tagData[idx].checked  = false;
+					tagData.splice(idx,1, this.tagsIn[idx]);
+					this.$emit('change', -1, this.data);
+				}else{
+					for(var i = 0; i < this.tagsIn.length; i++){
+						tagData[i].checked  = false;
+					}
+					tagData[idx].checked  = true;
+					tagData.splice(idx, 1, tagData[idx]);
+					this.$emit('change', idx,  this.data);
+				}
+				this.tagsIn = new Array<UXStagData>();
+				this.tagsIn = tagData;
+			
+			}else if(this.type == "checkbox"){
+				var checkedIndexes:number[] = new Array<number>();
+				if(tagData[idx].checked){
+					tagData[idx].checked  = false;
+				}else{
+					tagData[idx].checked  = true;
+				}
+				for(var i = 0; i < tagData.length; i++){
+					if(tagData[i].checked){
+						checkedIndexes.push(i);
+					}
+				}
+				this.tagsIn = new Array<UXStagData>();
+				this.tagsIn = tagData;
+				this.$emit('change', checkedIndexes, this.data);
+			}else if(this.type == 'remove'){
+				tagData.splice(idx, 1);
+				this.tagsIn = new Array<UXStagData>();
+				this.tagsIn = tagData;
+				this.$emit('change', this.tagsIn, this.data);
+			}
+		}
+	},
+	emits : ['change']
+}
+</script>
+<style scoped>
+.ux-tags-remove-btn{margin-left:8rpx;}
+</style>

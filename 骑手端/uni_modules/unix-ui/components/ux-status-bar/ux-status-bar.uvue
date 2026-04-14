@@ -1,0 +1,33 @@
+<template>
+	<view 
+	:style="{height:height+'px', background:background}"></view>
+</template>
+<script lang="uts">
+export default {
+	name  : "ux-status-bar",
+	data() {
+		return {
+			height : -1,
+		}
+	},
+	props:{
+		background : {
+			type:String,
+			default:""
+		}
+	},
+	watch:{
+		height:function(val:number){
+			this.$emit("ready", val);
+		}
+	},
+	mounted:function(){
+		let windowsInfo = uni.getWindowInfo();
+		this.height = windowsInfo.statusBarHeight
+	},
+	methods: {},
+	emits:['ready']
+}
+</script>
+<style scoped>
+</style>
