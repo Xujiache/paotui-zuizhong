@@ -1,0 +1,29 @@
+import { get, post, ApiResponse } from './request'
+
+/**
+ * 可领取优惠券列表
+ */
+export const listAvailableCoupons = (params: UTSJSONObject): Promise<ApiResponse> => {
+  return get('/coupons/available', params)
+}
+
+/**
+ * 领取优惠券
+ */
+export const claimCoupon = (couponId: number): Promise<ApiResponse> => {
+  return post(`/coupons/${couponId}/claim`, null)
+}
+
+/**
+ * 我的优惠券
+ */
+export const listMyCoupons = (params: UTSJSONObject): Promise<ApiResponse> => {
+  return get('/user/coupons', params)
+}
+
+/**
+ * 下单可用的优惠券
+ */
+export const listApplicableCoupons = (storeId: number, orderAmount: number): Promise<ApiResponse> => {
+  return get('/user/coupons/applicable', { storeId: storeId, orderAmount: orderAmount } as UTSJSONObject)
+}

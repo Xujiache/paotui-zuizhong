@@ -1,0 +1,57 @@
+import { post, ApiResponse } from './request'
+
+/**
+ * 用户微信一键登录：传入 wx.login 拿到的 code
+ * 返回 { accessToken, refreshToken, expiresIn, isNewUser, hasPhone, userInfo }
+ */
+export const wxLogin = (code: string): Promise<ApiResponse> => {
+  return post('/auth/user/wx-login', { code: code } as UTSJSONObject, { hideErrorToast: true, noAuth: true } as UTSJSONObject)
+}
+
+/**
+ * 用户手机号 + 验证码登录（真正的手机号登录接口）
+ * 返回同 wxLogin
+ */
+export const phoneLogin = (phone: string, code: string): Promise<ApiResponse> => {
+  return post(
+    '/auth/user/phone-login',
+    { phone: phone, code: code } as UTSJSONObject,
+    { hideErrorToast: true, noAuth: true } as UTSJSONObject,
+  )
+}
+
+/**
+ * 用户侧发送验证码（区别于商家/骑手侧）
+ */
+export const sendUserSmsCode = (phone: string): Promise<ApiResponse> => {
+  return post(
+    '/auth/user/send-code',
+    { phone: phone, scene: 'LOGIN' } as UTSJSONObject,
+    { noAuth: true } as UTSJSONObject,
+  )
+}
+
+/**
+ * 已登录用户绑定手机号（微信登录后场景）
+ */
+export const bindPhone = (phone: string, code: string): Promise<ApiResponse> => {
+  return post('/auth/user/bind-phone', { phone: phone, code: code } as UTSJSONObject, { hideErrorToast: true } as UTSJSONObject)
+}
+
+/**
+ * 刷新 token
+ */
+export const refreshToken = (refreshToken: string): Promise<ApiResponse> => {
+  return post(
+    '/auth/refresh-token',
+    { refreshToken: refreshToken } as UTSJSONObject,
+    { noAuth: true, hideErrorToast: true } as UTSJSONObject,
+  )
+}
+
+/**
+ * 登出
+ */
+export const logout = (): Promise<ApiResponse> => {
+  return post('/auth/logout', null)
+}

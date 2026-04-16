@@ -1,0 +1,436 @@
+<template>
+  <view class="container">
+    <view class="tab-bar">
+      <scroll-view class="tab-scroll" scroll-x="true">
+        <view class="tabs-inner">
+          <view
+            v-for="t in tabs"
+            :key="t.value"
+            class="tab"
+            :class="{ active: activeTab == t.value }"
+            @click="switchTab(t.value)"
+          >
+            <text class="tab-text" :class="{ active: activeTab == t.value }">{{ t.label }}</text>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <scroll-view class="body" scroll-y="true" @scrolltolower="loadMore" refresher-enabled="true" :refresher-triggered="refreshing" @refresherrefresh="handleRefresh">
+      <view v-if="loading && list.length == 0" class="loading">
+        <text class="loading-text">加载中...</text>
+      </view>
+      <view v-else-if="list.length == 0" class="empty-wrap">
+        <EmptyState icon="📋" :text="emptyText" subText="继续逛逛发现更多" actionText="去首页" @action="goHome" />
+      </view>
+      <view v-else class="order-list">
+        <view v-for="o in list" :key="o.id" class="order-card" @click="goDetail(o)">
+          <view class="order-header">
+            <view class="row-left">
+              <view v-if="o.type == 'PRODUCT'" class="type-tag product"><text class="type-tag-text">商品</text></view>
+              <view v-else class="type-tag errand"><text class="type-tag-text">跑腿</text></view>
+              <text class="merchant-name">{{ o.title }}</text>
+            </view>
+            <text class="status">{{ o.statusText }}</text>
+          </view>
+          <text class="product-summary">{{ o.summary }}</text>
+          <view class="order-footer">
+            <text class="order-amount">¥{{ formatYuan(o.totalAmount) }}</text>
+            <view class="action-group">
+              <view
+                v-for="a in o.actions"
+                :key="a.type"
+                class="act-btn"
+                :class="{ primary: a.primary }"
+                @click.stop="handleAction(o, a)"
+              >
+                <text class="act-btn-text" :class="{ primary: a.primary }">{{ a.label }}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+        <LoadMore :status="loadMoreStatus" @retry="loadMore" />
+      </view>
+    </scroll-view>
+  </view>
+</template>
+
+<script lang="uts">
+  import { listOrders, cancelOrder, completeOrder } from '@/api/order'
+  import {
+    fen2yuan,
+    orderStatusText,
+    isPayPending,
+    isPaidAdvancing,
+    isDelivering,
+    isDelivered,
+    isCompleted,
+  } from '@/utils/format'
+  import { getString, removeStorage } from '@/utils/storage'
+  import EmptyState from '@/components/EmptyState.uvue'
+  import LoadMore from '@/components/LoadMore.uvue'
+
+  type TabItem = {
+    label: string
+    value: string
+  }
+
+  type ActionBtn = {
+    type: string
+    label: string
+    primary: boolean
+  }
+
+  type OrderItem = {
+    id: number
+    orderNo: string
+    type: string
+    title: string
+    summary: string
+    status: string
+    statusText: string
+    totalAmount: number
+    actions: ActionBtn[]
+  }
+
+  export default {
+    components: { EmptyState, LoadMore },
+    data() {
+      return {
+        tabs: [
+          { label: '全部', value: 'ALL' } as TabItem,
+          // tab 的 value 直接作为 status 查询参数透传后端，这里要用后端真实枚举 PENDING_PAYMENT
+          { label: '待支付', value: 'PENDING_PAYMENT' } as TabItem,
+          { label: '进行中', value: 'IN_PROGRESS' } as TabItem,
+          { label: '售后中', value: 'AFTERSALE' } as TabItem,
+          { label: '已完成', value: 'COMPLETED' } as TabItem,
+        ] as TabItem[],
+        activeTab: 'ALL',
+        list: [] as OrderItem[],
+        page: 1,
+        pageSize: 10,
+        total: 0,
+        loading: false,
+        refreshing: false,
+        loadMoreStatus: 'more',
+      }
+    },
+    computed: {
+      emptyText(): string {
+        if (this.activeTab == 'PENDING_PAYMENT') return '暂无待支付订单'
+        if (this.activeTab == 'IN_PROGRESS') return '暂无进行中订单'
+        if (this.activeTab == 'AFTERSALE') return '暂无售后订单'
+        if (this.activeTab == 'COMPLETED') return '暂无已完成订单'
+        return '暂无订单'
+      },
+    },
+    onShow() {
+      const pendingTab = getString('o2o_order_list_tab', '')
+      if (pendingTab != '') {
+        removeStorage('o2o_order_list_tab')
+        for (let i = 0; i < this.tabs.length; i++) {
+          if (this.tabs[i].value == pendingTab) {
+            this.activeTab = pendingTab
+            break
+          }
+        }
+      }
+      this.fetchList(true)
+    },
+    methods: {
+      async fetchList(reset: boolean) {
+        if (this.loading) return
+        this.loading = true
+        if (reset) {
+          this.page = 1
+          this.list = []
+        }
+        try {
+          const params: UTSJSONObject = {
+            page: this.page,
+            pageSize: this.pageSize,
+          } as UTSJSONObject
+          if (this.activeTab != 'ALL') {
+            params['status'] = this.activeTab
+          }
+          const res = await listOrders(params)
+          const data = res.data as UTSJSONObject
+          const rawList = (data['list'] as UTSJSONObject[]) ?? []
+          const items: OrderItem[] = []
+          for (let i = 0; i < rawList.length; i++) {
+            const it = rawList[i]
+            const type = (it['orderType'] as string) ?? 'PRODUCT'
+            const status = (it['status'] as string) ?? ''
+            items.push({
+              id: it['id'] as number,
+              orderNo: (it['orderNo'] as string) ?? '',
+              type: type,
+              title: this.buildTitle(type, it),
+              summary: this.buildSummary(type, it),
+              status: status,
+              statusText: orderStatusText(status),
+              totalAmount: (it['paidAmount'] as number) ?? (it['totalAmount'] as number) ?? 0,
+              actions: this.buildActions(type, status),
+            } as OrderItem)
+          }
+          this.list = reset ? items : this.list.concat(items)
+          const pag = data['pagination'] as UTSJSONObject
+          this.total = (pag['total'] as number) ?? items.length
+          if (this.list.length >= this.total) {
+            this.loadMoreStatus = 'nomore'
+          } else {
+            this.loadMoreStatus = 'more'
+            this.page++
+          }
+        } catch (e) {
+          this.loadMoreStatus = 'error'
+        } finally {
+          this.loading = false
+          this.refreshing = false
+        }
+      },
+      buildTitle(type: string, it: UTSJSONObject): string {
+        if (type == 'PRODUCT') return (it['storeName'] as string) ?? '商家订单'
+        const st = (it['serviceType'] as string) ?? ''
+        const map: Map<string, string> = new Map<string, string>([
+          ['DELIVER', '帮送'],
+          ['PICKUP', '帮取'],
+          ['BUY', '帮买'],
+          ['ERRAND', '代办'],
+        ])
+        return (map.get(st) ?? '跑腿') + '订单'
+      },
+      buildSummary(type: string, it: UTSJSONObject): string {
+        if (type == 'PRODUCT') {
+          const items = (it['items'] as UTSJSONObject[]) ?? []
+          if (items.length == 0) return '查看详情'
+          const first = (items[0]['productName'] as string) ?? ''
+          if (items.length == 1) return first
+          return `${first} 等${items.length}件商品`
+        }
+        const errand = it['errand'] as UTSJSONObject | null
+        if (errand != null) return (errand['itemDescription'] as string) ?? '跑腿服务'
+        return (it['userRemark'] as string) ?? '跑腿服务'
+      },
+      buildActions(type: string, status: string): ActionBtn[] {
+        const acts: ActionBtn[] = []
+        if (isPayPending(status)) {
+          acts.push({ type: 'cancel', label: '取消', primary: false } as ActionBtn)
+          acts.push({ type: 'pay', label: '去支付', primary: true } as ActionBtn)
+        } else if (isPaidAdvancing(status)) {
+          acts.push({ type: 'cancel', label: '取消订单', primary: false } as ActionBtn)
+        } else if (isDelivering(status)) {
+          acts.push({ type: 'track', label: '查看追踪', primary: true } as ActionBtn)
+        } else if (isDelivered(status)) {
+          acts.push({ type: 'complete', label: '确认收货', primary: true } as ActionBtn)
+        } else if (isCompleted(status)) {
+          acts.push({ type: 'refund', label: '申请售后', primary: false } as ActionBtn)
+          acts.push({ type: 'review', label: '评价', primary: true } as ActionBtn)
+        }
+        return acts
+      },
+      switchTab(v: string) {
+        if (this.activeTab == v) return
+        this.activeTab = v
+        this.fetchList(true)
+      },
+      handleRefresh() {
+        this.refreshing = true
+        this.fetchList(true)
+      },
+      loadMore() {
+        if (this.loadMoreStatus != 'more') return
+        this.fetchList(false)
+      },
+      goDetail(o: OrderItem) {
+        if (o.type == 'ERRAND') {
+          uni.navigateTo({ url: `/pages/errand/track?id=${o.id}` })
+        } else {
+          uni.navigateTo({ url: `/pages/order/detail?id=${o.id}` })
+        }
+      },
+      goHome() {
+        uni.switchTab({ url: '/pages/index/index' })
+      },
+      async handleAction(o: OrderItem, a: ActionBtn) {
+        if (a.type == 'pay') {
+          uni.navigateTo({
+            url: `/pages/pay/index?orderId=${o.id}&orderNo=${o.orderNo}&payAmount=${o.totalAmount}&orderType=${o.type == 'ERRAND' ? 'errand' : 'product'}`,
+          })
+        } else if (a.type == 'cancel') {
+          uni.showModal({
+            title: '提示',
+            content: '确认取消订单？',
+            success: async (res) => {
+              if (res.confirm) {
+                try {
+                  await cancelOrder(o.id, '用户主动取消')
+                  uni.showToast({ title: '已取消', icon: 'success' })
+                  this.fetchList(true)
+                } catch (e) {
+                  console.error(e)
+                }
+              }
+            },
+          })
+        } else if (a.type == 'complete') {
+          try {
+            await completeOrder(o.id)
+            uni.showToast({ title: '已确认收货', icon: 'success' })
+            this.fetchList(true)
+          } catch (e) {
+            console.error(e)
+          }
+        } else if (a.type == 'refund') {
+          uni.navigateTo({ url: `/pages/order/aftersale?id=${o.id}&action=refund` })
+        } else if (a.type == 'review') {
+          uni.navigateTo({ url: `/pages/order/aftersale?id=${o.id}&action=review` })
+        } else if (a.type == 'track') {
+          this.goDetail(o)
+        }
+      },
+      formatYuan(fen: number): string {
+        return fen2yuan(fen)
+      },
+    },
+  }
+</script>
+
+<style lang="scss">
+  .container {
+    height: 100vh;
+    background-color: #f5f6f8;
+    display: flex;
+    flex-direction: column;
+  }
+  .tab-bar {
+    background-color: #fff;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .tab-scroll {
+    white-space: nowrap;
+  }
+  .tabs-inner {
+    display: flex;
+    flex-direction: row;
+    padding: 0 12rpx;
+  }
+  .tab {
+    padding: 24rpx 24rpx;
+    margin: 0 8rpx;
+    border-bottom: 4rpx solid transparent;
+  }
+  .tab.active {
+    border-bottom-color: #008AFF;
+  }
+  .tab-text {
+    color: #666;
+    font-size: 26rpx;
+  }
+  .tab-text.active {
+    color: #008AFF;
+    font-weight: 500;
+  }
+  .body {
+    flex: 1;
+    padding: 20rpx 24rpx;
+  }
+  .loading {
+    padding: 120rpx 0;
+    text-align: center;
+  }
+  .loading-text {
+    color: #999;
+  }
+  .empty-wrap {
+    padding: 120rpx 0;
+  }
+  .order-list {
+    padding-bottom: 40rpx;
+  }
+  .order-card {
+    background-color: #fff;
+    border-radius: 16rpx;
+    padding: 24rpx;
+    margin-bottom: 20rpx;
+  }
+  .order-header {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .row-left {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+  }
+  .type-tag {
+    padding: 4rpx 12rpx;
+    border-radius: 6rpx;
+    margin-right: 12rpx;
+  }
+  .type-tag.product {
+    background-color: #FFF0EA;
+  }
+  .type-tag.errand {
+    background-color: #E8F3FF;
+  }
+  .type-tag-text {
+    color: #FF6600;
+    font-size: 20rpx;
+  }
+  .type-tag.errand .type-tag-text {
+    color: #008AFF;
+  }
+  .merchant-name {
+    color: #333;
+    font-size: 28rpx;
+    font-weight: 500;
+  }
+  .status {
+    color: #FF6600;
+    font-size: 24rpx;
+  }
+  .product-summary {
+    margin-top: 16rpx;
+    color: #666;
+    font-size: 26rpx;
+    line-height: 38rpx;
+  }
+  .order-footer {
+    margin-top: 20rpx;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 16rpx;
+    border-top: 1px solid #f0f0f0;
+  }
+  .order-amount {
+    color: #333;
+    font-size: 28rpx;
+    font-weight: 500;
+  }
+  .action-group {
+    display: flex;
+    flex-direction: row;
+  }
+  .act-btn {
+    margin-left: 16rpx;
+    padding: 12rpx 24rpx;
+    border: 1px solid #ddd;
+    border-radius: 28rpx;
+  }
+  .act-btn.primary {
+    background-color: #008AFF;
+    border-color: #008AFF;
+  }
+  .act-btn-text {
+    color: #666;
+    font-size: 24rpx;
+  }
+  .act-btn-text.primary {
+    color: #fff;
+  }
+</style>

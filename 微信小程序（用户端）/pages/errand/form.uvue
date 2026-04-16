@@ -1,0 +1,545 @@
+<template>
+  <view class="container">
+    <scroll-view class="body" scroll-y="true">
+      <view class="type-header">
+        <text class="type-title">{{ typeTitle }}</text>
+        <text class="type-sub">{{ typeSub }}</text>
+      </view>
+
+      <view class="form-card">
+        <view class="form-item" @click="choosePickupAddress">
+          <view class="form-item-left">
+            <text class="form-icon pick">A</text>
+          </view>
+          <view class="form-item-main">
+            <text class="form-label">{{ pickupLabel }}</text>
+            <text v-if="pickupAddress == ''" class="form-placeholder">点击选择地址</text>
+            <text v-else class="form-value">{{ pickupAddress }}</text>
+            <text v-if="pickupContact != ''" class="form-sub">{{ pickupContact }} · {{ pickupPhone }}</text>
+          </view>
+          <text class="form-arrow">›</text>
+        </view>
+
+        <view v-if="showDelivery" class="form-item" @click="chooseDeliveryAddress">
+          <view class="form-item-left">
+            <text class="form-icon deliv">B</text>
+          </view>
+          <view class="form-item-main">
+            <text class="form-label">{{ deliveryLabel }}</text>
+            <text v-if="deliveryAddressId == 0" class="form-placeholder">点击选择地址</text>
+            <text v-else class="form-value">{{ deliveryAddressText }}</text>
+            <text v-if="deliveryContact != ''" class="form-sub">{{ deliveryContact }} · {{ deliveryPhone }}</text>
+          </view>
+          <text class="form-arrow">›</text>
+        </view>
+      </view>
+
+      <view class="form-card">
+        <view v-if="type == 'DELIVER'" class="form-field">
+          <text class="field-label">物品类型</text>
+          <view class="tag-row">
+            <view
+              v-for="t in itemTypes"
+              :key="t.value"
+              class="tag-chip"
+              :class="{ active: itemType == t.value }"
+              @click="itemType = t.value"
+            >
+              <text class="tag-chip-text" :class="{ active: itemType == t.value }">{{ t.label }}</text>
+            </view>
+          </view>
+        </view>
+
+        <view v-if="type == 'DELIVER'" class="form-field">
+          <text class="field-label">物品描述</text>
+          <input class="field-input" type="text" placeholder="例如：一份文件" v-model="itemDesc" maxlength="500" />
+        </view>
+
+        <view v-if="type == 'DELIVER'" class="form-field">
+          <text class="field-label">重量</text>
+          <view class="tag-row">
+            <view
+              v-for="w in weights"
+              :key="w.value"
+              class="tag-chip"
+              :class="{ active: itemWeight == w.value }"
+              @click="itemWeight = w.value"
+            >
+              <text class="tag-chip-text" :class="{ active: itemWeight == w.value }">{{ w.label }}</text>
+            </view>
+          </view>
+        </view>
+
+        <view v-if="type == 'PICKUP'" class="form-field">
+          <text class="field-label">取件说明</text>
+          <textarea class="field-textarea" placeholder="请填写取件地点、柜号等详细信息" v-model="pickupDesc" maxlength="500" />
+        </view>
+        <view v-if="type == 'PICKUP'" class="form-field">
+          <text class="field-label">取件码/验证码</text>
+          <input class="field-input" type="text" placeholder="选填，便于骑手取件" v-model="pickupCode" maxlength="32" />
+        </view>
+
+        <view v-if="type == 'BUY'" class="form-field">
+          <text class="field-label">商品名称</text>
+          <input class="field-input" type="text" placeholder="请输入商品名称" v-model="goodsName" maxlength="100" />
+        </view>
+        <view v-if="type == 'BUY'" class="form-field">
+          <text class="field-label">预算金额(元)</text>
+          <input class="field-input" type="digit" placeholder="请输入预算" v-model="budgetText" />
+        </view>
+        <view v-if="type == 'BUY'" class="form-field">
+          <text class="field-label">品牌偏好</text>
+          <input class="field-input" type="text" placeholder="选填" v-model="brandPreference" maxlength="100" />
+        </view>
+
+        <view v-if="type == 'ERRAND'" class="form-field">
+          <text class="field-label">任务内容</text>
+          <textarea class="field-textarea" placeholder="请描述您需要代办的事项" v-model="taskContent" maxlength="500" />
+        </view>
+        <view v-if="type == 'ERRAND'" class="form-field">
+          <text class="field-label">完成要求</text>
+          <input class="field-input" type="text" placeholder="选填" v-model="taskRequirement" maxlength="200" />
+        </view>
+
+        <view class="form-field">
+          <text class="field-label">楼层信息</text>
+          <input class="field-input" type="text" placeholder="例如：3栋1单元502" v-model="floorInfo" maxlength="32" />
+        </view>
+
+        <view class="form-field row-flex">
+          <text class="field-label">有电梯</text>
+          <switch :checked="hasElevator" color="#008AFF" @change="onElevatorChange" />
+        </view>
+
+        <view class="form-field">
+          <text class="field-label">备注</text>
+          <textarea class="field-textarea" placeholder="补充说明" v-model="remark" maxlength="200" />
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="footer">
+      <view class="btn-next" @click="handleNext">
+        <text class="btn-next-text">下一步</text>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+  import { listAddresses } from '@/api/user'
+  import { isNonEmpty, isPhone } from '@/utils/validate'
+  import { setStorage } from '@/utils/storage'
+
+  type TagItem = {
+    label: string
+    value: string
+  }
+
+  type AddressVO = {
+    id: number
+    contactName: string
+    contactPhone: string
+    province: string
+    city: string
+    district: string
+    address: string
+    houseNumber: string
+    lat: number
+    lng: number
+  }
+
+  export default {
+    data() {
+      return {
+        type: 'DELIVER',
+        // 取件地址（可用地图选点）
+        pickupAddress: '',
+        pickupLat: 0,
+        pickupLng: 0,
+        pickupContact: '',
+        pickupPhone: '',
+        // 收件地址（使用地址簿）
+        deliveryAddressId: 0,
+        deliveryAddressText: '',
+        deliveryContact: '',
+        deliveryPhone: '',
+        deliveryLat: 0,
+        deliveryLng: 0,
+        // 通用
+        floorInfo: '',
+        hasElevator: true,
+        remark: '',
+        // 帮送
+        itemType: 'document',
+        itemDesc: '',
+        itemWeight: 1,
+        itemTypes: [
+          { label: '文件', value: 'document' } as TagItem,
+          { label: '食物', value: 'food' } as TagItem,
+          { label: '包裹', value: 'package' } as TagItem,
+          { label: '其他', value: 'other' } as TagItem,
+        ] as TagItem[],
+        weights: [
+          { label: '1kg 以内', value: 1 } as any,
+          { label: '1-5kg', value: 5 } as any,
+          { label: '5-10kg', value: 10 } as any,
+          { label: '10kg 以上', value: 20 } as any,
+        ] as any[],
+        // 帮取
+        pickupDesc: '',
+        pickupCode: '',
+        // 帮买
+        goodsName: '',
+        budgetText: '',
+        brandPreference: '',
+        // 代办
+        taskContent: '',
+        taskRequirement: '',
+      }
+    },
+    computed: {
+      typeTitle(): string {
+        const map: Map<string, string> = new Map<string, string>([
+          ['DELIVER', '帮送'],
+          ['PICKUP', '帮取'],
+          ['BUY', '帮买'],
+          ['ERRAND', '代办'],
+        ])
+        return map.get(this.type) ?? '跑腿'
+      },
+      typeSub(): string {
+        const map: Map<string, string> = new Map<string, string>([
+          ['DELIVER', '同城代送，准时送达'],
+          ['PICKUP', '帮你去取件，轻松便捷'],
+          ['BUY', '代买代送，一站到位'],
+          ['ERRAND', '代办一切事项'],
+        ])
+        return map.get(this.type) ?? ''
+      },
+      pickupLabel(): string {
+        const map: Map<string, string> = new Map<string, string>([
+          ['DELIVER', '取件地址'],
+          ['PICKUP', '代取地址'],
+          ['BUY', '购买地点'],
+          ['ERRAND', '办事地点'],
+        ])
+        return map.get(this.type) ?? '起点'
+      },
+      deliveryLabel(): string {
+        // 后端创建跑腿订单强制要求 deliveryAddressId（见 routes/order.routes.ts 的 Joi
+        // validator：deliveryAddressId.required()），所以前端不再把 ERRAND 标成选填，
+        // 否则用户不选地址就会被 400 挡回来。
+        return '送达地址'
+      },
+      showDelivery(): boolean {
+        return true
+      },
+    },
+    onLoad(query: UTSJSONObject) {
+      const t = query['type']
+      if (t != null) this.type = t as string
+      uni.setNavigationBarTitle({ title: this.typeTitle + '下单' })
+    },
+    methods: {
+      choosePickupAddress() {
+        uni.chooseLocation({
+          success: (res) => {
+            this.pickupAddress = (res.name ?? '') + ' ' + (res.address ?? '')
+            this.pickupLat = res.latitude
+            this.pickupLng = res.longitude
+          },
+          fail: () => {
+            uni.showToast({ title: '未选择位置', icon: 'none' })
+          },
+        })
+      },
+      async chooseDeliveryAddress() {
+        try {
+          const res = await listAddresses()
+          const data = res.data as UTSJSONObject
+          const list = data['list'] as UTSJSONObject[]
+          if (list.length == 0) {
+            uni.navigateTo({ url: '/pages/address/edit' })
+            return
+          }
+          const names: string[] = []
+          const addrs: AddressVO[] = []
+          for (let i = 0; i < list.length; i++) {
+            const it = list[i]
+            const a: AddressVO = {
+              id: it['id'] as number,
+              contactName: it['contactName'] as string,
+              contactPhone: it['contactPhone'] as string,
+              province: (it['province'] as string) ?? '',
+              city: (it['city'] as string) ?? '',
+              district: (it['district'] as string) ?? '',
+              address: (it['address'] as string) ?? '',
+              houseNumber: (it['houseNumber'] as string) ?? '',
+              lat: (it['lat'] as number) ?? 0,
+              lng: (it['lng'] as number) ?? 0,
+            } as AddressVO
+            addrs.push(a)
+            names.push(`${a.contactName} · ${a.address}`)
+          }
+          uni.showActionSheet({
+            itemList: names,
+            success: (res) => {
+              const a = addrs[res.tapIndex]
+              this.deliveryAddressId = a.id
+              this.deliveryAddressText = `${a.province}${a.city}${a.district}${a.address}${a.houseNumber}`
+              this.deliveryContact = a.contactName
+              this.deliveryPhone = a.contactPhone
+              this.deliveryLat = a.lat
+              this.deliveryLng = a.lng
+            },
+          })
+        } catch (e) {
+          console.error(e)
+        }
+      },
+      onElevatorChange(e: any) {
+        this.hasElevator = e.detail.value as boolean
+      },
+      validate(): boolean {
+        if (this.pickupLat == 0) {
+          uni.showToast({ title: `请选择${this.pickupLabel}`, icon: 'none' })
+          return false
+        }
+        // 与后端保持一致：所有类型（含 ERRAND 代办）都必须选送达地址
+        if (this.deliveryAddressId == 0) {
+          uni.showToast({ title: '请选择送达地址', icon: 'none' })
+          return false
+        }
+        if (this.type == 'DELIVER') {
+          if (!isNonEmpty(this.itemDesc)) {
+            uni.showToast({ title: '请填写物品描述', icon: 'none' })
+            return false
+          }
+        }
+        if (this.type == 'PICKUP') {
+          if (!isNonEmpty(this.pickupDesc)) {
+            uni.showToast({ title: '请填写取件说明', icon: 'none' })
+            return false
+          }
+        }
+        if (this.type == 'BUY') {
+          if (!isNonEmpty(this.goodsName)) {
+            uni.showToast({ title: '请填写商品名称', icon: 'none' })
+            return false
+          }
+          const budget = Number(this.budgetText)
+          if (!Number.isFinite(budget) || budget <= 0) {
+            uni.showToast({ title: '请填写有效预算', icon: 'none' })
+            return false
+          }
+        }
+        if (this.type == 'ERRAND') {
+          if (!isNonEmpty(this.taskContent)) {
+            uni.showToast({ title: '请描述任务内容', icon: 'none' })
+            return false
+          }
+        }
+        return true
+      },
+      handleNext() {
+        if (!this.validate()) return
+
+        const form: UTSJSONObject = {
+          type: this.type,
+          pickupAddress: this.pickupAddress,
+          pickupLat: this.pickupLat,
+          pickupLng: this.pickupLng,
+          pickupContact: this.pickupContact,
+          pickupPhone: this.pickupPhone,
+          deliveryAddressId: this.deliveryAddressId,
+          deliveryAddressText: this.deliveryAddressText,
+          deliveryContact: this.deliveryContact,
+          deliveryPhone: this.deliveryPhone,
+          deliveryLat: this.deliveryLat,
+          deliveryLng: this.deliveryLng,
+          floorInfo: this.floorInfo,
+          hasElevator: this.hasElevator,
+          remark: this.remark,
+          itemDesc: this.itemDesc,
+          itemWeight: this.itemWeight,
+          budget: Number(this.budgetText),
+          goodsName: this.goodsName,
+          brandPreference: this.brandPreference,
+          pickupDesc: this.pickupDesc,
+          pickupCode: this.pickupCode,
+          taskContent: this.taskContent,
+          taskRequirement: this.taskRequirement,
+        } as UTSJSONObject
+
+        setStorage('errand_form_draft', form)
+        uni.navigateTo({ url: '/pages/errand/confirm' })
+      },
+    },
+  }
+</script>
+
+<style lang="scss">
+  .container {
+    height: 100vh;
+    background-color: #f5f6f8;
+    display: flex;
+    flex-direction: column;
+  }
+  .body {
+    flex: 1;
+    padding-bottom: 120rpx;
+  }
+  .type-header {
+    background: linear-gradient(180deg, #008AFF 0%, #00A3FF 100%);
+    padding: 32rpx 32rpx 40rpx;
+  }
+  .type-title {
+    color: #fff;
+    font-size: 36rpx;
+    font-weight: bold;
+  }
+  .type-sub {
+    margin-top: 12rpx;
+    display: block;
+    color: rgba(255,255,255,0.85);
+    font-size: 24rpx;
+  }
+  .form-card {
+    margin: 20rpx 24rpx 0;
+    background-color: #fff;
+    border-radius: 16rpx;
+    padding: 0 24rpx;
+  }
+  .form-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 24rpx 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .form-item:last-child {
+    border-bottom: 0;
+  }
+  .form-item-left {
+    width: 48rpx;
+  }
+  .form-icon {
+    width: 44rpx;
+    height: 44rpx;
+    border-radius: 22rpx;
+    color: #fff;
+    font-size: 24rpx;
+    font-weight: bold;
+    text-align: center;
+    line-height: 44rpx;
+  }
+  .form-icon.pick {
+    background-color: #07C160;
+  }
+  .form-icon.deliv {
+    background-color: #FF9500;
+  }
+  .form-item-main {
+    flex: 1;
+  }
+  .form-label {
+    color: #999;
+    font-size: 22rpx;
+  }
+  .form-value {
+    display: block;
+    margin-top: 4rpx;
+    color: #333;
+    font-size: 28rpx;
+  }
+  .form-placeholder {
+    display: block;
+    margin-top: 4rpx;
+    color: #ccc;
+    font-size: 28rpx;
+  }
+  .form-sub {
+    display: block;
+    margin-top: 4rpx;
+    color: #999;
+    font-size: 22rpx;
+  }
+  .form-arrow {
+    color: #bbb;
+    font-size: 32rpx;
+  }
+  .form-field {
+    padding: 20rpx 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .form-field:last-child {
+    border-bottom: 0;
+  }
+  .field-label {
+    display: block;
+    color: #999;
+    font-size: 24rpx;
+    margin-bottom: 12rpx;
+  }
+  .field-input {
+    font-size: 28rpx;
+    color: #333;
+  }
+  .field-textarea {
+    width: 100%;
+    min-height: 120rpx;
+    font-size: 26rpx;
+    color: #333;
+  }
+  .tag-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .tag-chip {
+    padding: 10rpx 24rpx;
+    margin-right: 16rpx;
+    margin-top: 8rpx;
+    background-color: #f5f6f8;
+    border-radius: 28rpx;
+  }
+  .tag-chip.active {
+    background-color: #008AFF;
+  }
+  .tag-chip-text {
+    color: #666;
+    font-size: 24rpx;
+  }
+  .tag-chip-text.active {
+    color: #fff;
+  }
+  .row-flex {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 20rpx 24rpx;
+    background-color: #fff;
+    box-shadow: 0 -4rpx 16rpx rgba(0,0,0,0.08);
+  }
+  .btn-next {
+    height: 88rpx;
+    background-color: #008AFF;
+    border-radius: 44rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-next-text {
+    color: #fff;
+    font-size: 30rpx;
+    font-weight: 500;
+  }
+</style>

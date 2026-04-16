@@ -29,7 +29,11 @@ router.post(
     }),
   }),
   asyncHandler(async (req, res) => {
-    const data = await pricingService.calculateProductOrder(req.body);
+    // 让预览价也能应用优惠券，前提是登录用户；未登录预览（不会发生，这里走 tokenAuth 必填）则不算折扣。
+    const data = await pricingService.calculateProductOrder({
+      ...req.body,
+      userId: req.user?.userId ?? null,
+    });
     success(res, data);
   }),
 );

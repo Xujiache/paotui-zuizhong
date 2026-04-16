@@ -1,0 +1,26 @@
+import { post, ApiResponse } from './request'
+
+/**
+ * 商品订单定价预览
+ */
+export const previewProductOrder = (data: UTSJSONObject): Promise<ApiResponse> => {
+  return post('/pricing/product-order', data)
+}
+
+/**
+ * 跑腿订单费用预估（访客可用）
+ */
+export const estimateErrand = (data: UTSJSONObject): Promise<ApiResponse> => {
+  return post('/pricing/errand-estimate', data, { noAuth: false } as UTSJSONObject)
+}
+
+/**
+ * 配送费计算
+ */
+export const calcDeliveryFee = (storeId: number, lat: number, lng: number): Promise<ApiResponse> => {
+  return post('/pricing/delivery-fee', {
+    storeId: storeId,
+    deliveryLat: lat,
+    deliveryLng: lng,
+  } as UTSJSONObject)
+}

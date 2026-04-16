@@ -1,5 +1,5 @@
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
-import { query, queryOne, transaction } from '../utils/database';
+import { execute, query, queryOne, transaction } from '../utils/database';
 
 export interface CouponRow extends RowDataPacket {
   id: number;
@@ -260,4 +260,23 @@ export const listApplicableCouponsForOrder = async (
     });
   }
   return result;
+};
+
+/**
+ * 原子把 coupon_record 从 UNUSED 标记为 USED。
+ * 返回 true 代表确实是本次标记成功；false 表示该记录不是 UNUSED（可能已被其他订单占用）。
+ * 用在下单流程里，防止同一张券被多个订单重复抵扣。
+ */
+export const markCouponRecordUsed = async (
+  couponRecordId: number,
+  userId: number,
+  usedOrderId: number,
+): Promise<boolean> => {
+  const result = await execute(
+    `UPDATE coupon_records
+     SET status = 'USED', used_at = NOW(), used_order_id = ?
+     WHERE id = ? AND user_id = ? AND status = 'UNUSED'`,
+    [usedOrderId, couponRecordId, userId],
+  );
+  return result.affectedRows > 0;
 };

@@ -18,6 +18,7 @@ import {
   OrderType,
   ErrandServiceType,
   PaymentStatus,
+  UserRole,
 } from '../types/enums';
 import {
   OrderRow,
@@ -36,6 +37,7 @@ import {
   updatePayment,
 } from '../models/order.model';
 import { findStoreById } from '../models/store.model';
+import { findRiderById } from '../models/rider.model';
 import { findUserAddressById } from '../models/userAddress.model';
 import {
   generateErrandOrderNo,
@@ -47,6 +49,7 @@ import {
   calculateErrandOrder,
 } from './pricing.service';
 import { updateSkuStock } from '../models/product.model';
+import { markCouponRecordUsed } from '../models/coupon.model';
 import { getOrderFSM } from './orderStateMachine';
 import { clearCartByUser } from '../models/cart.model';
 import { readDecimal, yuanToFen, fenToYuan } from '../utils/money';
@@ -101,6 +104,7 @@ export const userCreateProductOrder = async (
     deliveryLat: Number(readDecimal(address.lat)),
     deliveryLng: Number(readDecimal(address.lng)),
     couponRecordId: input.couponRecordId ?? null,
+    userId,
   });
 
   // 预扣库存（DECREMENT 原子）
@@ -154,6 +158,19 @@ export const userCreateProductOrder = async (
 
     const paymentNo = generatePaymentNo();
     await createPaymentRecord(orderId, paymentNo, fenToYuan(pricing.paidAmount));
+
+    // 锁住优惠券，防止同一张券被多个未支付订单同时抵扣。
+    // 标记失败（可能并发情况下已被其他订单占用）则把订单的 discount 清零并回滚 couponRecordId，保持金额一致性。
+    if (input.couponRecordId && pricing.discountAmount > 0) {
+      const ok = await markCouponRecordUsed(input.couponRecordId, userId, orderId);
+      if (!ok) {
+        throw new AppError(
+          ErrorCode.COUPON_UNAVAILABLE,
+          '优惠券已被占用，请重新选择',
+          400,
+        );
+      }
+    }
 
     await insertOrderLog({
       orderId,
@@ -620,6 +637,50 @@ const parseJson = (v: unknown) => {
   }
 };
 
+/**
+ * 校验当前登录者是否有权访问目标订单。
+ * - USER：必须是下单人
+ * - MERCHANT：订单对应门店必须归属该商家
+ * - RIDER：必须是被指派/抢单的骑手
+ * - ADMIN：放行
+ *
+ * 只要不匹配就抛 403，避免任何已登录账号随意查询他人订单详情、日志、支付号。
+ */
+export interface OrderRequester {
+  userId: number;
+  role: string;
+}
+
+const ensureOrderVisibleBy = async (
+  order: OrderRow,
+  requester: OrderRequester,
+): Promise<void> => {
+  if (requester.role === UserRole.ADMIN) return;
+  if (requester.role === UserRole.USER) {
+    if (order.user_id !== requester.userId) {
+      throw AppError.forbidden('无权查看该订单');
+    }
+    return;
+  }
+  if (requester.role === UserRole.MERCHANT) {
+    if (!order.store_id) {
+      throw AppError.forbidden('无权查看该订单');
+    }
+    const store = await findStoreById(order.store_id);
+    if (!store || store.merchant_id !== requester.userId) {
+      throw AppError.forbidden('无权查看该订单');
+    }
+    return;
+  }
+  if (requester.role === UserRole.RIDER) {
+    if (order.rider_id !== requester.userId) {
+      throw AppError.forbidden('无权查看该订单');
+    }
+    return;
+  }
+  throw AppError.forbidden('无权查看该订单');
+};
+
 const formatOrder = (row: OrderRow) => ({
   id: row.id,
   orderNo: row.order_no,
@@ -662,9 +723,128 @@ const formatOrder = (row: OrderRow) => ({
   createdAt: row.created_at,
 });
 
-export const getOrderDetail = async (orderId: number) => {
+/**
+ * 订单列表/详情的字段补齐：批量拉门店名、跑腿服务类型、首个商品预览，避免前端空标题、空摘要。
+ * 没有命中的字段留空，由前端做兜底展示。
+ */
+const enrichOrders = async (
+  baseList: ReturnType<typeof formatOrder>[],
+  rawRows: OrderRow[],
+): Promise<Array<ReturnType<typeof formatOrder> & {
+  storeName: string;
+  serviceType: string | null;
+  errand: { serviceType: string; itemDescription: string } | null;
+  items: Array<{
+    productName: string;
+    productImage: string;
+    quantity: number;
+  }>;
+}>> => {
+  if (baseList.length === 0) return [];
+
+  const storeIds = Array.from(
+    new Set(rawRows.map((r) => r.store_id).filter((x): x is number => !!x)),
+  );
+  const storeNameMap = new Map<number, string>();
+  if (storeIds.length > 0) {
+    const placeholders = storeIds.map(() => '?').join(',');
+    const [rows] = await pool.execute<(OrderRow & { id: number; name: string })[]>(
+      `SELECT id, name FROM stores WHERE id IN (${placeholders}) AND is_deleted = 0`,
+      storeIds,
+    );
+    for (const r of rows as Array<{ id: number; name: string }>) {
+      storeNameMap.set(r.id, r.name);
+    }
+  }
+
+  const productOrderIds = rawRows
+    .filter((r) => r.order_type === OrderType.PRODUCT)
+    .map((r) => r.id);
+  const itemsMap = new Map<number, Array<{
+    productName: string;
+    productImage: string;
+    quantity: number;
+  }>>();
+  if (productOrderIds.length > 0) {
+    const placeholders = productOrderIds.map(() => '?').join(',');
+    const [rows] = await pool.execute<(OrderRow & {
+      order_id: number;
+      product_name: string;
+      product_image: string;
+      quantity: number;
+    })[]>(
+      `SELECT order_id, product_name, product_image, quantity FROM order_items
+       WHERE order_id IN (${placeholders}) ORDER BY id ASC`,
+      productOrderIds,
+    );
+    for (const r of rows as Array<{
+      order_id: number;
+      product_name: string;
+      product_image: string;
+      quantity: number;
+    }>) {
+      const arr = itemsMap.get(r.order_id) ?? [];
+      arr.push({
+        productName: r.product_name,
+        productImage: r.product_image,
+        quantity: r.quantity,
+      });
+      itemsMap.set(r.order_id, arr);
+    }
+  }
+
+  const errandOrderIds = rawRows
+    .filter((r) => r.order_type === OrderType.ERRAND)
+    .map((r) => r.id);
+  const errandInfoMap = new Map<number, { serviceType: string; itemDescription: string }>();
+  if (errandOrderIds.length > 0) {
+    const placeholders = errandOrderIds.map(() => '?').join(',');
+    const [rows] = await pool.execute<(OrderRow & {
+      order_id: number;
+      service_type: string;
+      item_description: string | null;
+    })[]>(
+      `SELECT order_id, service_type, item_description FROM errand_orders
+       WHERE order_id IN (${placeholders})`,
+      errandOrderIds,
+    );
+    for (const r of rows as Array<{
+      order_id: number;
+      service_type: string;
+      item_description: string | null;
+    }>) {
+      errandInfoMap.set(r.order_id, {
+        serviceType: r.service_type,
+        itemDescription: r.item_description ?? '',
+      });
+    }
+  }
+
+  return baseList.map((base) => {
+    const errandInfo = errandInfoMap.get(base.id);
+    return {
+      ...base,
+      storeName: base.storeId ? (storeNameMap.get(base.storeId) ?? '') : '',
+      serviceType: errandInfo?.serviceType ?? null,
+      // 供前端列表页展示跑腿单摘要使用（item_description 优先于 userRemark）
+      errand: errandInfo
+        ? {
+            serviceType: errandInfo.serviceType,
+            itemDescription: errandInfo.itemDescription,
+          }
+        : null,
+      items: itemsMap.get(base.id) ?? [],
+    };
+  });
+};
+
+export const getOrderDetail = async (
+  orderId: number,
+  requester: OrderRequester,
+) => {
   const order = await findOrderById(orderId);
   if (!order) throw new AppError(ErrorCode.ORDER_NOT_FOUND, '订单不存在', 404);
+  await ensureOrderVisibleBy(order, requester);
   const base = formatOrder(order);
   const items = await listOrderItems(orderId);
   const itemList = items.map((it) => ({
@@ -679,9 +859,27 @@ export const getOrderDetail = async (orderId: number) => {
     subtotal: yuanToFen(readDecimal(it.subtotal)),
   }));
   const errand = await findErrandOrderByOrderId(orderId);
+  const storeName = order.store_id
+    ? (await findStoreById(order.store_id))?.name ?? ''
+    : '';
+  const rider = order.rider_id ? await findRiderById(order.rider_id) : null;
   return {
     ...base,
+    storeName,
+    serviceType: errand ? errand.service_type : null,
     items: itemList,
+    rider: rider
+      ? {
+          id: rider.id,
+          name: rider.name,
+          phone: rider.phone,
+          avatar: rider.avatar,
+          rating: Number(readDecimal(rider.rating)),
+          completedCount: rider.total_orders,
+          lat: rider.current_lat === null ? 0 : Number(readDecimal(rider.current_lat)),
+          lng: rider.current_lng === null ? 0 : Number(readDecimal(rider.current_lng)),
+        }
+      : null,
     errand: errand
       ? {
           serviceType: errand.service_type,
@@ -722,8 +920,10 @@ export const listUserOrders = async (
     page,
     pageSize,
   });
+  const base = list.map(formatOrder);
+  const enriched = await enrichOrders(base, list);
   return {
-    list: list.map(formatOrder),
+    list: enriched,
     pagination: {
       page,
       pageSize,
@@ -783,8 +983,10 @@ export const listMerchantOrders = async (
     params,
   );
   const total = (totalRows as Array<{ total: number }>)[0]?.total ?? 0;
+  const base = (rows as OrderRow[]).map(formatOrder);
+  const enriched = await enrichOrders(base, rows as OrderRow[]);
   return {
-    list: (rows as OrderRow[]).map(formatOrder),
+    list: enriched,
     pagination: {
       page,
       pageSize,
@@ -806,8 +1008,10 @@ export const listRiderOrders = async (
     page,
     pageSize,
   });
+  const base = list.map(formatOrder);
+  const enriched = await enrichOrders(base, list);
   return {
-    list: list.map(formatOrder),
+    list: enriched,
     pagination: {
       page,
       pageSize,
@@ -817,7 +1021,13 @@ export const listRiderOrders = async (
   };
 };
 
-export const getOrderLogs = async (orderId: number) => {
+export const getOrderLogs = async (
+  orderId: number,
+  requester: OrderRequester,
+) => {
+  const order = await findOrderById(orderId);
+  if (!order) throw new AppError(ErrorCode.ORDER_NOT_FOUND, '订单不存在', 404);
+  await ensureOrderVisibleBy(order, requester);
   const logs = await listOrderLogs(orderId);
   return logs.map((l) => ({
     id: (l as { id: number }).id,
@@ -832,10 +1042,14 @@ export const getOrderLogs = async (orderId: number) => {
   }));
 };
 
-/** 根据订单号或 id 查支付记录用于"模拟回调"（测试场景） */
-export const getPaymentByOrderNo = async (orderNo: string) => {
+/** 根据订单号或 id 查支付记录用于"模拟回调"（测试场景）。需校验归属，否则任意登录者都能拿到别人订单的 paymentNo。 */
+export const getPaymentByOrderNo = async (
+  orderNo: string,
+  requester: OrderRequester,
+) => {
   const order = await findOrderByNo(orderNo);
   if (!order) throw new AppError(ErrorCode.ORDER_NOT_FOUND, '订单不存在', 404);
+  await ensureOrderVisibleBy(order, requester);
   const { findPaymentByOrderId } = await import('../models/order.model');
   const payment = await findPaymentByOrderId(order.id);
   if (!payment) throw new AppError(ErrorCode.DATA_NOT_FOUND, '支付记录不存在', 404);

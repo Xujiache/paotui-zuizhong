@@ -102,7 +102,10 @@ router.get(
   tokenAuth(),
   validate({ params: idParam }),
   asyncHandler(async (req, res) => {
-    const data = await orderService.getOrderDetail(Number(req.params.id));
+    const data = await orderService.getOrderDetail(Number(req.params.id), {
+      userId: req.user!.userId,
+      role: String(req.user!.role),
+    });
     success(res, data);
   }),
 );
@@ -112,7 +115,10 @@ router.get(
   tokenAuth(),
   validate({ params: idParam }),
   asyncHandler(async (req, res) => {
-    const data = await orderService.getOrderLogs(Number(req.params.id));
+    const data = await orderService.getOrderLogs(Number(req.params.id), {
+      userId: req.user!.userId,
+      role: String(req.user!.role),
+    });
     success(res, { list: data });
   }),
 );
@@ -307,7 +313,10 @@ router.get(
   tokenAuth(),
   validate({ params: Joi.object({ orderNo: Joi.string().required() }) }),
   asyncHandler(async (req, res) => {
-    const data = await orderService.getPaymentByOrderNo(req.params.orderNo);
+    const data = await orderService.getPaymentByOrderNo(req.params.orderNo, {
+      userId: req.user!.userId,
+      role: String(req.user!.role),
+    });
     success(res, data);
   }),
 );

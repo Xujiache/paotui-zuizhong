@@ -1,0 +1,34 @@
+<template>
+  <view class="load-more">
+    <text v-if="status == 'loading'" class="load-text">加载中...</text>
+    <text v-else-if="status == 'nomore'" class="load-text">已经到底了</text>
+    <text v-else-if="status == 'error'" class="load-text" @click="handleRetry">加载失败，点击重试</text>
+    <text v-else class="load-text">上拉加载更多</text>
+  </view>
+</template>
+
+<script lang="uts">
+  export default {
+    name: 'LoadMore',
+    props: {
+      status: { type: String, default: 'more' },
+    },
+    emits: ['retry'],
+    methods: {
+      handleRetry() {
+        this.$emit('retry')
+      },
+    },
+  }
+</script>
+
+<style lang="scss">
+  .load-more {
+    text-align: center;
+    padding: 24rpx 0;
+  }
+  .load-text {
+    font-size: 24rpx;
+    color: #999;
+  }
+</style>

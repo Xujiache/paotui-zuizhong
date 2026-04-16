@@ -1,0 +1,257 @@
+<template>
+  <view class="container">
+    <view v-if="loading" class="loading">
+      <text class="loading-text">加载中...</text>
+    </view>
+
+    <view v-else-if="addresses.length == 0" class="empty-wrap">
+      <EmptyState icon="📍" text="还没有收货地址" subText="添加一个地址开启便捷下单" />
+    </view>
+
+    <scroll-view v-else class="list" scroll-y="true">
+      <view
+        v-for="item in addresses"
+        :key="item.id"
+        class="addr-item"
+        @click="handleChoose(item)"
+      >
+        <view class="addr-info">
+          <view class="row">
+            <text class="name">{{ item.contactName }}</text>
+            <text class="phone">{{ maskedPhone(item.contactPhone) }}</text>
+            <text v-if="item.isDefault" class="tag-default">默认</text>
+            <text v-if="item.tag != ''" class="tag">{{ item.tag }}</text>
+          </view>
+          <text class="address">{{ fullAddress(item) }}</text>
+        </view>
+        <view class="addr-actions">
+          <text class="act-btn" @click.stop="handleEdit(item.id)">编辑</text>
+          <text class="act-btn danger" @click.stop="handleDelete(item.id)">删除</text>
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="footer">
+      <view class="btn-add" @click="handleAdd">
+        <text class="btn-add-text">+ 添加新地址</text>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+  import { listAddresses, deleteAddress, setDefaultAddress } from '@/api/user'
+  import { maskPhone } from '@/utils/format'
+  import EmptyState from '@/components/EmptyState.uvue'
+
+  type AddressItem = {
+    id: number
+    contactName: string
+    contactPhone: string
+    province: string
+    city: string
+    district: string
+    address: string
+    houseNumber: string
+    tag: string
+    isDefault: boolean
+    lat: number
+    lng: number
+  }
+
+  export default {
+    components: { EmptyState },
+    data() {
+      return {
+        addresses: [] as AddressItem[],
+        loading: false,
+        pickMode: false,
+      }
+    },
+    onLoad(query: UTSJSONObject) {
+      this.pickMode = query['pick'] == '1'
+      this.fetchList()
+    },
+    onShow() {
+      this.fetchList()
+    },
+    methods: {
+      async fetchList() {
+        this.loading = true
+        try {
+          const res = await listAddresses()
+          const data = res.data as UTSJSONObject
+          const list = data['list'] as UTSJSONObject[]
+          const items: AddressItem[] = []
+          for (let i = 0; i < list.length; i++) {
+            const it = list[i]
+            items.push({
+              id: it['id'] as number,
+              contactName: it['contactName'] as string,
+              contactPhone: it['contactPhone'] as string,
+              province: (it['province'] as string) ?? '',
+              city: (it['city'] as string) ?? '',
+              district: (it['district'] as string) ?? '',
+              address: (it['address'] as string) ?? '',
+              houseNumber: (it['houseNumber'] as string) ?? '',
+              tag: (it['tag'] as string) ?? '',
+              isDefault: (it['isDefault'] as boolean) ?? false,
+              lat: (it['lat'] as number) ?? 0,
+              lng: (it['lng'] as number) ?? 0,
+            } as AddressItem)
+          }
+          this.addresses = items
+        } catch (e) {
+          console.error('拉取地址失败', e)
+        } finally {
+          this.loading = false
+        }
+      },
+      maskedPhone(p: string): string {
+        return maskPhone(p)
+      },
+      fullAddress(it: AddressItem): string {
+        return `${it.province}${it.city}${it.district}${it.address}${it.houseNumber}`
+      },
+      handleAdd() {
+        uni.navigateTo({ url: '/pages/address/edit' })
+      },
+      handleEdit(id: number) {
+        uni.navigateTo({ url: '/pages/address/edit?id=' + id })
+      },
+      async handleDelete(id: number) {
+        uni.showModal({
+          title: '提示',
+          content: '确认删除该地址？',
+          success: async (res) => {
+            if (res.confirm) {
+              try {
+                await deleteAddress(id)
+                uni.showToast({ title: '删除成功', icon: 'success' })
+                this.fetchList()
+              } catch (e) {
+                console.error('删除失败', e)
+              }
+            }
+          },
+        })
+      },
+      handleChoose(item: AddressItem) {
+        if (!this.pickMode) return
+        const pages = getCurrentPages()
+        if (pages.length >= 2) {
+          const prev = pages[pages.length - 2] as any
+          prev.$vm?.onAddressChosen?.(item)
+        }
+        uni.navigateBack({ delta: 1 })
+      },
+    },
+  }
+</script>
+
+<style lang="scss">
+  .container {
+    min-height: 100vh;
+    background-color: #f5f6f8;
+    display: flex;
+    flex-direction: column;
+  }
+  .loading {
+    padding: 120rpx 0;
+    text-align: center;
+  }
+  .loading-text {
+    color: #999;
+  }
+  .empty-wrap {
+    flex: 1;
+    padding-top: 120rpx;
+  }
+  .list {
+    flex: 1;
+    padding: 20rpx 24rpx 160rpx;
+  }
+  .addr-item {
+    background-color: #fff;
+    border-radius: 16rpx;
+    padding: 24rpx;
+    margin-bottom: 20rpx;
+  }
+  .addr-info {
+    padding-bottom: 16rpx;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+  }
+  .name {
+    font-size: 30rpx;
+    color: #333;
+    font-weight: 600;
+    margin-right: 16rpx;
+  }
+  .phone {
+    font-size: 26rpx;
+    color: #666;
+    flex: 1;
+  }
+  .tag-default {
+    padding: 2rpx 12rpx;
+    font-size: 20rpx;
+    color: #fff;
+    background-color: #008AFF;
+    border-radius: 8rpx;
+    margin-right: 8rpx;
+  }
+  .tag {
+    padding: 2rpx 12rpx;
+    font-size: 20rpx;
+    color: #008AFF;
+    background-color: #E8F3FF;
+    border-radius: 8rpx;
+  }
+  .address {
+    margin-top: 12rpx;
+    font-size: 26rpx;
+    color: #555;
+    line-height: 40rpx;
+  }
+  .addr-actions {
+    padding-top: 16rpx;
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+  .act-btn {
+    margin-left: 32rpx;
+    font-size: 26rpx;
+    color: #008AFF;
+  }
+  .act-btn.danger {
+    color: #E53935;
+  }
+  .footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 20rpx 24rpx;
+    background-color: #fff;
+    border-top: 1px solid #f0f0f0;
+  }
+  .btn-add {
+    height: 88rpx;
+    background-color: #008AFF;
+    border-radius: 44rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-add-text {
+    color: #fff;
+    font-size: 30rpx;
+    font-weight: 500;
+  }
+</style>

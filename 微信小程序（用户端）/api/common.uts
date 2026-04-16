@@ -1,0 +1,15 @@
+import { get, post, ApiResponse } from './request'
+
+/**
+ * 健康检查（可用于启动页探测）
+ */
+export const health = (): Promise<ApiResponse> => {
+  return get('/common/health', null, { hideErrorToast: true, noAuth: true } as UTSJSONObject)
+}
+
+/**
+ * 发送短信验证码
+ */
+export const sendSmsCode = (phone: string, scene: string = 'LOGIN'): Promise<ApiResponse> => {
+  return post('/common/sms/send-code', { phone: phone, scene: scene } as UTSJSONObject, { noAuth: true } as UTSJSONObject)
+}

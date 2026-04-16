@@ -1,0 +1,174 @@
+/**
+ * 通用格式化工具：金额/时间/距离/手机号/订单状态
+ *
+ * 时间字段兼容：
+ *  后端当前返回 ISO 字符串（如 "2026-04-17T03:16:00.000Z"），历史代码里把它当 number
+ *  timestamp 解析会得到 0/NaN。所以 relativeTime / formatDateTime 统一接受 any（string|number|null）
+ *  并在内部用 parseDateTs 转成 ms 时间戳；读不出来就返回空字符串而不是 1970-01-01。
+ */
+
+// 分 → 元，保留 2 位小数
+export const fen2yuan = (fen: number): string => {
+  const v = fen / 100
+  return v.toFixed(2)
+}
+
+// 元 → 分
+export const yuan2fen = (yuan: number): number => {
+  return Math.round(yuan * 100)
+}
+
+// 带 ¥ 的金额展示
+export const yuanText = (fen: number): string => {
+  return '¥' + fen2yuan(fen)
+}
+
+// 米 → 友好距离文案
+export const distanceText = (meters: number): string => {
+  if (meters < 1000) {
+    return `${Math.round(meters)}m`
+  }
+  return `${(meters / 1000).toFixed(1)}km`
+}
+
+// 手机号脱敏：138****8888
+export const maskPhone = (phone: string): string => {
+  if (phone.length < 11) return phone
+  return phone.substring(0, 3) + '****' + phone.substring(7)
+}
+
+/**
+ * 把后端返回的时间字段统一转成 ms 时间戳：
+ *  - number：已经是 ms（或秒，秒会被放大 1000 倍）；<= 0 / NaN 返回 0
+ *  - string：先走 Date.parse，ISO/RFC 格式都能解析；解析失败返回 0
+ *  - null / undefined / 空串：返回 0
+ */
+export const parseDateTs = (v: any | null): number => {
+  if (v == null) return 0
+  const n = Number(v)
+  if (Number.isFinite(n) && n > 0) {
+    // 简单启发：小于 1e12 认为是秒级时间戳（2001 年前的毫秒时间戳也 < 1e12，但这里不会出现）
+    return n < 1e12 ? n * 1000 : n
+  }
+  const s = '' + v
+  if (s.length == 0) return 0
+  const t = Date.parse(s)
+  if (Number.isFinite(t) && t > 0) return t
+  return 0
+}
+
+// 时间 → 友好相对时间（刚刚 / N分钟前 / N小时前 / MM-DD HH:mm）
+export const relativeTime = (ts: any | null): string => {
+  const ms = parseDateTs(ts)
+  if (ms == 0) return ''
+  const diff = Date.now() - ms
+  if (diff < 60000) return '刚刚'
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
+  const d = new Date(ms)
+  const pad = (n: number): string => (n < 10 ? '0' + n : '' + n)
+  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+// 时间 → YYYY-MM-DD HH:mm
+export const formatDateTime = (ts: any | null): string => {
+  const ms = parseDateTs(ts)
+  if (ms == 0) return ''
+  const d = new Date(ms)
+  const pad = (n: number): string => (n < 10 ? '0' + n : '' + n)
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+// 倒计时 秒 → MM:SS
+export const countdownText = (seconds: number): string => {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  const pad = (n: number): string => (n < 10 ? '0' + n : '' + n)
+  return `${pad(m)}:${pad(s)}`
+}
+
+/**
+ * 订单状态 → 中文
+ *
+ * 与后端 src/types/enums.ts 中的 OrderStatus 完全对齐。商品订单和跑腿订单的状态在这里合并了一份映射表。
+ * 部分已废弃的旧值（PENDING_PAY / RIDER_ASSIGNED / RIDER_PICKUP / CANCELED / MERCHANT_ACCEPTED）
+ * 仍保留兼容映射，便于过渡期新旧数据共存时前端不崩；生产数据全部切到新枚举后可以去掉。
+ */
+export const orderStatusText = (status: string): string => {
+  const map: Map<string, string> = new Map<string, string>([
+    // 通用/终态
+    ['PENDING_PAYMENT', '待支付'],
+    ['CLOSED_UNPAID', '已关闭（未支付）'],
+    ['COMPLETED', '已完成'],
+    ['CANCELLED', '已取消'],
+    ['REFUNDED', '已退款'],
+    ['AFTERSALE', '售后中'],
+    ['DELIVERED', '已送达'],
+    // 商品订单
+    ['PENDING_MERCHANT', '待商家接单'],
+    ['MERCHANT_REJECTED', '商家已拒单'],
+    ['MERCHANT_TIMEOUT', '商家超时未接单'],
+    ['PENDING_RIDER', '待骑手接单'],
+    ['PENDING_PICKUP', '待骑手取货'],
+    ['DELIVERING', '配送中'],
+    // 跑腿订单
+    ['PENDING_REVIEW', '待审核'],
+    ['PENDING_DISPATCH', '待派单'],
+    ['RIDER_ACCEPTED', '骑手已接单'],
+    ['ON_THE_WAY', '骑手前往中'],
+    ['IN_PROGRESS', '服务中'],
+    // 旧枚举兼容（历史遗留数据 / 未迁移的测试库）
+    ['PENDING_PAY', '待支付'],
+    ['PAID', '已支付'],
+    ['MERCHANT_ACCEPTED', '商家已接单'],
+    ['DISPATCHING', '派单中'],
+    ['RIDER_ASSIGNED', '骑手已接单'],
+    ['RIDER_PICKUP', '骑手已取货'],
+    ['CANCELED', '已取消'],
+    ['REFUNDING', '退款中'],
+    ['CLOSED', '已关闭'],
+  ])
+  return map.get(status) ?? status
+}
+
+/**
+ * 几个页面反复需要的语义判断，集中在这里，免得改一处漏一处。
+ * `isPayPending` 之类函数同时兼容旧/新枚举，过渡期内两边的数据都能正确显示按钮。
+ */
+export const isPayPending = (status: string): boolean =>
+  status == 'PENDING_PAYMENT' || status == 'PENDING_PAY'
+
+export const isPaidAdvancing = (status: string): boolean =>
+  status == 'PENDING_MERCHANT' ||
+  status == 'PENDING_RIDER' ||
+  status == 'PENDING_DISPATCH' ||
+  status == 'PENDING_REVIEW' ||
+  status == 'PAID' ||
+  status == 'DISPATCHING' ||
+  status == 'MERCHANT_ACCEPTED'
+
+export const isDelivering = (status: string): boolean =>
+  status == 'DELIVERING' ||
+  status == 'PENDING_PICKUP' ||
+  status == 'RIDER_ACCEPTED' ||
+  status == 'ON_THE_WAY' ||
+  status == 'IN_PROGRESS' ||
+  status == 'RIDER_PICKUP' ||
+  status == 'RIDER_ASSIGNED'
+
+export const isDelivered = (status: string): boolean =>
+  status == 'DELIVERED' || status == 'ARRIVED'
+
+export const isCompleted = (status: string): boolean =>
+  status == 'COMPLETED'
+
+export const isCancellable = (status: string): boolean =>
+  status == 'PENDING_PAYMENT' ||
+  status == 'PENDING_PAY' ||
+  status == 'PENDING_MERCHANT' ||
+  status == 'PENDING_RIDER' ||
+  status == 'PENDING_DISPATCH' ||
+  status == 'PENDING_REVIEW' ||
+  status == 'PAID' ||
+  status == 'DISPATCHING' ||
+  status == 'MERCHANT_ACCEPTED'

@@ -1,149 +1,400 @@
 <template>
   <view class="container">
     <view class="logo-area">
-      <text class="logo-text">同城O2O</text>
-      <text class="logo-sub">用户登录</text>
+      <view class="logo-circle">
+        <text class="logo-text">O2O</text>
+      </view>
+      <text class="app-name">同城O2O配送</text>
+      <text class="app-sub">登录后享受便捷服务</text>
     </view>
+
     <view class="form-area">
-      <button class="btn-wechat" @click="handleWxLogin">微信一键登录</button>
+      <view class="btn-wechat" @click="handleWxLogin">
+        <text class="btn-wechat-text">微信一键登录</text>
+      </view>
+
       <view class="divider">
-        <text class="divider-text">或使用手机号登录</text>
+        <view class="divider-line"></view>
+        <text class="divider-text">或使用手机号</text>
+        <view class="divider-line"></view>
       </view>
-      <input class="input" type="text" placeholder="请输入手机号" v-model="phone" maxlength="11" />
-      <view class="row">
-        <input class="input input-code" type="number" placeholder="请输入验证码" v-model="code" maxlength="6" />
-        <button class="btn-code" :disabled="codeCountdown > 0" @click="handleSendCode">
-          {{ codeCountdown > 0 ? codeCountdown + 's' : '获取验证码' }}
-        </button>
+
+      <view class="input-box">
+        <text class="ipt-label">📱</text>
+        <input class="input" type="number" placeholder="请输入手机号" v-model="phone" maxlength="11" />
       </view>
-      <button class="btn-login" @click="handleLogin">登 录</button>
+      <view class="input-box">
+        <text class="ipt-label">🔒</text>
+        <input class="input" type="number" placeholder="请输入验证码" v-model="code" maxlength="6" />
+        <view class="btn-code" :class="{ disabled: codeCountdown > 0 }" @click="handleSendCode">
+          <text class="btn-code-text">{{ codeText }}</text>
+        </view>
+      </view>
+
+      <view class="btn-login" :class="{ loading: submitting }" @click="handlePhoneLogin">
+        <text class="btn-login-text">{{ submitting ? '登录中...' : '登 录' }}</text>
+      </view>
+
+      <view class="agreement" @click="handleAgreeClick">
+        <view class="agree-cb-box">
+          <view class="agree-cb" :class="{ active: agreed }">
+            <text v-if="agreed" class="agree-cb-check">✓</text>
+          </view>
+        </view>
+        <text class="agree-text">登录即代表同意</text>
+        <text class="agree-link" @click.stop="openAgreement">《用户协议》</text>
+        <text class="agree-text">和</text>
+        <text class="agree-link" @click.stop="openPrivacy">《隐私政策》</text>
+      </view>
+
+      <!-- 开发期辅助：点此直接登入预置的演示账号（有地址/购物车/订单数据）；
+           生产发版前注释或去掉即可。 -->
+      <view class="dev-tip">
+        <view class="btn-demo" @click="handleDemoLogin">
+          <text class="btn-demo-text">🧪 使用体验账号登录（含测试数据）</text>
+        </view>
+        <text class="dev-tip-text">体验账号手机号 138 0013 8888，验证码 123456</text>
+      </view>
     </view>
   </view>
 </template>
 
 <script lang="uts">
+  import { wxLogin, phoneLogin, sendUserSmsCode } from '@/api/auth'
+  import { applyLoginData } from '@/stores/user'
+  import { isPhone, isSmsCode } from '@/utils/validate'
+
   export default {
     data() {
       return {
         phone: '',
         code: '',
-        codeCountdown: 0
+        codeCountdown: 0,
+        timerId: 0,
+        agreed: false,
+        submitting: false,
       }
     },
+    computed: {
+      codeText(): string {
+        return this.codeCountdown > 0 ? `${this.codeCountdown}s` : '获取验证码'
+      },
+    },
+    onUnload() {
+      if (this.timerId != 0) clearInterval(this.timerId)
+    },
     methods: {
-      handleWxLogin() {
-        // TODO: 阶段02-03 调用 uni.login() + POST /api/v1/auth/user/wx-login
-        uni.showToast({ title: '微信一键登录（阶段02-03实现）', icon: 'none' })
+      handleAgreeClick() {
+        this.agreed = !this.agreed
       },
-      handleSendCode() {
-        if (!/^1[3-9]\d{9}$/.test(this.phone)) {
-          uni.showToast({ title: '请输入正确的手机号', icon: 'none' })
-          return
-        }
-        // TODO: 阶段02-03 调用 /api/v1/common/sms/send-code
-        uni.showToast({ title: '验证码发送（阶段02-03实现）', icon: 'none' })
-        this.codeCountdown = 60
-        const timer = setInterval(() => {
-          if (this.codeCountdown <= 1) {
-            clearInterval(timer)
-            this.codeCountdown = 0
-          } else {
-            this.codeCountdown--
-          }
-        }, 1000)
+      openAgreement() {
+        uni.showToast({ title: '《用户协议》待接入', icon: 'none' })
       },
-      handleLogin() {
-        if (!/^1[3-9]\d{9}$/.test(this.phone)) {
-          uni.showToast({ title: '请输入正确的手机号', icon: 'none' })
+      openPrivacy() {
+        uni.showToast({ title: '《隐私政策》待接入', icon: 'none' })
+      },
+      checkAgree(): boolean {
+        if (!this.agreed) {
+          uni.showToast({ title: '请先同意用户协议', icon: 'none' })
+          return false
+        }
+        return true
+      },
+      /**
+       * 微信一键登录：按真实微信流程获取 code → 后端 wx-login → 登录成功
+       * 新用户返回 hasPhone=false，由后续页面引导绑定手机号（非本页职责）
+       */
+      async handleWxLogin() {
+        if (!this.checkAgree()) return
+        if (this.submitting) return
+        this.submitting = true
+        uni.showLoading({ title: '登录中...' })
+        uni.login({
+          provider: 'weixin',
+          success: async (res) => {
+            try {
+              const resp = await wxLogin(res.code ?? '')
+              const data = resp.data as UTSJSONObject
+              applyLoginData(data)
+              uni.hideLoading()
+              uni.showToast({ title: '登录成功', icon: 'success' })
+              const hasPhone = (data['hasPhone'] as boolean) ?? false
+              setTimeout(() => {
+                this.submitting = false
+                if (!hasPhone) {
+                  uni.showToast({ title: '建议绑定手机号', icon: 'none' })
+                }
+                uni.navigateBack({ delta: 1 })
+              }, 500)
+            } catch (e) {
+              uni.hideLoading()
+              this.submitting = false
+              uni.showToast({ title: '登录失败，请重试', icon: 'none' })
+            }
+          },
+          fail: () => {
+            uni.hideLoading()
+            this.submitting = false
+            uni.showToast({ title: '微信授权失败', icon: 'none' })
+          },
+        })
+      },
+      async handleSendCode() {
+        if (this.codeCountdown > 0) return
+        if (!isPhone(this.phone)) {
+          uni.showToast({ title: '手机号格式不正确', icon: 'none' })
           return
         }
-        if (this.code == '') {
-          uni.showToast({ title: '请输入验证码', icon: 'none' })
+        try {
+          await sendUserSmsCode(this.phone)
+          uni.showToast({ title: '验证码已发送', icon: 'success' })
+          this.codeCountdown = 60
+          this.timerId = setInterval(() => {
+            if (this.codeCountdown <= 1) {
+              clearInterval(this.timerId)
+              this.timerId = 0
+              this.codeCountdown = 0
+            } else {
+              this.codeCountdown--
+            }
+          }, 1000) as unknown as number
+        } catch (e) {
+          console.error('发送验证码失败', e)
+        }
+      },
+      /**
+       * 手机号 + 验证码登录 —— 调后端真正的手机号登录接口
+       */
+      async handlePhoneLogin() {
+        if (!this.checkAgree()) return
+        if (this.submitting) return
+        if (!isPhone(this.phone)) {
+          uni.showToast({ title: '手机号格式不正确', icon: 'none' })
           return
         }
-        // TODO: 阶段02-03 手机号验证码登录（用户端首期主要走微信一键登录）
-        uni.showToast({ title: '登录功能待开发（阶段02-03实现）', icon: 'none' })
-      }
-    }
+        if (!isSmsCode(this.code)) {
+          uni.showToast({ title: '请输入正确的验证码', icon: 'none' })
+          return
+        }
+        this.submitting = true
+        uni.showLoading({ title: '登录中...' })
+        try {
+          const resp = await phoneLogin(this.phone, this.code)
+          const data = resp.data as UTSJSONObject
+          applyLoginData(data)
+          uni.hideLoading()
+          uni.showToast({ title: '登录成功', icon: 'success' })
+          setTimeout(() => {
+            this.submitting = false
+            uni.navigateBack({ delta: 1 })
+          }, 500)
+        } catch (e) {
+          uni.hideLoading()
+          this.submitting = false
+          // 错误提示由 request 拦截器处理
+        }
+      },
+      /**
+       * 开发期辅助：直接用演示账号登入（手机号 13800138888 + mock 验证码）
+       */
+      async handleDemoLogin() {
+        this.submitting = true
+        uni.showLoading({ title: '登入体验账号...' })
+        try {
+          const resp = await phoneLogin('13800138888', '123456')
+          const data = resp.data as UTSJSONObject
+          applyLoginData(data)
+          uni.hideLoading()
+          uni.showToast({ title: '登录成功', icon: 'success' })
+          setTimeout(() => {
+            this.submitting = false
+            uni.navigateBack({ delta: 1 })
+          }, 500)
+        } catch (e) {
+          uni.hideLoading()
+          this.submitting = false
+        }
+      },
+    },
   }
 </script>
 
 <style lang="scss">
-.container {
-  padding: 60rpx 40rpx;
-  min-height: 100vh;
-  background-color: #fff;
-}
-.logo-area {
-  text-align: center;
-  padding: 80rpx 0 60rpx;
-}
-.logo-text {
-  font-size: 52rpx;
-  font-weight: bold;
-  color: #008AFF;
-}
-.logo-sub {
-  display: block;
-  margin-top: 16rpx;
-  font-size: 28rpx;
-  color: #999;
-}
-.form-area {
-  margin-top: 40rpx;
-}
-.btn-wechat {
-  height: 90rpx;
-  line-height: 90rpx;
-  background-color: #07C160;
-  color: #fff;
-  border-radius: 12rpx;
-  font-size: 32rpx;
-  margin-bottom: 30rpx;
-}
-.divider {
-  text-align: center;
-  margin: 20rpx 0 30rpx;
-}
-.divider-text {
-  font-size: 24rpx;
-  color: #999;
-}
-.input {
-  height: 90rpx;
-  border: 1px solid #e0e0e0;
-  border-radius: 12rpx;
-  padding: 0 24rpx;
-  margin-bottom: 30rpx;
-  font-size: 30rpx;
-}
-.row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  margin-bottom: 30rpx;
-}
-.input-code {
-  flex: 1;
-  margin-bottom: 0;
-  margin-right: 20rpx;
-}
-.btn-code {
-  height: 90rpx;
-  line-height: 90rpx;
-  padding: 0 24rpx;
-  background-color: #E8F3FF;
-  color: #008AFF;
-  border-radius: 12rpx;
-  font-size: 26rpx;
-}
-.btn-login {
-  margin-top: 20rpx;
-  height: 90rpx;
-  line-height: 90rpx;
-  background-color: #008AFF;
-  color: #fff;
-  border-radius: 12rpx;
-  font-size: 32rpx;
-}
+  .container {
+    min-height: 100vh;
+    background-color: #fff;
+    padding: 100rpx 60rpx 60rpx;
+  }
+  .logo-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-bottom: 60rpx;
+  }
+  .logo-circle {
+    width: 160rpx;
+    height: 160rpx;
+    border-radius: 80rpx;
+    background-color: #008AFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6rpx 20rpx rgba(0, 138, 255, 0.3);
+  }
+  .logo-text {
+    color: #fff;
+    font-size: 48rpx;
+    font-weight: bold;
+  }
+  .app-name {
+    margin-top: 32rpx;
+    font-size: 40rpx;
+    color: #333;
+    font-weight: bold;
+  }
+  .app-sub {
+    margin-top: 12rpx;
+    color: #999;
+    font-size: 24rpx;
+  }
+  .form-area {
+    margin-top: 20rpx;
+  }
+  .btn-wechat {
+    height: 96rpx;
+    background-color: #07C160;
+    border-radius: 48rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-wechat-text {
+    color: #fff;
+    font-size: 32rpx;
+    font-weight: 500;
+  }
+  .divider {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin: 48rpx 0;
+  }
+  .divider-line {
+    flex: 1;
+    height: 1px;
+    background-color: #e5e5e5;
+  }
+  .divider-text {
+    margin: 0 20rpx;
+    color: #999;
+    font-size: 24rpx;
+  }
+  .input-box {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    height: 96rpx;
+    background-color: #F5F6F8;
+    border-radius: 16rpx;
+    padding: 0 24rpx;
+    margin-bottom: 24rpx;
+  }
+  .ipt-label {
+    margin-right: 16rpx;
+    color: #666;
+  }
+  .input {
+    flex: 1;
+    font-size: 30rpx;
+    color: #333;
+  }
+  .btn-code {
+    padding: 12rpx 24rpx;
+    background-color: #E8F3FF;
+    border-radius: 24rpx;
+  }
+  .btn-code.disabled {
+    background-color: #F5F6F8;
+  }
+  .btn-code-text {
+    color: #008AFF;
+    font-size: 24rpx;
+  }
+  .btn-login {
+    margin-top: 24rpx;
+    height: 96rpx;
+    background-color: #008AFF;
+    border-radius: 48rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4rpx 16rpx rgba(0, 138, 255, 0.3);
+  }
+  .btn-login.loading {
+    background-color: #80C5FF;
+  }
+  .btn-login-text {
+    color: #fff;
+    font-size: 32rpx;
+    font-weight: 500;
+  }
+  .agreement {
+    margin-top: 36rpx;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .agree-cb-box {
+    margin-right: 12rpx;
+  }
+  .agree-cb {
+    width: 32rpx;
+    height: 32rpx;
+    border-radius: 16rpx;
+    border: 2rpx solid #ccc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .agree-cb.active {
+    background-color: #008AFF;
+    border-color: #008AFF;
+  }
+  .agree-cb-check {
+    color: #fff;
+    font-size: 20rpx;
+    font-weight: bold;
+  }
+  .agree-text {
+    color: #999;
+    font-size: 22rpx;
+  }
+  .agree-link {
+    color: #008AFF;
+    font-size: 22rpx;
+  }
+  .dev-tip {
+    margin-top: 60rpx;
+    padding-top: 24rpx;
+    border-top: 1px dashed #eee;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .btn-demo {
+    padding: 16rpx 32rpx;
+    background-color: #FFF3E0;
+    border-radius: 32rpx;
+  }
+  .btn-demo-text {
+    color: #FF6600;
+    font-size: 24rpx;
+  }
+  .dev-tip-text {
+    margin-top: 12rpx;
+    color: #bbb;
+    font-size: 20rpx;
+  }
 </style>

@@ -1,0 +1,293 @@
+<template>
+  <view class="container">
+    <view class="top-bar">
+      <view class="search-bar" @click="goSearch">
+        <text class="search-icon">🔍</text>
+        <input
+          class="search-input"
+          type="text"
+          placeholder="搜索商家名称"
+          v-model="keyword"
+          confirm-type="search"
+          @confirm="handleSearch"
+        />
+        <text v-if="keyword != ''" class="clear-btn" @click="clearKeyword">×</text>
+      </view>
+      <view class="loc-row" @click="handleLoc">
+        <text class="loc-text">📍 {{ locText }}</text>
+      </view>
+    </view>
+
+    <view class="filter-bar">
+      <view
+        v-for="s in sortOptions"
+        :key="s.value"
+        class="filter-item"
+        :class="{ active: sortType == s.value }"
+        @click="changeSort(s.value)"
+      >
+        <text class="filter-text" :class="{ active: sortType == s.value }">{{ s.label }}</text>
+      </view>
+    </view>
+
+    <scroll-view class="list-wrap" scroll-y="true" @scrolltolower="loadMore">
+      <view v-if="loading && list.length == 0" class="loading">
+        <text class="loading-text">加载中...</text>
+      </view>
+      <view v-else-if="list.length == 0" class="empty-wrap">
+        <EmptyState icon="🏪" text="附近暂无商家" subText="换个位置或筛选条件试试" actionText="刷新" @action="reload" />
+      </view>
+      <view v-else>
+        <MerchantCard
+          v-for="item in list"
+          :key="item.id"
+          :id="item.id"
+          :name="item.name"
+          :logoUrl="item.logo"
+          :rating="item.rating"
+          :monthSales="item.monthSales"
+          :distance="item.distance"
+          :minOrderAmount="item.minOrderAmount"
+          :deliveryFee="item.deliveryFee"
+          :deliveryTime="item.deliveryTime"
+          :announcement="item.announcement"
+          :status="item.status"
+          @click="goDetail"
+        />
+        <LoadMore :status="loadMoreStatus" @retry="loadMore" />
+      </view>
+    </scroll-view>
+  </view>
+</template>
+
+<script lang="uts">
+  import { locationState } from '@/stores/location'
+  import { listNearbyStores } from '@/api/merchant'
+  import MerchantCard from '@/components/MerchantCard.uvue'
+  import EmptyState from '@/components/EmptyState.uvue'
+  import LoadMore from '@/components/LoadMore.uvue'
+
+  type MerchantItem = {
+    id: number
+    name: string
+    logo: string
+    rating: number
+    monthSales: number
+    distance: number
+    minOrderAmount: number
+    deliveryFee: number
+    deliveryTime: number
+    announcement: string
+    status: string
+  }
+
+  type SortOption = {
+    label: string
+    value: string
+  }
+
+  export default {
+    components: { MerchantCard, EmptyState, LoadMore },
+    data() {
+      return {
+        keyword: '',
+        sortType: 'distance',
+        sortOptions: [
+          { label: '综合', value: 'default' } as SortOption,
+          { label: '距离最近', value: 'distance' } as SortOption,
+          { label: '销量最高', value: 'sales' } as SortOption,
+          { label: '评分最高', value: 'rating' } as SortOption,
+        ] as SortOption[],
+        list: [] as MerchantItem[],
+        page: 1,
+        pageSize: 10,
+        total: 0,
+        loading: false,
+        loadMoreStatus: 'more',
+      }
+    },
+    computed: {
+      locText(): string {
+        return locationState.district != '' ? locationState.district : '当前位置'
+      },
+    },
+    onLoad(query: UTSJSONObject) {
+      const kw = query['keyword']
+      if (kw != null) this.keyword = kw as string
+      this.fetchList(true)
+    },
+    methods: {
+      async fetchList(reset: boolean) {
+        if (this.loading) return
+        this.loading = true
+        if (reset) {
+          this.page = 1
+          this.list = []
+        }
+        try {
+          const params: UTSJSONObject = {
+            lat: locationState.lat,
+            lng: locationState.lng,
+            distance: 5000,
+            page: this.page,
+            pageSize: this.pageSize,
+          } as UTSJSONObject
+          if (this.sortType != 'default') {
+            params['sortBy'] = this.sortType
+          }
+          if (this.keyword != '') {
+            params['keyword'] = this.keyword
+          }
+          const res = await listNearbyStores(params)
+          const data = res.data as UTSJSONObject
+          const list = data['list'] as UTSJSONObject[]
+          const items: MerchantItem[] = []
+          for (let i = 0; i < list.length; i++) {
+            const it = list[i]
+            items.push({
+              id: it['id'] as number,
+              name: it['name'] as string,
+              logo: (it['logo'] as string) ?? '',
+              rating: (it['rating'] as number) ?? 5.0,
+              monthSales: (it['monthSales'] as number) ?? 0,
+              distance: (it['distance'] as number) ?? 0,
+              minOrderAmount: (it['minOrderAmount'] as number) ?? 0,
+              deliveryFee: (it['deliveryFee'] as number) ?? 0,
+              deliveryTime: (it['deliveryTime'] as number) ?? 30,
+              announcement: (it['announcement'] as string) ?? '',
+              status: (it['status'] as string) ?? 'OPEN',
+            } as MerchantItem)
+          }
+          this.list = reset ? items : this.list.concat(items)
+          const pag = data['pagination'] as UTSJSONObject
+          this.total = pag['total'] as number
+          if (this.list.length >= this.total) {
+            this.loadMoreStatus = 'nomore'
+          } else {
+            this.loadMoreStatus = 'more'
+            this.page++
+          }
+        } catch (e) {
+          this.loadMoreStatus = 'error'
+          console.error(e)
+        } finally {
+          this.loading = false
+        }
+      },
+      loadMore() {
+        if (this.loadMoreStatus != 'more') return
+        this.fetchList(false)
+      },
+      reload() {
+        this.fetchList(true)
+      },
+      changeSort(v: string) {
+        if (this.sortType == v) return
+        this.sortType = v
+        this.fetchList(true)
+      },
+      handleSearch() {
+        this.fetchList(true)
+      },
+      clearKeyword() {
+        this.keyword = ''
+        this.fetchList(true)
+      },
+      goSearch() {
+        uni.navigateTo({ url: '/pages/search/index' })
+      },
+      goDetail(id: number) {
+        uni.navigateTo({ url: '/pages/merchant/detail?id=' + id })
+      },
+      handleLoc() {
+        uni.chooseLocation({
+          success: () => {
+            uni.showToast({ title: '位置已更新', icon: 'success' })
+            this.fetchList(true)
+          },
+          fail: () => {},
+        })
+      },
+    },
+  }
+</script>
+
+<style lang="scss">
+  .container {
+    height: 100vh;
+    background-color: #f5f6f8;
+    display: flex;
+    flex-direction: column;
+  }
+  .top-bar {
+    background-color: #fff;
+    padding: 16rpx 24rpx;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .search-bar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    height: 72rpx;
+    background-color: #f5f6f8;
+    border-radius: 36rpx;
+    padding: 0 24rpx;
+  }
+  .search-icon {
+    color: #999;
+    margin-right: 12rpx;
+  }
+  .search-input {
+    flex: 1;
+    font-size: 26rpx;
+    color: #333;
+  }
+  .clear-btn {
+    color: #999;
+    font-size: 32rpx;
+    padding: 0 8rpx;
+  }
+  .loc-row {
+    margin-top: 12rpx;
+  }
+  .loc-text {
+    color: #666;
+    font-size: 24rpx;
+  }
+  .filter-bar {
+    display: flex;
+    flex-direction: row;
+    background-color: #fff;
+    padding: 0 24rpx;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .filter-item {
+    padding: 20rpx 24rpx;
+    border-bottom: 4rpx solid transparent;
+  }
+  .filter-item.active {
+    border-bottom-color: #008AFF;
+  }
+  .filter-text {
+    font-size: 26rpx;
+    color: #666;
+  }
+  .filter-text.active {
+    color: #008AFF;
+    font-weight: 500;
+  }
+  .list-wrap {
+    flex: 1;
+    padding: 20rpx 24rpx 40rpx;
+  }
+  .loading {
+    text-align: center;
+    padding: 80rpx 0;
+  }
+  .loading-text {
+    color: #999;
+  }
+  .empty-wrap {
+    padding-top: 80rpx;
+  }
+</style>

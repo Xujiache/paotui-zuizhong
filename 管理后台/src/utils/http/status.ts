@@ -30,7 +30,7 @@ export enum ApiStatus {
   accountFrozen = 11004,
   verifyCodeError = 11005,
   tooFrequent = 11006,
-  dailyLimitReached = 11007,
+  dailyLimitReached = 11007
 }
 
 /**
@@ -49,5 +49,5 @@ export enum HttpStatus {
   notImplemented = 501,
   badGateway = 502,
   serviceUnavailable = 503,
-  gatewayTimeout = 504,
+  gatewayTimeout = 504
 }

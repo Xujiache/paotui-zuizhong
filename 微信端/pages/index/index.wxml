@@ -1,9 +1,0 @@
-<view class="container">
-  <view class="header">
-    <text class="title">同城O2O配送</text>
-    <text class="subtitle">快速、便捷的本地配送服务</text>
-  </view>
-  <view class="content">
-    <text class="placeholder">首页内容待开发（阶段04实现）</text>
-  </view>
-</view>

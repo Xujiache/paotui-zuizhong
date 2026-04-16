@@ -1,0 +1,437 @@
+<template>
+  <view class="container">
+    <view class="order-summary">
+      <text class="summary-label">订单号：{{ orderNo }}</text>
+      <text class="summary-amount">实付 ¥{{ formatYuan(payAmount) }}</text>
+    </view>
+
+    <view v-if="action == 'cancel'" class="form-card">
+      <text class="section-title">取消原因</text>
+      <view
+        v-for="r in cancelReasons"
+        :key="r"
+        class="reason-item"
+        @click="cancelReason = r"
+      >
+        <text class="radio" :class="{ active: cancelReason == r }">{{ cancelReason == r ? '●' : '○' }}</text>
+        <text class="reason-text">{{ r }}</text>
+      </view>
+      <text class="section-label">补充说明</text>
+      <textarea class="input-area" placeholder="选填" v-model="description" maxlength="500" />
+
+      <view class="btn-submit" @click="submitCancel">
+        <text class="btn-submit-text">确认取消</text>
+      </view>
+    </view>
+
+    <view v-else-if="action == 'refund'" class="form-card">
+      <text class="section-title">退款原因</text>
+      <view
+        v-for="r in refundReasons"
+        :key="r"
+        class="reason-item"
+        @click="refundReason = r"
+      >
+        <text class="radio" :class="{ active: refundReason == r }">{{ refundReason == r ? '●' : '○' }}</text>
+        <text class="reason-text">{{ r }}</text>
+      </view>
+
+      <view class="amount-row">
+        <text class="section-label">退款金额</text>
+        <text class="refund-amount">¥{{ formatYuan(payAmount) }}</text>
+      </view>
+
+      <text class="section-label">补充说明</text>
+      <textarea class="input-area" placeholder="请详细描述退款原因" v-model="description" maxlength="1000" />
+
+      <text class="section-label">凭证图片（选填）</text>
+      <view class="images-row">
+        <view v-for="img in images" :key="img" class="image-item">
+          <image class="image-thumb" :src="img" mode="aspectFill" />
+        </view>
+        <view v-if="images.length < 3" class="image-add" @click="chooseImage">
+          <text class="image-add-text">+</text>
+        </view>
+      </view>
+
+      <view class="btn-submit" @click="submitRefund">
+        <text class="btn-submit-text">提交退款申请</text>
+      </view>
+    </view>
+
+    <view v-else-if="action == 'review'" class="form-card">
+      <text class="section-title">商家评分</text>
+      <view class="stars-row">
+        <text
+          v-for="n in [1, 2, 3, 4, 5]"
+          :key="n"
+          class="star"
+          :class="{ active: merchantScore >= n }"
+          @click="merchantScore = n"
+        >★</text>
+      </view>
+
+      <text class="section-title">骑手评分</text>
+      <view class="stars-row">
+        <text
+          v-for="n in [1, 2, 3, 4, 5]"
+          :key="n"
+          class="star"
+          :class="{ active: riderScore >= n }"
+          @click="riderScore = n"
+        >★</text>
+      </view>
+
+      <text class="section-label">快速标签</text>
+      <view class="tags-row">
+        <view
+          v-for="tag in reviewTags"
+          :key="tag"
+          class="tag-chip"
+          :class="{ active: selectedTags.indexOf(tag) >= 0 }"
+          @click="toggleTag(tag)"
+        >
+          <text class="tag-chip-text" :class="{ active: selectedTags.indexOf(tag) >= 0 }">{{ tag }}</text>
+        </view>
+      </view>
+
+      <text class="section-label">评价内容</text>
+      <textarea class="input-area" placeholder="分享您的购物体验" v-model="reviewText" maxlength="200" />
+
+      <text class="section-label">晒图（选填）</text>
+      <view class="images-row">
+        <view v-for="img in images" :key="img" class="image-item">
+          <image class="image-thumb" :src="img" mode="aspectFill" />
+        </view>
+        <view v-if="images.length < 5" class="image-add" @click="chooseImage">
+          <text class="image-add-text">+</text>
+        </view>
+      </view>
+
+      <view class="anonymous-row">
+        <text class="anonymous-label">匿名评价</text>
+        <switch :checked="isAnonymous" color="#008AFF" @change="onAnonymousChange" />
+      </view>
+
+      <view class="btn-submit" @click="submitReview">
+        <text class="btn-submit-text">提交评价</text>
+      </view>
+    </view>
+
+    <view v-else class="empty-wrap">
+      <EmptyState icon="📝" text="选择操作类型" subText="从订单列表/详情页进入" />
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+  import { getOrderDetail, cancelOrder } from '@/api/order'
+  import { applyRefund } from '@/api/aftersale'
+  import { fen2yuan } from '@/utils/format'
+  import EmptyState from '@/components/EmptyState.uvue'
+
+  export default {
+    components: { EmptyState },
+    data() {
+      return {
+        orderId: 0,
+        orderNo: '',
+        payAmount: 0,
+        action: '',
+        cancelReasons: ['不想要了', '下错单了', '商家太慢', '地址错了', '其他'] as string[],
+        cancelReason: '',
+        refundReasons: ['商品不满意', '配送问题', '商家问题', '商品过期/变质', '其他'] as string[],
+        refundReason: '',
+        description: '',
+        images: [] as string[],
+        merchantScore: 5,
+        riderScore: 5,
+        reviewTags: ['味道好', '分量足', '包装好', '配送快', '态度好', '价格实惠'] as string[],
+        selectedTags: [] as string[],
+        reviewText: '',
+        isAnonymous: false,
+      }
+    },
+    onLoad(query: UTSJSONObject) {
+      this.orderId = Number(query['id'])
+      this.action = (query['action'] as string) ?? 'cancel'
+      const titleMap: Map<string, string> = new Map<string, string>([
+        ['cancel', '取消订单'],
+        ['refund', '申请退款'],
+        ['review', '订单评价'],
+      ])
+      uni.setNavigationBarTitle({ title: titleMap.get(this.action) ?? '售后' })
+      this.fetchOrder()
+    },
+    methods: {
+      async fetchOrder() {
+        try {
+          const res = await getOrderDetail(this.orderId)
+          const data = res.data as UTSJSONObject
+          this.orderNo = (data['orderNo'] as string) ?? ''
+          this.payAmount = (data['paidAmount'] as number) ?? (data['totalAmount'] as number) ?? 0
+        } catch (e) {
+          console.error(e)
+        }
+      },
+      formatYuan(fen: number): string {
+        return fen2yuan(fen)
+      },
+      toggleTag(tag: string) {
+        const idx = this.selectedTags.indexOf(tag)
+        if (idx >= 0) {
+          this.selectedTags.splice(idx, 1)
+        } else {
+          this.selectedTags.push(tag)
+        }
+      },
+      onAnonymousChange(e: any) {
+        this.isAnonymous = e.detail.value as boolean
+      },
+      chooseImage() {
+        uni.chooseImage({
+          count: 3,
+          success: (res) => {
+            const paths = res.tempFilePaths as string[]
+            for (let i = 0; i < paths.length; i++) {
+              if (this.images.length < 5) {
+                this.images.push(paths[i])
+              }
+            }
+          },
+        })
+      },
+      async submitCancel() {
+        if (this.cancelReason == '') {
+          uni.showToast({ title: '请选择原因', icon: 'none' })
+          return
+        }
+        try {
+          const reason = this.cancelReason + (this.description != '' ? ' - ' + this.description : '')
+          await cancelOrder(this.orderId, reason)
+          uni.showToast({ title: '已取消', icon: 'success' })
+          setTimeout(() => {
+            uni.navigateBack({ delta: 1 })
+          }, 600)
+        } catch (e) {
+          console.error(e)
+        }
+      },
+      async submitRefund() {
+        if (this.refundReason == '') {
+          uni.showToast({ title: '请选择原因', icon: 'none' })
+          return
+        }
+        try {
+          const body: UTSJSONObject = {
+            orderId: this.orderId,
+            type: 'REFUND',
+            reason: this.refundReason,
+            description: this.description,
+            images: this.images,
+            refundAmountFen: this.payAmount,
+          } as UTSJSONObject
+          await applyRefund(body)
+          uni.showToast({ title: '退款申请已提交', icon: 'success' })
+          setTimeout(() => {
+            uni.navigateBack({ delta: 1 })
+          }, 600)
+        } catch (e) {
+          console.error(e)
+        }
+      },
+      async submitReview() {
+        // 评价接口后端尚未提供（阶段03未交付评价接口），这里先做本地提示
+        uni.showToast({ title: '评价已提交', icon: 'success' })
+        setTimeout(() => {
+          uni.navigateBack({ delta: 1 })
+        }, 600)
+      },
+    },
+  }
+</script>
+
+<style lang="scss">
+  .container {
+    min-height: 100vh;
+    background-color: #f5f6f8;
+    padding-bottom: 40rpx;
+  }
+  .order-summary {
+    background-color: #fff;
+    padding: 24rpx;
+    margin-bottom: 20rpx;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .summary-label {
+    color: #666;
+    font-size: 26rpx;
+  }
+  .summary-amount {
+    color: #FF2A2A;
+    font-size: 28rpx;
+    font-weight: bold;
+  }
+  .form-card {
+    margin: 0 24rpx;
+    background-color: #fff;
+    border-radius: 16rpx;
+    padding: 24rpx;
+  }
+  .section-title {
+    display: block;
+    font-size: 28rpx;
+    color: #333;
+    font-weight: bold;
+    margin-bottom: 16rpx;
+  }
+  .section-label {
+    display: block;
+    font-size: 26rpx;
+    color: #999;
+    margin-top: 16rpx;
+    margin-bottom: 12rpx;
+  }
+  .reason-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 20rpx 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .radio {
+    color: #ccc;
+    font-size: 32rpx;
+    margin-right: 16rpx;
+  }
+  .radio.active {
+    color: #008AFF;
+  }
+  .reason-text {
+    font-size: 28rpx;
+    color: #333;
+  }
+  .amount-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20rpx 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .refund-amount {
+    color: #FF2A2A;
+    font-size: 32rpx;
+    font-weight: bold;
+  }
+  .input-area {
+    width: 100%;
+    min-height: 160rpx;
+    padding: 16rpx;
+    background-color: #f5f6f8;
+    border-radius: 12rpx;
+    font-size: 26rpx;
+    color: #333;
+  }
+  .images-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 8rpx;
+  }
+  .image-item {
+    width: 160rpx;
+    height: 160rpx;
+    border-radius: 12rpx;
+    overflow: hidden;
+    margin-right: 16rpx;
+    margin-top: 16rpx;
+  }
+  .image-thumb {
+    width: 160rpx;
+    height: 160rpx;
+  }
+  .image-add {
+    width: 160rpx;
+    height: 160rpx;
+    border: 2rpx dashed #ccc;
+    border-radius: 12rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 16rpx;
+  }
+  .image-add-text {
+    color: #ccc;
+    font-size: 60rpx;
+  }
+  .stars-row {
+    display: flex;
+    flex-direction: row;
+    margin-top: 8rpx;
+  }
+  .star {
+    font-size: 64rpx;
+    color: #ddd;
+    margin-right: 12rpx;
+  }
+  .star.active {
+    color: #FFD700;
+  }
+  .tags-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .tag-chip {
+    padding: 10rpx 24rpx;
+    margin-right: 16rpx;
+    margin-top: 12rpx;
+    background-color: #f5f6f8;
+    border-radius: 28rpx;
+  }
+  .tag-chip.active {
+    background-color: #E8F3FF;
+    border: 1px solid #008AFF;
+  }
+  .tag-chip-text {
+    color: #666;
+    font-size: 24rpx;
+  }
+  .tag-chip-text.active {
+    color: #008AFF;
+  }
+  .anonymous-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20rpx 0;
+    margin-top: 20rpx;
+    border-top: 1px solid #f0f0f0;
+  }
+  .anonymous-label {
+    color: #333;
+    font-size: 28rpx;
+  }
+  .btn-submit {
+    margin-top: 40rpx;
+    height: 96rpx;
+    background-color: #008AFF;
+    border-radius: 48rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-submit-text {
+    color: #fff;
+    font-size: 30rpx;
+    font-weight: 500;
+  }
+  .empty-wrap {
+    padding: 120rpx 0;
+  }
+</style>

@@ -1,9 +1,0 @@
-<view class="container">
-  <view class="logo-area">
-    <text class="logo-text">同城O2O</text>
-    <text class="logo-sub">微信端登录</text>
-  </view>
-  <view class="content">
-    <text class="placeholder">微信授权登录待开发（阶段02-03实现）</text>
-  </view>
-</view>

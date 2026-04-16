@@ -1,0 +1,18 @@
+/**
+ * 购物车全局状态：仅维护数量徽标，列表由页面实时拉后端
+ */
+export type CartState = {
+  totalQuantity: number
+}
+
+export const cartState = reactive({
+  totalQuantity: 0,
+} as CartState)
+
+export const setCartCount = (n: number) => {
+  cartState.totalQuantity = n
+}
+
+export const resetCart = () => {
+  cartState.totalQuantity = 0
+}

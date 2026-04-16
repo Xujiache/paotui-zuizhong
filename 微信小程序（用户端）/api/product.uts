@@ -1,0 +1,29 @@
+import { get, ApiResponse } from './request'
+
+/**
+ * 店铺内商品列表
+ */
+export const listStoreProducts = (storeId: number, params: UTSJSONObject): Promise<ApiResponse> => {
+  return get(`/product/stores/${storeId}/products`, params)
+}
+
+/**
+ * 店铺商品分类
+ */
+export const listCategories = (storeId: number, onlyActive: boolean = true): Promise<ApiResponse> => {
+  return get('/product/categories', { storeId: storeId, onlyActive: onlyActive } as UTSJSONObject)
+}
+
+/**
+ * 商品详情（含 SKU）
+ */
+export const getProductDetail = (id: number): Promise<ApiResponse> => {
+  return get(`/product/products/${id}`)
+}
+
+/**
+ * 搜索商品
+ */
+export const searchProducts = (params: UTSJSONObject): Promise<ApiResponse> => {
+  return get('/product/search', params)
+}

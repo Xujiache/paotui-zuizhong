@@ -1,0 +1,243 @@
+<template>
+  <view class="container">
+    <view class="hero">
+      <text class="hero-title">帮助与客服</text>
+      <text class="hero-sub">有问题？我们随时为您服务</text>
+    </view>
+
+    <view class="quick-card">
+      <view class="quick-item" @click="handleWxService">
+        <view class="quick-icon bg-green">
+          <text class="quick-icon-text">💬</text>
+        </view>
+        <text class="quick-name">在线客服</text>
+        <text class="quick-sub">微信客服</text>
+      </view>
+      <view class="quick-item" @click="handleCallPhone">
+        <view class="quick-icon bg-blue">
+          <text class="quick-icon-text">📞</text>
+        </view>
+        <text class="quick-name">电话客服</text>
+        <text class="quick-sub">{{ servicePhone }}</text>
+      </view>
+      <view class="quick-item" @click="handleComplaint">
+        <view class="quick-icon bg-orange">
+          <text class="quick-icon-text">📝</text>
+        </view>
+        <text class="quick-name">投诉建议</text>
+        <text class="quick-sub">匿名反馈</text>
+      </view>
+    </view>
+
+    <view class="faq-section">
+      <text class="section-title">常见问题</text>
+      <view v-for="(cat, cidx) in faqList" :key="cidx" class="faq-cat">
+        <text class="faq-cat-name">{{ cat.category }}</text>
+        <view v-for="(q, qidx) in cat.questions" :key="qidx" class="faq-item" @click="toggleFaq(cidx, qidx)">
+          <view class="faq-row">
+            <text class="faq-q">{{ q.q }}</text>
+            <text class="faq-arrow">{{ expanded[cidx + '-' + qidx] ? '−' : '+' }}</text>
+          </view>
+          <view v-if="expanded[cidx + '-' + qidx]" class="faq-a-wrap">
+            <text class="faq-a">{{ q.a }}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+  type FaqItem = {
+    q: string
+    a: string
+  }
+
+  type FaqCat = {
+    category: string
+    questions: FaqItem[]
+  }
+
+  export default {
+    data() {
+      return {
+        servicePhone: '400-888-8888',
+        faqList: [
+          {
+            category: '下单问题',
+            questions: [
+              { q: '如何下单？', a: '在首页选择商家 → 加入购物车 → 点击"去结算" → 选择地址后提交订单即可。' } as FaqItem,
+              { q: '支持哪些支付方式？', a: '当前仅支持微信支付，后续将接入更多支付渠道。' } as FaqItem,
+              { q: '可以修改订单地址吗？', a: '订单支付成功后不支持修改地址，请在下单前仔细确认。' } as FaqItem,
+            ] as FaqItem[],
+          } as FaqCat,
+          {
+            category: '配送问题',
+            questions: [
+              { q: '配送范围是多少？', a: '商品订单默认配送范围 5 公里，跑腿订单同城任意距离。' } as FaqItem,
+              { q: '配送时间是多久？', a: '商品订单约 30~60 分钟，跑腿订单根据距离预估。' } as FaqItem,
+              { q: '如何联系骑手？', a: '在订单详情页点击"联系骑手"即可拨打骑手电话。' } as FaqItem,
+            ] as FaqItem[],
+          } as FaqCat,
+          {
+            category: '退款问题',
+            questions: [
+              { q: '如何申请退款？', a: '订单详情页 → 点击"申请售后" → 填写原因并提交。' } as FaqItem,
+              { q: '退款多久到账？', a: '商家同意后 1-3 个工作日原路退回。' } as FaqItem,
+            ] as FaqItem[],
+          } as FaqCat,
+          {
+            category: '账号问题',
+            questions: [
+              { q: '如何绑定手机号？', a: '个人中心 → 点击头像 → 账号安全 → 绑定手机号。' } as FaqItem,
+              { q: '忘记密码怎么办？', a: '用户端通过微信授权登录，无密码；商家/骑手账户请联系客服。' } as FaqItem,
+            ] as FaqItem[],
+          } as FaqCat,
+        ] as FaqCat[],
+        expanded: {} as UTSJSONObject,
+      }
+    },
+    methods: {
+      toggleFaq(cidx: number, qidx: number) {
+        const key = `${cidx}-${qidx}`
+        const cur = this.expanded[key] as boolean | null
+        this.expanded[key] = !(cur == true)
+      },
+      handleWxService() {
+        // 生产环境用 wx.openCustomerServiceChat
+        uni.showToast({ title: '微信客服功能开发中', icon: 'none' })
+      },
+      handleCallPhone() {
+        uni.makePhoneCall({ phoneNumber: this.servicePhone })
+      },
+      handleComplaint() {
+        uni.showToast({ title: '投诉通道开发中', icon: 'none' })
+      },
+    },
+  }
+</script>
+
+<style lang="scss">
+  .container {
+    min-height: 100vh;
+    background-color: #f5f6f8;
+    padding-bottom: 40rpx;
+  }
+  .hero {
+    background: linear-gradient(180deg, #008AFF 0%, #00A3FF 100%);
+    padding: 40rpx 32rpx 60rpx;
+  }
+  .hero-title {
+    color: #fff;
+    font-size: 40rpx;
+    font-weight: bold;
+  }
+  .hero-sub {
+    display: block;
+    margin-top: 12rpx;
+    color: rgba(255,255,255,0.85);
+    font-size: 26rpx;
+  }
+  .quick-card {
+    margin: -40rpx 24rpx 0;
+    background-color: #fff;
+    border-radius: 16rpx;
+    padding: 32rpx 24rpx;
+    display: flex;
+    flex-direction: row;
+    box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.06);
+  }
+  .quick-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .quick-icon {
+    width: 96rpx;
+    height: 96rpx;
+    border-radius: 48rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .bg-green {
+    background-color: #E8F9EE;
+  }
+  .bg-blue {
+    background-color: #E8F3FF;
+  }
+  .bg-orange {
+    background-color: #FFF3E0;
+  }
+  .quick-icon-text {
+    font-size: 44rpx;
+  }
+  .quick-name {
+    margin-top: 16rpx;
+    color: #333;
+    font-size: 26rpx;
+    font-weight: 500;
+  }
+  .quick-sub {
+    margin-top: 6rpx;
+    color: #999;
+    font-size: 22rpx;
+  }
+  .faq-section {
+    margin: 20rpx 24rpx 0;
+    background-color: #fff;
+    border-radius: 16rpx;
+    padding: 24rpx;
+  }
+  .section-title {
+    display: block;
+    font-size: 30rpx;
+    color: #333;
+    font-weight: bold;
+    margin-bottom: 16rpx;
+  }
+  .faq-cat {
+    padding: 16rpx 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .faq-cat:last-child {
+    border-bottom: 0;
+  }
+  .faq-cat-name {
+    display: block;
+    color: #999;
+    font-size: 26rpx;
+    margin-bottom: 8rpx;
+  }
+  .faq-item {
+    padding: 16rpx 0;
+  }
+  .faq-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .faq-q {
+    color: #333;
+    font-size: 26rpx;
+    flex: 1;
+  }
+  .faq-arrow {
+    color: #008AFF;
+    font-size: 36rpx;
+    font-weight: bold;
+  }
+  .faq-a-wrap {
+    margin-top: 12rpx;
+    padding: 16rpx;
+    background-color: #f5f6f8;
+    border-radius: 12rpx;
+  }
+  .faq-a {
+    color: #666;
+    font-size: 24rpx;
+    line-height: 36rpx;
+  }
+</style>

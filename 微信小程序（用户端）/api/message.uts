@@ -1,0 +1,21 @@
+import { get, patch, del, ApiResponse } from './request'
+
+export const listMessages = (params: UTSJSONObject): Promise<ApiResponse> => {
+  return get('/message/messages', params)
+}
+
+export const getUnreadCount = (): Promise<ApiResponse> => {
+  return get('/message/unread-count')
+}
+
+export const markRead = (id: number): Promise<ApiResponse> => {
+  return patch(`/message/messages/${id}/read`, null)
+}
+
+export const markAllRead = (): Promise<ApiResponse> => {
+  return patch('/message/messages/read-all', null)
+}
+
+export const deleteMessage = (id: number): Promise<ApiResponse> => {
+  return del(`/message/messages/${id}`)
+}

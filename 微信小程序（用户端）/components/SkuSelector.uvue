@@ -1,0 +1,378 @@
+<template>
+  <view v-if="visible" class="mask" @click="handleClose">
+    <view class="panel" catchtap="stopProp">
+      <view class="header">
+        <view class="product-img">
+          <image v-if="product.image != ''" class="img" :src="product.image" mode="aspectFill" />
+        </view>
+        <view class="product-info">
+          <text class="product-name">{{ product.name }}</text>
+          <text class="current-price">¥{{ priceText }}</text>
+          <text class="stock-text">库存 {{ currentStock }}</text>
+        </view>
+        <view class="close-btn" @click="handleClose">
+          <text class="close-text">×</text>
+        </view>
+      </view>
+
+      <scroll-view class="sku-body" scroll-y="true">
+        <view v-for="group in specGroups" :key="group.name" class="spec-group">
+          <text class="group-title">{{ group.name }}</text>
+          <view class="spec-options">
+            <view
+              v-for="opt in group.values"
+              :key="opt"
+              class="spec-opt"
+              :class="{ active: selectedSpecs[group.name] == opt }"
+              @click="selectSpec(group.name, opt)"
+            >
+              <text class="spec-opt-text" :class="{ active: selectedSpecs[group.name] == opt }">{{ opt }}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="qty-row">
+          <text class="qty-label">数量</text>
+          <view class="qty-box">
+            <view class="qty-btn" :class="{ disabled: quantity <= 1 }" @click="decQuantity">
+              <text class="qty-btn-text">−</text>
+            </view>
+            <text class="qty-text">{{ quantity }}</text>
+            <view class="qty-btn" :class="{ disabled: quantity >= currentStock }" @click="incQuantity">
+              <text class="qty-btn-text">+</text>
+            </view>
+          </view>
+        </view>
+      </scroll-view>
+
+      <view class="footer">
+        <view class="btn-add" :class="{ disabled: !canAdd }" @click="handleAdd">
+          <text class="btn-add-text">加入购物车 · ¥{{ totalPriceText }}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+  import { fen2yuan } from '@/utils/format'
+  import { addToCart } from '@/api/cart'
+
+  type SpecGroup = {
+    name: string
+    values: string[]
+  }
+
+  type SkuVO = {
+    id: number
+    specValues: UTSJSONObject
+    specText: string
+    price: number
+    originalPrice: number
+    stock: number
+  }
+
+  type ProductVO = {
+    id: number
+    name: string
+    image: string
+    basePriceFen: number
+    storeId: number
+  }
+
+  export default {
+    name: 'SkuSelector',
+    props: {
+      visible: { type: Boolean, default: false },
+      product: {
+        type: Object,
+        default: () => ({ id: 0, name: '', image: '', basePriceFen: 0, storeId: 0 } as ProductVO),
+      },
+      specGroups: {
+        type: Array,
+        default: () => [] as SpecGroup[],
+      },
+      skus: {
+        type: Array,
+        default: () => [] as SkuVO[],
+      },
+    },
+    emits: ['close', 'added'],
+    data() {
+      return {
+        selectedSpecs: {} as UTSJSONObject,
+        quantity: 1,
+      }
+    },
+    computed: {
+      matchedSku(): SkuVO | null {
+        const groups = this.specGroups as SpecGroup[]
+        const skus = this.skus as SkuVO[]
+        for (let i = 0; i < skus.length; i++) {
+          const sku = skus[i]
+          let matched = true
+          for (let j = 0; j < groups.length; j++) {
+            const g = groups[j]
+            const v = this.selectedSpecs[g.name]
+            if (v == null) {
+              matched = false
+              break
+            }
+            if (sku.specValues[g.name] != v) {
+              matched = false
+              break
+            }
+          }
+          if (matched) return sku
+        }
+        return null
+      },
+      currentStock(): number {
+        return this.matchedSku != null ? this.matchedSku!.stock : 0
+      },
+      currentPrice(): number {
+        if (this.matchedSku != null) return this.matchedSku!.price
+        const p = this.product as ProductVO
+        return p.basePriceFen
+      },
+      priceText(): string {
+        return fen2yuan(this.currentPrice)
+      },
+      totalPriceText(): string {
+        return fen2yuan(this.currentPrice * this.quantity)
+      },
+      canAdd(): boolean {
+        return this.matchedSku != null && this.matchedSku!.stock > 0 && this.quantity > 0
+      },
+    },
+    watch: {
+      visible(v: boolean) {
+        if (v) {
+          this.selectedSpecs = {} as UTSJSONObject
+          this.quantity = 1
+          this.autoSelectFirstSku()
+        }
+      },
+    },
+    methods: {
+      autoSelectFirstSku() {
+        const groups = this.specGroups as SpecGroup[]
+        if (groups.length > 0) {
+          const skus = this.skus as SkuVO[]
+          if (skus.length > 0) {
+            const first = skus[0]
+            for (let i = 0; i < groups.length; i++) {
+              const g = groups[i]
+              this.selectedSpecs[g.name] = first.specValues[g.name]
+            }
+          }
+        }
+      },
+      selectSpec(groupName: string, value: string) {
+        this.selectedSpecs[groupName] = value
+        this.quantity = 1
+      },
+      incQuantity() {
+        if (this.quantity < this.currentStock) this.quantity++
+      },
+      decQuantity() {
+        if (this.quantity > 1) this.quantity--
+      },
+      handleClose() {
+        this.$emit('close')
+      },
+      stopProp(e: any) {
+        e.stopPropagation()
+      },
+      async handleAdd() {
+        if (!this.canAdd) {
+          uni.showToast({ title: '请选择规格', icon: 'none' })
+          return
+        }
+        const p = this.product as ProductVO
+        const sku = this.matchedSku as SkuVO
+        try {
+          await addToCart(p.storeId, p.id, sku.id, this.quantity)
+          uni.showToast({ title: '已加入购物车', icon: 'success' })
+          this.$emit('added', this.quantity)
+          this.handleClose()
+        } catch (e) {
+          console.error('加购失败', e)
+        }
+      },
+    },
+  }
+</script>
+
+<style lang="scss">
+  .mask {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background-color: rgba(0,0,0,0.5);
+    z-index: 1000;
+    display: flex;
+    align-items: flex-end;
+  }
+  .panel {
+    width: 100%;
+    background-color: #fff;
+    border-top-left-radius: 24rpx;
+    border-top-right-radius: 24rpx;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .header {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    padding: 24rpx;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .product-img {
+    width: 160rpx;
+    height: 160rpx;
+    border-radius: 12rpx;
+    overflow: hidden;
+    background-color: #f5f6f8;
+    margin-right: 20rpx;
+  }
+  .img {
+    width: 160rpx;
+    height: 160rpx;
+  }
+  .product-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding-right: 48rpx;
+  }
+  .product-name {
+    font-size: 30rpx;
+    color: #333;
+    font-weight: 500;
+  }
+  .current-price {
+    font-size: 36rpx;
+    color: #FF2A2A;
+    font-weight: bold;
+  }
+  .stock-text {
+    font-size: 22rpx;
+    color: #999;
+  }
+  .close-btn {
+    position: absolute;
+    right: 24rpx;
+    top: 24rpx;
+    width: 44rpx;
+    height: 44rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .close-text {
+    font-size: 40rpx;
+    color: #999;
+  }
+  .sku-body {
+    max-height: 500rpx;
+    padding: 0 24rpx;
+  }
+  .spec-group {
+    padding: 20rpx 0;
+  }
+  .group-title {
+    font-size: 26rpx;
+    color: #333;
+    font-weight: 500;
+    margin-bottom: 12rpx;
+  }
+  .spec-options {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .spec-opt {
+    padding: 10rpx 28rpx;
+    margin-right: 16rpx;
+    margin-top: 12rpx;
+    background-color: #f5f6f8;
+    border-radius: 28rpx;
+  }
+  .spec-opt.active {
+    background-color: #008AFF;
+  }
+  .spec-opt-text {
+    color: #333;
+    font-size: 24rpx;
+  }
+  .spec-opt-text.active {
+    color: #fff;
+  }
+  .qty-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24rpx 0;
+    border-top: 1px solid #f0f0f0;
+  }
+  .qty-label {
+    font-size: 28rpx;
+    color: #333;
+  }
+  .qty-box {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+  }
+  .qty-btn {
+    width: 56rpx;
+    height: 56rpx;
+    border-radius: 28rpx;
+    background-color: #f5f6f8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .qty-btn.disabled {
+    opacity: 0.4;
+  }
+  .qty-btn-text {
+    color: #333;
+    font-size: 32rpx;
+    font-weight: bold;
+  }
+  .qty-text {
+    font-size: 30rpx;
+    color: #333;
+    padding: 0 24rpx;
+    min-width: 80rpx;
+    text-align: center;
+  }
+  .footer {
+    padding: 20rpx 24rpx;
+    border-top: 1px solid #f0f0f0;
+  }
+  .btn-add {
+    height: 88rpx;
+    background-color: #008AFF;
+    border-radius: 44rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-add.disabled {
+    background-color: #ccc;
+  }
+  .btn-add-text {
+    color: #fff;
+    font-size: 30rpx;
+    font-weight: 500;
+  }
+</style>

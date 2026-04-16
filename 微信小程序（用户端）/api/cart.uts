@@ -1,0 +1,35 @@
+import { get, post, put, del, ApiResponse } from './request'
+
+export const getCart = (): Promise<ApiResponse> => {
+  return get('/cart/')
+}
+
+export const addToCart = (storeId: number, productId: number, skuId: number, quantity: number = 1): Promise<ApiResponse> => {
+  return post('/cart/items', {
+    storeId: storeId,
+    productId: productId,
+    skuId: skuId,
+    quantity: quantity,
+  } as UTSJSONObject)
+}
+
+export const updateCartItem = (itemId: number, quantity: number): Promise<ApiResponse> => {
+  return put(`/cart/items/${itemId}`, { quantity: quantity } as UTSJSONObject)
+}
+
+export const removeCartItem = (itemId: number): Promise<ApiResponse> => {
+  return del(`/cart/items/${itemId}`)
+}
+
+export const clearCart = (storeId?: number | null): Promise<ApiResponse> => {
+  const path = storeId != null ? `/cart/?storeId=${storeId}` : '/cart/'
+  return del(path)
+}
+
+export const checkCart = (storeId: number, itemIds?: number[] | null): Promise<ApiResponse> => {
+  const body: UTSJSONObject = { storeId: storeId } as UTSJSONObject
+  if (itemIds != null) {
+    body['itemIds'] = itemIds
+  }
+  return post('/cart/check', body)
+}

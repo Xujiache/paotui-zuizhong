@@ -1,0 +1,69 @@
+import { get, post, put, del, patch, ApiResponse } from './request'
+
+// ========== 地址 ==========
+
+export const listAddresses = (): Promise<ApiResponse> => {
+  return get('/user/addresses')
+}
+
+export const addAddress = (data: UTSJSONObject): Promise<ApiResponse> => {
+  return post('/user/addresses', data)
+}
+
+export const updateAddress = (id: number, data: UTSJSONObject): Promise<ApiResponse> => {
+  return put(`/user/addresses/${id}`, data)
+}
+
+export const deleteAddress = (id: number): Promise<ApiResponse> => {
+  return del(`/user/addresses/${id}`)
+}
+
+export const setDefaultAddress = (id: number): Promise<ApiResponse> => {
+  return patch(`/user/addresses/${id}/default`, null)
+}
+
+// ========== 收藏 ==========
+
+export const listFavorites = (page: number = 1, pageSize: number = 20, targetType?: string): Promise<ApiResponse> => {
+  const query: UTSJSONObject = { page: page, pageSize: pageSize } as UTSJSONObject
+  if (targetType != null && targetType != '') {
+    query['targetType'] = targetType
+  }
+  return get('/user/favorites', query)
+}
+
+export const addFavorite = (targetType: string, targetId: number): Promise<ApiResponse> => {
+  return post('/user/favorites', { targetType: targetType, targetId: targetId } as UTSJSONObject)
+}
+
+export const removeFavorite = (id: number): Promise<ApiResponse> => {
+  return del(`/user/favorites/${id}`)
+}
+
+// ========== 浏览历史 ==========
+
+export const listHistory = (page: number = 1, pageSize: number = 20, targetType?: string): Promise<ApiResponse> => {
+  const query: UTSJSONObject = { page: page, pageSize: pageSize } as UTSJSONObject
+  if (targetType != null && targetType != '') {
+    query['targetType'] = targetType
+  }
+  return get('/user/history', query)
+}
+
+export const logHistory = (targetType: string, targetId: number): Promise<ApiResponse> => {
+  return post('/user/history', { targetType: targetType, targetId: targetId } as UTSJSONObject)
+}
+
+export const clearHistory = (): Promise<ApiResponse> => {
+  return del('/user/history')
+}
+
+// ========== 资料 ==========
+
+export const getProfile = (): Promise<ApiResponse> => {
+  return get('/user/profile')
+}
+
+export const updateProfile = (data: UTSJSONObject): Promise<ApiResponse> => {
+  return put('/user/profile', data)
+}

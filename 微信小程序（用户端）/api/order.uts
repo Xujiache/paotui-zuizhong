@@ -1,0 +1,44 @@
+import { get, post, ApiResponse } from './request'
+
+export const createProductOrder = (data: UTSJSONObject): Promise<ApiResponse> => {
+  return post('/order/product-orders', data)
+}
+
+export const createErrandOrder = (data: UTSJSONObject): Promise<ApiResponse> => {
+  return post('/order/errand-orders', data)
+}
+
+export const listOrders = (params: UTSJSONObject): Promise<ApiResponse> => {
+  return get('/order/orders', params)
+}
+
+export const getOrderDetail = (id: number): Promise<ApiResponse> => {
+  return get(`/order/orders/${id}`)
+}
+
+export const getOrderLogs = (id: number): Promise<ApiResponse> => {
+  return get(`/order/orders/${id}/logs`)
+}
+
+export const cancelOrder = (id: number, reason: string = ''): Promise<ApiResponse> => {
+  return post(`/order/orders/${id}/cancel`, { reason: reason } as UTSJSONObject)
+}
+
+export const completeOrder = (id: number): Promise<ApiResponse> => {
+  return post(`/order/orders/${id}/complete`, null)
+}
+
+export const getPaymentByOrderNo = (orderNo: string): Promise<ApiResponse> => {
+  return get(`/order/payment/${orderNo}`)
+}
+
+/**
+ * 模拟支付（开发期）：直接触发后端支付回调
+ */
+export const mockPaymentCallback = (paymentNo: string, amountFen: number): Promise<ApiResponse> => {
+  return post('/order/payment/callback', {
+    paymentNo: paymentNo,
+    transactionId: 'mock_' + Date.now(),
+    amountFen: amountFen,
+  } as UTSJSONObject, { noAuth: true } as UTSJSONObject)
+}

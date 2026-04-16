@@ -1,0 +1,71 @@
+<template>
+  <view class="empty">
+    <view class="empty-icon">
+      <text class="empty-icon-text">{{ icon }}</text>
+    </view>
+    <text class="empty-text">{{ text }}</text>
+    <text v-if="subText != ''" class="empty-sub">{{ subText }}</text>
+    <view v-if="actionText != ''" class="empty-action" @click="handleAction">
+      <text class="empty-action-text">{{ actionText }}</text>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+  export default {
+    name: 'EmptyState',
+    props: {
+      icon: { type: String, default: '🗒' },
+      text: { type: String, default: '暂无数据' },
+      subText: { type: String, default: '' },
+      actionText: { type: String, default: '' },
+    },
+    emits: ['action'],
+    methods: {
+      handleAction() {
+        this.$emit('action')
+      },
+    },
+  }
+</script>
+
+<style lang="scss">
+  .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 120rpx 0 60rpx;
+  }
+  .empty-icon {
+    width: 160rpx;
+    height: 160rpx;
+    border-radius: 80rpx;
+    background-color: #F0F2F5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 32rpx;
+  }
+  .empty-icon-text {
+    font-size: 72rpx;
+  }
+  .empty-text {
+    font-size: 30rpx;
+    color: #666;
+  }
+  .empty-sub {
+    margin-top: 12rpx;
+    font-size: 24rpx;
+    color: #999;
+  }
+  .empty-action {
+    margin-top: 36rpx;
+    padding: 16rpx 48rpx;
+    border: 1px solid #008AFF;
+    border-radius: 36rpx;
+  }
+  .empty-action-text {
+    color: #008AFF;
+    font-size: 26rpx;
+  }
+</style>

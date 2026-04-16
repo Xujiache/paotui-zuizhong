@@ -1,0 +1,164 @@
+<template>
+  <view class="merchant" @click="handleClick">
+    <view class="logo">
+      <image v-if="logoUrl != ''" class="logo-img" :src="logoUrl" mode="aspectFill" />
+      <view v-else class="logo-placeholder">
+        <text class="logo-placeholder-text">{{ firstChar }}</text>
+      </view>
+    </view>
+    <view class="info">
+      <view class="row-title">
+        <text class="name">{{ name }}</text>
+        <text v-if="status != 'OPEN'" class="tag-closed">休息中</text>
+      </view>
+      <view class="row">
+        <text class="rating">★ {{ formatRating(rating) }}</text>
+        <text class="sales">月售 {{ monthSales }}</text>
+        <text class="distance">{{ distanceText }}</text>
+      </view>
+      <view class="row">
+        <text class="delivery">起送 ¥{{ formatYuan(minOrderAmount) }}</text>
+        <text class="delivery">配送 ¥{{ formatYuan(deliveryFee) }}</text>
+        <text class="delivery">约{{ deliveryTime }}分钟</text>
+      </view>
+      <view v-if="announcement != ''" class="announcement">
+        <text class="announcement-text">公告：{{ announcement }}</text>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+  import { fen2yuan, distanceText } from '@/utils/format'
+
+  export default {
+    name: 'MerchantCard',
+    props: {
+      id: { type: Number, default: 0 },
+      name: { type: String, default: '' },
+      logoUrl: { type: String, default: '' },
+      rating: { type: Number, default: 5.0 },
+      monthSales: { type: Number, default: 0 },
+      distance: { type: Number, default: 0 },
+      minOrderAmount: { type: Number, default: 0 },
+      deliveryFee: { type: Number, default: 0 },
+      deliveryTime: { type: Number, default: 30 },
+      announcement: { type: String, default: '' },
+      status: { type: String, default: 'OPEN' },
+    },
+    emits: ['click'],
+    computed: {
+      firstChar(): string {
+        return this.name.length > 0 ? this.name.substring(0, 1) : '店'
+      },
+      distanceText(): string {
+        return distanceText(this.distance)
+      },
+    },
+    methods: {
+      formatYuan(fen: number): string {
+        return fen2yuan(fen)
+      },
+      formatRating(r: number): string {
+        return r.toFixed(1)
+      },
+      handleClick() {
+        this.$emit('click', this.id)
+      },
+    },
+  }
+</script>
+
+<style lang="scss">
+  .merchant {
+    display: flex;
+    flex-direction: row;
+    padding: 24rpx;
+    background-color: #fff;
+    margin-bottom: 16rpx;
+    border-radius: 16rpx;
+  }
+  .logo {
+    width: 160rpx;
+    height: 160rpx;
+    border-radius: 16rpx;
+    overflow: hidden;
+    margin-right: 20rpx;
+  }
+  .logo-img {
+    width: 160rpx;
+    height: 160rpx;
+  }
+  .logo-placeholder {
+    width: 160rpx;
+    height: 160rpx;
+    background-color: #E8F3FF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .logo-placeholder-text {
+    font-size: 64rpx;
+    color: #008AFF;
+    font-weight: bold;
+  }
+  .info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .row-title {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+  }
+  .name {
+    font-size: 30rpx;
+    color: #333;
+    font-weight: 600;
+    flex: 1;
+  }
+  .tag-closed {
+    padding: 4rpx 12rpx;
+    background-color: #FFF1F0;
+    color: #E53935;
+    font-size: 20rpx;
+    border-radius: 8rpx;
+  }
+  .row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin-top: 8rpx;
+  }
+  .rating {
+    color: #FF9500;
+    font-size: 24rpx;
+    margin-right: 16rpx;
+  }
+  .sales {
+    color: #999;
+    font-size: 22rpx;
+    margin-right: 16rpx;
+  }
+  .distance {
+    color: #999;
+    font-size: 22rpx;
+  }
+  .delivery {
+    color: #666;
+    font-size: 22rpx;
+    margin-right: 16rpx;
+  }
+  .announcement {
+    margin-top: 8rpx;
+    padding: 6rpx 12rpx;
+    background-color: #FFF7E6;
+    border-radius: 6rpx;
+  }
+  .announcement-text {
+    color: #B07A00;
+    font-size: 22rpx;
+  }
+</style>

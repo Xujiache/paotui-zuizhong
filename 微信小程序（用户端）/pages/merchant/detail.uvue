@@ -1,0 +1,858 @@
+<template>
+  <view class="container">
+    <view class="header" :style="headerStyle">
+      <view class="header-bg"></view>
+      <view class="top-nav" :style="topNavStyle">
+        <view class="back-btn" @click="handleBack">
+          <text class="back-text">‹</text>
+        </view>
+        <text class="nav-title">{{ store.name }}</text>
+      </view>
+      <view class="store-card">
+        <view class="logo-wrap">
+          <image v-if="store.logo != ''" class="logo" :src="store.logo" mode="aspectFill" />
+          <view v-else class="logo-placeholder">
+            <text class="logo-placeholder-text">{{ storeFirstChar }}</text>
+          </view>
+        </view>
+        <view class="store-info">
+          <text class="store-name">{{ store.name }}</text>
+          <view class="store-row">
+            <text class="rating">★ {{ ratingText }}</text>
+            <text class="sales">月售 {{ store.monthSales }}</text>
+          </view>
+          <view class="store-row">
+            <text class="meta">起送 ¥{{ minOrderText }}</text>
+            <text class="meta">配送 ¥{{ deliveryFeeText }}</text>
+            <text class="meta">约{{ store.deliveryTime }}分钟</text>
+          </view>
+          <view v-if="store.announcement != ''" class="announce">
+            <text class="announce-text">公告：{{ store.announcement }}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="body-wrap">
+      <view class="cat-side">
+        <scroll-view class="cat-scroll" scroll-y="true">
+          <view
+            v-for="(c, idx) in categories"
+            :key="c.id"
+            class="cat-item"
+            :class="{ active: currentCat == c.id }"
+            @click="switchCategory(c.id)"
+          >
+            <text class="cat-text" :class="{ active: currentCat == c.id }">{{ c.name }}</text>
+          </view>
+        </scroll-view>
+      </view>
+
+      <scroll-view class="product-side" scroll-y="true" @scrolltolower="loadMoreProducts">
+        <view v-if="loading && products.length == 0" class="loading">
+          <text class="loading-text">加载中...</text>
+        </view>
+        <view v-else-if="products.length == 0" class="empty-wrap">
+          <EmptyState icon="🍱" text="该分类暂无商品" />
+        </view>
+        <view v-else class="product-list">
+          <view v-for="p in products" :key="p.id" class="product-row">
+            <view class="p-img-box">
+              <image v-if="p.image != ''" class="p-img" :src="p.image" mode="aspectFill" />
+              <view v-else class="p-img-placeholder"></view>
+            </view>
+            <view class="p-info">
+              <text class="p-name">{{ p.name }}</text>
+              <text v-if="p.description != ''" class="p-desc">{{ p.description }}</text>
+              <text class="p-sales">月售 {{ p.monthSales }}</text>
+              <view class="p-bottom">
+                <view class="p-price-box">
+                  <text class="p-price-symbol">¥</text>
+                  <text class="p-price">{{ formatYuan(p.basePriceFen) }}</text>
+                </view>
+                <view class="p-qty-box" v-if="getCartQty(p.id) > 0 && !p.hasSku">
+                  <view class="qty-btn" @click="decFromCart(p.id)">
+                    <text class="qty-btn-text">−</text>
+                  </view>
+                  <text class="qty-text">{{ getCartQty(p.id) }}</text>
+                  <view class="qty-btn primary" @click="addToCart(p)">
+                    <text class="qty-btn-text">+</text>
+                  </view>
+                </view>
+                <view v-else class="p-add-btn" @click="handleProductAdd(p)">
+                  <text class="p-add-text">{{ p.hasSku ? '选规格' : '+' }}</text>
+                </view>
+              </view>
+            </view>
+          </view>
+          <LoadMore :status="productsLoadStatus" @retry="loadMoreProducts" />
+        </view>
+      </scroll-view>
+    </view>
+
+    <view class="cart-bar">
+      <view class="cart-icon" @click="goCart">
+        <view class="cart-circle" :class="{ active: cartCount > 0 }">
+          <text class="cart-icon-text">🛒</text>
+        </view>
+        <view v-if="cartCount > 0" class="cart-badge">
+          <text class="cart-badge-text">{{ cartCount }}</text>
+        </view>
+      </view>
+      <view class="cart-info">
+        <text v-if="cartAmount > 0" class="cart-amount">¥{{ cartAmountText }}</text>
+        <text v-else class="cart-tip">未选购商品</text>
+        <text class="cart-sub">另需配送费 ¥{{ deliveryFeeText }}</text>
+      </view>
+      <view class="cart-btn" :class="{ disabled: !canCheckout }" @click="handleCheckout">
+        <text class="cart-btn-text">{{ checkoutText }}</text>
+      </view>
+    </view>
+
+    <SkuSelector
+      :visible="skuVisible"
+      :product="currentProduct"
+      :specGroups="currentSpecGroups"
+      :skus="currentSkus"
+      @close="skuVisible = false"
+      @added="onSkuAdded"
+    />
+  </view>
+</template>
+
+<script lang="uts">
+  import { getStoreDetail } from '@/api/merchant'
+  import { listStoreProducts, listCategories, getProductDetail } from '@/api/product'
+  import { getCart, addToCart as cartAdd, updateCartItem, removeCartItem } from '@/api/cart'
+  import { fen2yuan } from '@/utils/format'
+  import { setCartCount, cartState } from '@/stores/cart'
+  import EmptyState from '@/components/EmptyState.uvue'
+  import LoadMore from '@/components/LoadMore.uvue'
+  import SkuSelector from '@/components/SkuSelector.uvue'
+
+  type StoreInfo = {
+    id: number
+    name: string
+    logo: string
+    rating: number
+    monthSales: number
+    minOrderAmount: number
+    deliveryFee: number
+    deliveryTime: number
+    announcement: string
+    status: string
+  }
+
+  type CatItem = {
+    id: number
+    name: string
+  }
+
+  type ProductItem = {
+    id: number
+    name: string
+    description: string
+    image: string
+    basePriceFen: number
+    monthSales: number
+    hasSku: boolean
+  }
+
+  type CartItem = {
+    id: number
+    productId: number
+    skuId: number
+    quantity: number
+    priceFen: number
+  }
+
+  export default {
+    components: { EmptyState, LoadMore, SkuSelector },
+    data() {
+      return {
+        storeId: 0,
+        store: {
+          id: 0,
+          name: '',
+          logo: '',
+          rating: 5.0,
+          monthSales: 0,
+          minOrderAmount: 0,
+          deliveryFee: 0,
+          deliveryTime: 30,
+          announcement: '',
+          status: 'OPEN',
+        } as StoreInfo,
+        categories: [] as CatItem[],
+        currentCat: 0,
+        products: [] as ProductItem[],
+        page: 1,
+        pageSize: 20,
+        productsLoadStatus: 'more',
+        loading: false,
+        cartItems: [] as CartItem[],
+        skuVisible: false,
+        currentProduct: { id: 0, name: '', image: '', basePriceFen: 0, storeId: 0 } as UTSJSONObject,
+        currentSpecGroups: [] as UTSJSONObject[],
+        currentSkus: [] as UTSJSONObject[],
+        statusBarHeight: 0,
+      }
+    },
+    computed: {
+      headerStyle(): string {
+        return `padding-top:${this.statusBarHeight + 88}px;`
+      },
+      topNavStyle(): string {
+        return `padding-top:${this.statusBarHeight}px;`
+      },
+      storeFirstChar(): string {
+        return this.store.name.length > 0 ? this.store.name.substring(0, 1) : '店'
+      },
+      ratingText(): string {
+        return this.store.rating.toFixed(1)
+      },
+      minOrderText(): string {
+        return fen2yuan(this.store.minOrderAmount)
+      },
+      deliveryFeeText(): string {
+        return fen2yuan(this.store.deliveryFee)
+      },
+      cartCount(): number {
+        let total = 0
+        for (let i = 0; i < this.cartItems.length; i++) {
+          total += this.cartItems[i].quantity
+        }
+        return total
+      },
+      cartAmount(): number {
+        let total = 0
+        for (let i = 0; i < this.cartItems.length; i++) {
+          total += this.cartItems[i].quantity * this.cartItems[i].priceFen
+        }
+        return total
+      },
+      cartAmountText(): string {
+        return fen2yuan(this.cartAmount)
+      },
+      canCheckout(): boolean {
+        return this.cartCount > 0 && this.cartAmount >= this.store.minOrderAmount && this.store.status == 'OPEN'
+      },
+      checkoutText(): string {
+        if (this.store.status != 'OPEN') return '商家已打烊'
+        if (this.cartCount == 0) return '去结算'
+        if (this.cartAmount < this.store.minOrderAmount) {
+          const diff = this.store.minOrderAmount - this.cartAmount
+          return `还差¥${fen2yuan(diff)}起送`
+        }
+        return '去结算'
+      },
+    },
+    onLoad(query: UTSJSONObject) {
+      this.storeId = Number(query['id'])
+      const sysInfo = uni.getSystemInfoSync()
+      this.statusBarHeight = sysInfo.statusBarHeight ?? 20
+      this.fetchAll()
+    },
+    onShow() {
+      if (this.storeId > 0) this.fetchCart()
+    },
+    methods: {
+      async fetchAll() {
+        try {
+          const storeRes = await getStoreDetail(this.storeId)
+          const sData = storeRes.data as UTSJSONObject
+          this.store = {
+            id: sData['id'] as number,
+            name: (sData['name'] as string) ?? '',
+            logo: (sData['logo'] as string) ?? '',
+            rating: (sData['rating'] as number) ?? 5.0,
+            monthSales: (sData['salesCount'] as number) ?? 0,
+            minOrderAmount: (sData['minOrderAmount'] as number) ?? 0,
+            deliveryFee: (sData['deliveryFee'] as number) ?? 0,
+            deliveryTime: (sData['deliveryTime'] as number) ?? 30,
+            announcement: (sData['announcement'] as string) ?? '',
+            status: (sData['status'] as string) ?? 'OPEN',
+          } as StoreInfo
+
+          const catRes = await listCategories(this.storeId, true)
+          const catData = catRes.data as UTSJSONObject
+          const catList = catData['list'] as UTSJSONObject[]
+          const cats: CatItem[] = [{ id: 0, name: '全部' } as CatItem]
+          for (let i = 0; i < catList.length; i++) {
+            const c = catList[i]
+            cats.push({ id: c['id'] as number, name: c['name'] as string } as CatItem)
+          }
+          this.categories = cats
+          this.currentCat = 0
+
+          await this.fetchProducts(true)
+          await this.fetchCart()
+        } catch (e) {
+          console.error('加载商家详情失败', e)
+        }
+      },
+      async fetchProducts(reset: boolean) {
+        if (this.loading) return
+        this.loading = true
+        if (reset) {
+          this.page = 1
+          this.products = []
+        }
+        try {
+          const params: UTSJSONObject = {
+            page: this.page,
+            pageSize: this.pageSize,
+          } as UTSJSONObject
+          if (this.currentCat > 0) {
+            params['categoryId'] = this.currentCat
+          }
+          const res = await listStoreProducts(this.storeId, params)
+          const data = res.data as UTSJSONObject
+          const list = data['list'] as UTSJSONObject[]
+          const items: ProductItem[] = []
+          for (let i = 0; i < list.length; i++) {
+            const it = list[i]
+            const skus = it['skus'] as UTSJSONObject[] | null
+            const hasSku = skus != null && skus.length > 1
+            const images = (it['images'] as string[]) ?? ([] as string[])
+            items.push({
+              id: it['id'] as number,
+              name: it['name'] as string,
+              description: (it['description'] as string) ?? '',
+              image: images.length > 0 ? images[0] : '',
+              basePriceFen: (it['basePrice'] as number) ?? 0,
+              monthSales: (it['salesCount'] as number) ?? 0,
+              hasSku: hasSku,
+            } as ProductItem)
+          }
+          this.products = reset ? items : this.products.concat(items)
+          const pag = data['pagination'] as UTSJSONObject
+          const total = pag['total'] as number
+          if (this.products.length >= total) {
+            this.productsLoadStatus = 'nomore'
+          } else {
+            this.productsLoadStatus = 'more'
+            this.page++
+          }
+        } catch (e) {
+          this.productsLoadStatus = 'error'
+        } finally {
+          this.loading = false
+        }
+      },
+      switchCategory(id: number) {
+        if (this.currentCat == id) return
+        this.currentCat = id
+        this.fetchProducts(true)
+      },
+      loadMoreProducts() {
+        if (this.productsLoadStatus != 'more') return
+        this.fetchProducts(false)
+      },
+      async fetchCart() {
+        try {
+          const res = await getCart()
+          const data = res.data as UTSJSONObject
+          const groups = (data['groups'] as UTSJSONObject[]) ?? []
+          const myItems: CartItem[] = []
+          for (let i = 0; i < groups.length; i++) {
+            const g = groups[i]
+            if ((g['storeId'] as number) != this.storeId) continue
+            const rawItems = (g['items'] as UTSJSONObject[]) ?? []
+            for (let j = 0; j < rawItems.length; j++) {
+              const it = rawItems[j]
+              const prod = (it['product'] as UTSJSONObject) ?? ({} as UTSJSONObject)
+              myItems.push({
+                id: it['id'] as number,
+                productId: it['productId'] as number,
+                skuId: it['skuId'] as number,
+                quantity: it['quantity'] as number,
+                priceFen: (prod['price'] as number) ?? 0,
+              } as CartItem)
+            }
+          }
+          this.cartItems = myItems
+          setCartCount(this.cartCount)
+        } catch (e) {
+          console.warn('拉取购物车失败', e)
+        }
+      },
+      getCartQty(productId: number): number {
+        let qty = 0
+        for (let i = 0; i < this.cartItems.length; i++) {
+          if (this.cartItems[i].productId == productId) {
+            qty += this.cartItems[i].quantity
+          }
+        }
+        return qty
+      },
+      formatYuan(fen: number): string {
+        return fen2yuan(fen)
+      },
+      async addToCart(p: ProductItem) {
+        if (this.store.status != 'OPEN') {
+          uni.showToast({ title: '商家已打烊', icon: 'none' })
+          return
+        }
+        try {
+          const detailRes = await getProductDetail(p.id)
+          const pd = detailRes.data as UTSJSONObject
+          const skus = pd['skus'] as UTSJSONObject[]
+          if (skus == null || skus.length == 0) {
+            uni.showToast({ title: '商品无 SKU', icon: 'none' })
+            return
+          }
+          const firstSku = skus[0]
+          await cartAdd(this.storeId, p.id, firstSku['id'] as number, 1)
+          await this.fetchCart()
+        } catch (e) {
+          console.error('加购失败', e)
+        }
+      },
+      async decFromCart(productId: number) {
+        for (let i = 0; i < this.cartItems.length; i++) {
+          const it = this.cartItems[i]
+          if (it.productId == productId) {
+            if (it.quantity <= 1) {
+              await removeCartItem(it.id)
+            } else {
+              await updateCartItem(it.id, it.quantity - 1)
+            }
+            await this.fetchCart()
+            return
+          }
+        }
+      },
+      async handleProductAdd(p: ProductItem) {
+        if (this.store.status != 'OPEN') {
+          uni.showToast({ title: '商家已打烊', icon: 'none' })
+          return
+        }
+        if (!p.hasSku) {
+          await this.addToCart(p)
+          return
+        }
+        try {
+          const res = await getProductDetail(p.id)
+          const pd = res.data as UTSJSONObject
+          const skus = pd['skus'] as UTSJSONObject[]
+          const specGroupMap: Map<string, string[]> = new Map<string, string[]>()
+          for (let i = 0; i < skus.length; i++) {
+            const sku = skus[i]
+            const sv = sku['specValues'] as UTSJSONObject
+            if (sv == null) continue
+            const keys = Object.keys(sv)
+            for (let k = 0; k < keys.length; k++) {
+              const key = keys[k]
+              const value = sv[key] as string
+              let arr = specGroupMap.get(key)
+              if (arr == null) {
+                arr = [] as string[]
+                specGroupMap.set(key, arr)
+              }
+              if (arr.indexOf(value) < 0) arr.push(value)
+            }
+          }
+          const groups: UTSJSONObject[] = []
+          specGroupMap.forEach((values: string[], name: string) => {
+            groups.push({ name: name, values: values } as UTSJSONObject)
+          })
+          this.currentProduct = {
+            id: p.id,
+            name: p.name,
+            image: p.image,
+            basePriceFen: p.basePriceFen,
+            storeId: this.storeId,
+          } as UTSJSONObject
+          this.currentSpecGroups = groups
+          this.currentSkus = skus
+          this.skuVisible = true
+        } catch (e) {
+          console.error('加载规格失败', e)
+        }
+      },
+      onSkuAdded() {
+        this.fetchCart()
+      },
+      handleCheckout() {
+        if (!this.canCheckout) {
+          if (this.cartCount == 0) {
+            uni.showToast({ title: '请选购商品', icon: 'none' })
+          } else if (this.cartAmount < this.store.minOrderAmount) {
+            uni.showToast({ title: '未达起送价', icon: 'none' })
+          } else {
+            uni.showToast({ title: '商家已打烊', icon: 'none' })
+          }
+          return
+        }
+        uni.navigateTo({ url: `/pages/order/confirm?storeId=${this.storeId}` })
+      },
+      goCart() {
+        uni.navigateTo({ url: `/pages/cart/index?storeId=${this.storeId}` })
+      },
+      handleBack() {
+        const pages = getCurrentPages()
+        if (pages.length > 1) uni.navigateBack({ delta: 1 })
+        else uni.switchTab({ url: '/pages/index/index' })
+      },
+    },
+  }
+</script>
+
+<style lang="scss">
+  .container {
+    height: 100vh;
+    background-color: #f5f6f8;
+    display: flex;
+    flex-direction: column;
+  }
+  .header {
+    background: linear-gradient(180deg, #008AFF 0%, #00A3FF 100%);
+    padding: 0 24rpx 24rpx;
+    position: relative;
+  }
+  .header-bg {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 100%;
+    opacity: 0.9;
+  }
+  .top-nav {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    height: 88rpx;
+    padding: 0 24rpx;
+  }
+  .back-btn {
+    width: 56rpx;
+    height: 56rpx;
+    border-radius: 28rpx;
+    background-color: rgba(255,255,255,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .back-text {
+    color: #fff;
+    font-size: 40rpx;
+    font-weight: bold;
+  }
+  .nav-title {
+    margin-left: 16rpx;
+    color: #fff;
+    font-size: 32rpx;
+    font-weight: 500;
+  }
+  .store-card {
+    display: flex;
+    flex-direction: row;
+    padding: 20rpx 0;
+  }
+  .logo-wrap {
+    width: 140rpx;
+    height: 140rpx;
+    border-radius: 16rpx;
+    overflow: hidden;
+    margin-right: 20rpx;
+    background-color: #fff;
+  }
+  .logo {
+    width: 140rpx;
+    height: 140rpx;
+  }
+  .logo-placeholder {
+    width: 140rpx;
+    height: 140rpx;
+    background-color: rgba(255,255,255,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .logo-placeholder-text {
+    color: #fff;
+    font-size: 48rpx;
+    font-weight: bold;
+  }
+  .store-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .store-name {
+    color: #fff;
+    font-size: 32rpx;
+    font-weight: bold;
+  }
+  .store-row {
+    display: flex;
+    flex-direction: row;
+    margin-top: 8rpx;
+  }
+  .rating {
+    color: #FFD700;
+    font-size: 24rpx;
+    margin-right: 16rpx;
+  }
+  .sales {
+    color: rgba(255,255,255,0.85);
+    font-size: 22rpx;
+  }
+  .meta {
+    color: rgba(255,255,255,0.85);
+    font-size: 22rpx;
+    margin-right: 16rpx;
+  }
+  .announce {
+    margin-top: 8rpx;
+    padding: 6rpx 12rpx;
+    background-color: rgba(255,255,255,0.2);
+    border-radius: 6rpx;
+  }
+  .announce-text {
+    color: #fff;
+    font-size: 22rpx;
+  }
+  .body-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    padding-bottom: 120rpx;
+  }
+  .cat-side {
+    width: 180rpx;
+    background-color: #f0f0f0;
+  }
+  .cat-scroll {
+    height: 100%;
+  }
+  .cat-item {
+    padding: 28rpx 16rpx;
+    text-align: center;
+    border-left: 4rpx solid transparent;
+  }
+  .cat-item.active {
+    background-color: #fff;
+    border-left-color: #008AFF;
+  }
+  .cat-text {
+    font-size: 26rpx;
+    color: #666;
+  }
+  .cat-text.active {
+    color: #008AFF;
+    font-weight: 500;
+  }
+  .product-side {
+    flex: 1;
+    background-color: #fff;
+    padding: 20rpx 0;
+  }
+  .loading {
+    text-align: center;
+    padding: 80rpx 0;
+  }
+  .loading-text {
+    color: #999;
+  }
+  .empty-wrap {
+    padding-top: 80rpx;
+  }
+  .product-list {
+    padding-bottom: 20rpx;
+  }
+  .product-row {
+    display: flex;
+    flex-direction: row;
+    padding: 20rpx;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .p-img-box {
+    width: 160rpx;
+    height: 160rpx;
+    border-radius: 12rpx;
+    overflow: hidden;
+    margin-right: 16rpx;
+  }
+  .p-img {
+    width: 160rpx;
+    height: 160rpx;
+  }
+  .p-img-placeholder {
+    width: 160rpx;
+    height: 160rpx;
+    background-color: #f5f6f8;
+  }
+  .p-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .p-name {
+    font-size: 28rpx;
+    color: #333;
+    font-weight: 500;
+  }
+  .p-desc {
+    margin-top: 6rpx;
+    font-size: 22rpx;
+    color: #999;
+  }
+  .p-sales {
+    margin-top: 6rpx;
+    font-size: 22rpx;
+    color: #999;
+  }
+  .p-bottom {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 10rpx;
+  }
+  .p-price-box {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+  }
+  .p-price-symbol {
+    color: #FF2A2A;
+    font-size: 22rpx;
+  }
+  .p-price {
+    color: #FF2A2A;
+    font-size: 32rpx;
+    font-weight: bold;
+  }
+  .p-add-btn {
+    padding: 8rpx 20rpx;
+    background-color: #008AFF;
+    border-radius: 22rpx;
+  }
+  .p-add-text {
+    color: #fff;
+    font-size: 22rpx;
+    font-weight: 500;
+  }
+  .p-qty-box {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+  }
+  .qty-btn {
+    width: 44rpx;
+    height: 44rpx;
+    border-radius: 22rpx;
+    border: 1px solid #008AFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .qty-btn.primary {
+    background-color: #008AFF;
+  }
+  .qty-btn.primary .qty-btn-text {
+    color: #fff;
+  }
+  .qty-btn-text {
+    font-size: 28rpx;
+    color: #008AFF;
+    font-weight: bold;
+  }
+  .qty-text {
+    min-width: 60rpx;
+    text-align: center;
+    font-size: 26rpx;
+    color: #333;
+  }
+  .cart-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 120rpx;
+    background-color: #fff;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 0 24rpx;
+    box-shadow: 0 -4rpx 16rpx rgba(0,0,0,0.08);
+  }
+  .cart-icon {
+    position: relative;
+    width: 100rpx;
+    height: 100rpx;
+    margin-right: 20rpx;
+  }
+  .cart-circle {
+    width: 100rpx;
+    height: 100rpx;
+    border-radius: 50rpx;
+    background-color: #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .cart-circle.active {
+    background-color: #008AFF;
+  }
+  .cart-icon-text {
+    font-size: 44rpx;
+  }
+  .cart-badge {
+    position: absolute;
+    right: -4rpx;
+    top: -4rpx;
+    background-color: #FF2A2A;
+    min-width: 32rpx;
+    height: 32rpx;
+    border-radius: 16rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 8rpx;
+  }
+  .cart-badge-text {
+    color: #fff;
+    font-size: 20rpx;
+  }
+  .cart-info {
+    flex: 1;
+  }
+  .cart-amount {
+    color: #FF2A2A;
+    font-size: 32rpx;
+    font-weight: bold;
+  }
+  .cart-tip {
+    color: #999;
+    font-size: 26rpx;
+  }
+  .cart-sub {
+    display: block;
+    margin-top: 6rpx;
+    color: #999;
+    font-size: 22rpx;
+  }
+  .cart-btn {
+    padding: 20rpx 36rpx;
+    background-color: #008AFF;
+    border-radius: 44rpx;
+  }
+  .cart-btn.disabled {
+    background-color: #ccc;
+  }
+  .cart-btn-text {
+    color: #fff;
+    font-size: 28rpx;
+    font-weight: 500;
+  }
+</style>

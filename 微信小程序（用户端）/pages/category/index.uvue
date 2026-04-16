@@ -1,0 +1,331 @@
+<template>
+  <view class="container">
+    <view class="top-bar">
+      <view class="search-bar" @click="goSearch">
+        <text class="search-icon">🔍</text>
+        <text class="search-placeholder">搜索商家、商品</text>
+      </view>
+      <text class="loc">📍 {{ locText }}</text>
+    </view>
+
+    <view class="sort-bar">
+      <view
+        v-for="s in sortOptions"
+        :key="s.value"
+        class="sort-item"
+        :class="{ active: sortType == s.value }"
+        @click="changeSort(s.value)"
+      >
+        <text class="sort-text" :class="{ active: sortType == s.value }">{{ s.label }}</text>
+      </view>
+    </view>
+
+    <view class="body">
+      <view class="cat-side">
+        <scroll-view class="cat-scroll" scroll-y="true">
+          <view
+            v-for="c in categories"
+            :key="c.id"
+            class="cat-item"
+            :class="{ active: currentCat == c.id }"
+            @click="switchCategory(c.id)"
+          >
+            <text class="cat-text" :class="{ active: currentCat == c.id }">{{ c.name }}</text>
+          </view>
+        </scroll-view>
+      </view>
+
+      <scroll-view class="right-side" scroll-y="true" @scrolltolower="loadMore">
+        <view v-if="loading && merchants.length == 0" class="loading">
+          <text class="loading-text">加载中...</text>
+        </view>
+        <view v-else-if="merchants.length == 0" class="empty-wrap">
+          <EmptyState icon="🏪" text="该分类暂无商家" />
+        </view>
+        <view v-else class="merchant-list">
+          <MerchantCard
+            v-for="item in merchants"
+            :key="item.id"
+            :id="item.id"
+            :name="item.name"
+            :logoUrl="item.logo"
+            :rating="item.rating"
+            :monthSales="item.monthSales"
+            :distance="item.distance"
+            :minOrderAmount="item.minOrderAmount"
+            :deliveryFee="item.deliveryFee"
+            :deliveryTime="item.deliveryTime"
+            :announcement="item.announcement"
+            :status="item.status"
+            @click="goMerchantDetail"
+          />
+          <LoadMore :status="loadMoreStatus" @retry="loadMore" />
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+  import { listNearbyStores } from '@/api/merchant'
+  import { locationState } from '@/stores/location'
+  import MerchantCard from '@/components/MerchantCard.uvue'
+  import EmptyState from '@/components/EmptyState.uvue'
+  import LoadMore from '@/components/LoadMore.uvue'
+
+  type CatItem = {
+    id: number
+    name: string
+    category: string
+  }
+
+  type MerchantItem = {
+    id: number
+    name: string
+    logo: string
+    rating: number
+    monthSales: number
+    distance: number
+    minOrderAmount: number
+    deliveryFee: number
+    deliveryTime: number
+    announcement: string
+    status: string
+  }
+
+  type SortOption = {
+    label: string
+    value: string
+  }
+
+  export default {
+    components: { MerchantCard, EmptyState, LoadMore },
+    data() {
+      return {
+        categories: [
+          { id: 0, name: '全部', category: '' } as CatItem,
+          { id: 1, name: '美食', category: '美食' } as CatItem,
+          { id: 2, name: '生鲜', category: '生鲜' } as CatItem,
+          { id: 3, name: '商超', category: '商超' } as CatItem,
+          { id: 4, name: '鲜花', category: '鲜花' } as CatItem,
+          { id: 5, name: '药品', category: '药品' } as CatItem,
+          { id: 6, name: '其他', category: '其他' } as CatItem,
+        ] as CatItem[],
+        currentCat: 0,
+        sortType: 'distance',
+        sortOptions: [
+          { label: '综合', value: 'default' } as SortOption,
+          { label: '距离', value: 'distance' } as SortOption,
+          { label: '销量', value: 'sales' } as SortOption,
+          { label: '评分', value: 'rating' } as SortOption,
+        ] as SortOption[],
+        merchants: [] as MerchantItem[],
+        page: 1,
+        pageSize: 10,
+        total: 0,
+        loading: false,
+        loadMoreStatus: 'more',
+      }
+    },
+    computed: {
+      locText(): string {
+        return locationState.district != '' ? locationState.district : '当前位置'
+      },
+    },
+    onLoad(query: UTSJSONObject) {
+      const t = query['type']
+      if (t != null) this.currentCat = Number(t)
+      this.fetchList(true)
+    },
+    methods: {
+      async fetchList(reset: boolean) {
+        if (this.loading) return
+        this.loading = true
+        if (reset) {
+          this.page = 1
+          this.merchants = []
+        }
+        try {
+          const params: UTSJSONObject = {
+            lat: locationState.lat,
+            lng: locationState.lng,
+            distance: 5000,
+            page: this.page,
+            pageSize: this.pageSize,
+          } as UTSJSONObject
+          if (this.sortType != 'default') {
+            params['sortBy'] = this.sortType
+          }
+          const cat = this.currentCategory()
+          if (cat != '') {
+            params['category'] = cat
+          }
+          const res = await listNearbyStores(params)
+          const data = res.data as UTSJSONObject
+          const list = (data['list'] as UTSJSONObject[]) ?? []
+          const items: MerchantItem[] = []
+          for (let i = 0; i < list.length; i++) {
+            const it = list[i]
+            items.push({
+              id: it['id'] as number,
+              name: it['name'] as string,
+              logo: (it['logo'] as string) ?? '',
+              rating: (it['rating'] as number) ?? 5.0,
+              monthSales: (it['monthSales'] as number) ?? 0,
+              distance: (it['distance'] as number) ?? 0,
+              minOrderAmount: (it['minOrderAmount'] as number) ?? 0,
+              deliveryFee: (it['deliveryFee'] as number) ?? 0,
+              deliveryTime: (it['deliveryTime'] as number) ?? 30,
+              announcement: (it['announcement'] as string) ?? '',
+              status: (it['status'] as string) ?? 'OPEN',
+            } as MerchantItem)
+          }
+          this.merchants = reset ? items : this.merchants.concat(items)
+          const pag = data['pagination'] as UTSJSONObject
+          this.total = (pag['total'] as number) ?? items.length
+          if (this.merchants.length >= this.total) {
+            this.loadMoreStatus = 'nomore'
+          } else {
+            this.loadMoreStatus = 'more'
+            this.page++
+          }
+        } catch (e) {
+          this.loadMoreStatus = 'error'
+        } finally {
+          this.loading = false
+        }
+      },
+      currentCategory(): string {
+        for (let i = 0; i < this.categories.length; i++) {
+          if (this.categories[i].id == this.currentCat) {
+            return this.categories[i].category
+          }
+        }
+        return ''
+      },
+      switchCategory(id: number) {
+        if (this.currentCat == id) return
+        this.currentCat = id
+        this.fetchList(true)
+      },
+      changeSort(v: string) {
+        if (this.sortType == v) return
+        this.sortType = v
+        this.fetchList(true)
+      },
+      loadMore() {
+        if (this.loadMoreStatus != 'more') return
+        this.fetchList(false)
+      },
+      goSearch() {
+        uni.navigateTo({ url: '/pages/search/index' })
+      },
+      goMerchantDetail(id: number) {
+        uni.navigateTo({ url: '/pages/merchant/detail?id=' + id })
+      },
+    },
+  }
+</script>
+
+<style lang="scss">
+  .container {
+    height: 100vh;
+    background-color: #f5f6f8;
+    display: flex;
+    flex-direction: column;
+  }
+  .top-bar {
+    background-color: #fff;
+    padding: 16rpx 24rpx;
+  }
+  .search-bar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    height: 72rpx;
+    background-color: #f5f6f8;
+    border-radius: 36rpx;
+    padding: 0 24rpx;
+  }
+  .search-icon {
+    color: #999;
+    margin-right: 12rpx;
+  }
+  .search-placeholder {
+    color: #999;
+    font-size: 26rpx;
+  }
+  .loc {
+    margin-top: 12rpx;
+    color: #666;
+    font-size: 24rpx;
+  }
+  .sort-bar {
+    display: flex;
+    flex-direction: row;
+    background-color: #fff;
+    padding: 0 24rpx;
+    border-top: 1px solid #f0f0f0;
+  }
+  .sort-item {
+    padding: 20rpx 24rpx;
+    border-bottom: 4rpx solid transparent;
+  }
+  .sort-item.active {
+    border-bottom-color: #008AFF;
+  }
+  .sort-text {
+    color: #666;
+    font-size: 26rpx;
+  }
+  .sort-text.active {
+    color: #008AFF;
+    font-weight: 500;
+  }
+  .body {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+  }
+  .cat-side {
+    width: 180rpx;
+    background-color: #fff;
+  }
+  .cat-scroll {
+    height: 100%;
+  }
+  .cat-item {
+    padding: 28rpx 0;
+    text-align: center;
+    border-left: 4rpx solid transparent;
+  }
+  .cat-item.active {
+    background-color: #f5f6f8;
+    border-left-color: #008AFF;
+  }
+  .cat-text {
+    color: #666;
+    font-size: 26rpx;
+  }
+  .cat-text.active {
+    color: #008AFF;
+    font-weight: 500;
+  }
+  .right-side {
+    flex: 1;
+    padding: 20rpx 24rpx;
+  }
+  .loading {
+    padding: 80rpx 0;
+    text-align: center;
+  }
+  .loading-text {
+    color: #999;
+  }
+  .empty-wrap {
+    padding: 80rpx 0;
+  }
+  .merchant-list {
+    padding-bottom: 40rpx;
+  }
+</style>

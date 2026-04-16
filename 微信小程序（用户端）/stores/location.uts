@@ -1,0 +1,56 @@
+/**
+ * 定位全局状态：启动页获取，首页/商家列表/跑腿都用
+ */
+import { STORAGE_KEYS, setStorage, getObject } from '@/utils/storage'
+import { DEFAULT_CITY } from '@/utils/env'
+
+export type LocationState = {
+  lat: number
+  lng: number
+  province: string
+  city: string
+  district: string
+  address: string
+  resolved: boolean
+}
+
+export const locationState = reactive({
+  lat: DEFAULT_CITY.lat,
+  lng: DEFAULT_CITY.lng,
+  province: DEFAULT_CITY.province,
+  city: DEFAULT_CITY.city,
+  district: DEFAULT_CITY.district,
+  address: '',
+  resolved: false,
+} as LocationState)
+
+export const initLocation = () => {
+  const cached = getObject(STORAGE_KEYS.LOCATION)
+  if (cached != null) {
+    const loc = cached as UTSJSONObject
+    locationState.lat = loc['lat'] as number
+    locationState.lng = loc['lng'] as number
+    locationState.province = loc['province'] as string
+    locationState.city = loc['city'] as string
+    locationState.district = loc['district'] as string
+    locationState.address = loc['address'] as string
+    locationState.resolved = true
+  }
+}
+
+export const saveLocation = (lat: number, lng: number, city: string, district: string, address: string) => {
+  locationState.lat = lat
+  locationState.lng = lng
+  locationState.city = city
+  locationState.district = district
+  locationState.address = address
+  locationState.resolved = true
+  setStorage(STORAGE_KEYS.LOCATION, {
+    lat: lat,
+    lng: lng,
+    province: locationState.province,
+    city: city,
+    district: district,
+    address: address,
+  } as UTSJSONObject)
+}

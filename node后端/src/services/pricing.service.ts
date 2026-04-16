@@ -9,6 +9,7 @@ import { AppError } from '../utils/AppError';
 import { ErrorCode } from '../types/enums';
 import { findStoreById } from '../models/store.model';
 import { findSkuById, findProductById } from '../models/product.model';
+import { listApplicableCouponsForOrder } from '../models/coupon.model';
 import { yuanToFen, readDecimal, clampMoney } from '../utils/money';
 import { haversineMeters } from '../utils/geo';
 
@@ -49,6 +50,7 @@ export interface ProductPricingInput {
   deliveryLat: number;
   deliveryLng: number;
   couponRecordId?: number | null;
+  userId?: number | null;
 }
 
 /** 距离配送费：0-3km 用门店固定 deliveryFee；超出每公里 +200 分（2 元） */
@@ -147,7 +149,6 @@ export const calculateProductOrder = async (
   const baseDelivery = yuanToFen(readDecimal(store.delivery_fee));
   const deliveryFee = distanceDeliveryFee(baseDelivery, distance);
   const extraFee = peakExtraFee();
-  const discountAmount = 0; // 首期未对接优惠券计算，couponRecordId 暂存订单中
 
   const minOrderAmount = yuanToFen(readDecimal(store.min_order_amount));
   if (productAmount < minOrderAmount) {
@@ -156,6 +157,33 @@ export const calculateProductOrder = async (
       `未达起送价（当前商品金额 ${productAmount} 分，起送 ${minOrderAmount} 分）`,
       400,
     );
+  }
+
+  // 优惠券折扣：仅在传入 couponRecordId 且 userId 可用时计算。
+  // 用 listApplicableCouponsForOrder 把满减/百分比/封顶等规则交给 model 统一处理，
+  // 若对应 record 不适用（过期、已用、金额不够）则直接抛错而不是静默当作 0。
+  let discountAmount = 0;
+  if (input.couponRecordId && input.userId) {
+    const applicable = await listApplicableCouponsForOrder(
+      input.userId,
+      input.storeId,
+      productAmount,
+    );
+    const match = applicable.find((i) => i.record.id === input.couponRecordId);
+    if (!match) {
+      throw new AppError(ErrorCode.COUPON_UNAVAILABLE, '优惠券不可用', 400);
+    }
+    if (!match.applicable) {
+      throw new AppError(
+        ErrorCode.COUPON_UNAVAILABLE,
+        match.reason ?? '优惠券不可用',
+        400,
+      );
+    }
+    if (match.record.status !== 'UNUSED') {
+      throw new AppError(ErrorCode.COUPON_UNAVAILABLE, '优惠券已使用或已失效', 400);
+    }
+    discountAmount = match.discountAmountFen;
   }
 
   const totalAmount =

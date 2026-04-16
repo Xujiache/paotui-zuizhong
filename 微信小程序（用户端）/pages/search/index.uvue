@@ -1,0 +1,367 @@
+<template>
+  <view class="container">
+    <view class="search-bar">
+      <view class="search-input-wrap">
+        <text class="search-icon">🔍</text>
+        <input
+          class="search-input"
+          type="text"
+          placeholder="搜索商家、商品"
+          v-model="keyword"
+          focus="true"
+          confirm-type="search"
+          @input="onInput"
+          @confirm="handleSearch"
+        />
+        <text v-if="keyword != ''" class="clear-btn" @click="clearKeyword">×</text>
+      </view>
+      <text class="cancel-btn" @click="handleCancel">取消</text>
+    </view>
+
+    <scroll-view class="body" scroll-y="true">
+      <view v-if="!searched" class="init-section">
+        <view v-if="history.length > 0" class="history-card">
+          <view class="card-header">
+            <text class="card-title">搜索历史</text>
+            <text class="clear-history" @click="clearHistory">清空</text>
+          </view>
+          <view class="history-tags">
+            <view
+              v-for="h in history"
+              :key="h"
+              class="history-tag"
+              @click="chooseHistory(h)"
+            >
+              <text class="history-tag-text">{{ h }}</text>
+            </view>
+          </view>
+        </view>
+        <view class="hot-card">
+          <text class="card-title">热门搜索</text>
+          <view class="history-tags">
+            <view v-for="h in hotList" :key="h" class="hot-tag" @click="chooseHistory(h)">
+              <text class="hot-tag-text">🔥 {{ h }}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view v-else-if="loading" class="loading">
+        <text class="loading-text">搜索中...</text>
+      </view>
+
+      <view v-else-if="results.length == 0" class="empty-wrap">
+        <EmptyState icon="🔍" text="未找到相关结果" subText="换个词试试" />
+      </view>
+
+      <view v-else class="result-list">
+        <view v-for="r in results" :key="r.id" class="result-card" @click="goDetail(r)">
+          <view class="result-img-box">
+            <image v-if="r.image != ''" class="result-img" :src="r.image" mode="aspectFill" />
+            <view v-else class="result-img-placeholder"></view>
+          </view>
+          <view class="result-info">
+            <text class="result-name">{{ r.name }}</text>
+            <text v-if="r.description != ''" class="result-desc">{{ r.description }}</text>
+            <view class="result-bottom">
+              <text class="result-price">¥{{ formatYuan(r.priceFen) }}</text>
+              <text class="result-sales">月售 {{ r.monthSales }}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+</template>
+
+<script lang="uts">
+  import { searchProducts } from '@/api/product'
+  import { fen2yuan } from '@/utils/format'
+  import { locationState } from '@/stores/location'
+  import { STORAGE_KEYS, setStorage, getObject, removeStorage } from '@/utils/storage'
+  import EmptyState from '@/components/EmptyState.uvue'
+
+  type ResultItem = {
+    id: number
+    name: string
+    description: string
+    image: string
+    priceFen: number
+    monthSales: number
+    storeId: number
+  }
+
+  export default {
+    components: { EmptyState },
+    data() {
+      return {
+        keyword: '',
+        searched: false,
+        loading: false,
+        results: [] as ResultItem[],
+        history: [] as string[],
+        hotList: ['汉堡', '奶茶', '鲜花', '水果', '药品', '文件'] as string[],
+        debounceTimer: 0,
+      }
+    },
+    onLoad() {
+      const h = getObject(STORAGE_KEYS.HISTORY_KEYWORDS)
+      if (h != null) this.history = h as string[]
+    },
+    methods: {
+      onInput() {
+        if (this.debounceTimer != 0) clearTimeout(this.debounceTimer)
+        this.debounceTimer = setTimeout(() => {
+          this.debounceTimer = 0
+          if (this.keyword.length > 0) this.handleSearch()
+        }, 300) as unknown as number
+      },
+      async handleSearch() {
+        if (this.keyword == '') {
+          this.searched = false
+          return
+        }
+        this.searched = true
+        this.loading = true
+        this.saveHistory(this.keyword)
+        try {
+          const res = await searchProducts({
+            keyword: this.keyword,
+            lat: locationState.lat,
+            lng: locationState.lng,
+            page: 1,
+            pageSize: 20,
+          } as UTSJSONObject)
+          const data = res.data as UTSJSONObject
+          const list = (data['list'] as UTSJSONObject[]) ?? []
+          const arr: ResultItem[] = []
+          for (let i = 0; i < list.length; i++) {
+            const it = list[i]
+            const images = (it['images'] as string[]) ?? ([] as string[])
+            arr.push({
+              id: it['id'] as number,
+              name: (it['name'] as string) ?? '',
+              description: (it['description'] as string) ?? '',
+              image: images.length > 0 ? images[0] : '',
+              priceFen: (it['basePrice'] as number) ?? 0,
+              monthSales: (it['salesCount'] as number) ?? 0,
+              storeId: (it['storeId'] as number) ?? 0,
+            } as ResultItem)
+          }
+          this.results = arr
+        } catch (e) {
+          console.error('搜索失败', e)
+        } finally {
+          this.loading = false
+        }
+      },
+      saveHistory(kw: string) {
+        const arr = this.history.slice()
+        const idx = arr.indexOf(kw)
+        if (idx >= 0) arr.splice(idx, 1)
+        arr.unshift(kw)
+        while (arr.length > 20) arr.pop()
+        this.history = arr
+        setStorage(STORAGE_KEYS.HISTORY_KEYWORDS, arr)
+      },
+      chooseHistory(h: string) {
+        this.keyword = h
+        this.handleSearch()
+      },
+      clearKeyword() {
+        this.keyword = ''
+        this.searched = false
+        this.results = []
+      },
+      clearHistory() {
+        uni.showModal({
+          title: '提示',
+          content: '确认清空搜索历史？',
+          success: (res) => {
+            if (res.confirm) {
+              this.history = []
+              removeStorage(STORAGE_KEYS.HISTORY_KEYWORDS)
+            }
+          },
+        })
+      },
+      handleCancel() {
+        uni.navigateBack({ delta: 1 })
+      },
+      formatYuan(fen: number): string {
+        return fen2yuan(fen)
+      },
+      goDetail(r: ResultItem) {
+        if (r.storeId > 0) {
+          uni.navigateTo({ url: `/pages/merchant/detail?id=${r.storeId}` })
+        }
+      },
+    },
+  }
+</script>
+
+<style lang="scss">
+  .container {
+    height: 100vh;
+    background-color: #f5f6f8;
+    display: flex;
+    flex-direction: column;
+  }
+  .search-bar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    background-color: #fff;
+    padding: 16rpx 24rpx;
+  }
+  .search-input-wrap {
+    flex: 1;
+    height: 72rpx;
+    background-color: #f5f6f8;
+    border-radius: 36rpx;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 0 24rpx;
+    margin-right: 20rpx;
+  }
+  .search-icon {
+    color: #999;
+    margin-right: 12rpx;
+  }
+  .search-input {
+    flex: 1;
+    font-size: 26rpx;
+    color: #333;
+  }
+  .clear-btn {
+    color: #999;
+    font-size: 32rpx;
+    padding: 0 8rpx;
+  }
+  .cancel-btn {
+    color: #008AFF;
+    font-size: 28rpx;
+  }
+  .body {
+    flex: 1;
+    padding: 20rpx 24rpx;
+  }
+  .init-section {
+    padding: 10rpx 0;
+  }
+  .history-card,
+  .hot-card {
+    background-color: #fff;
+    border-radius: 16rpx;
+    padding: 24rpx;
+    margin-bottom: 20rpx;
+  }
+  .card-header {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16rpx;
+  }
+  .card-title {
+    color: #333;
+    font-size: 28rpx;
+    font-weight: 500;
+  }
+  .clear-history {
+    color: #999;
+    font-size: 24rpx;
+  }
+  .history-tags {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 8rpx;
+  }
+  .history-tag,
+  .hot-tag {
+    padding: 10rpx 24rpx;
+    margin-right: 16rpx;
+    margin-top: 16rpx;
+    background-color: #f5f6f8;
+    border-radius: 28rpx;
+  }
+  .hot-tag {
+    background-color: #FFF3E0;
+  }
+  .history-tag-text {
+    color: #666;
+    font-size: 24rpx;
+  }
+  .hot-tag-text {
+    color: #FF6600;
+    font-size: 24rpx;
+  }
+  .loading,
+  .empty-wrap {
+    padding: 120rpx 0;
+    text-align: center;
+  }
+  .loading-text {
+    color: #999;
+  }
+  .result-list {
+    padding-bottom: 20rpx;
+  }
+  .result-card {
+    background-color: #fff;
+    border-radius: 16rpx;
+    padding: 20rpx;
+    margin-bottom: 16rpx;
+    display: flex;
+    flex-direction: row;
+  }
+  .result-img-box {
+    width: 160rpx;
+    height: 160rpx;
+    border-radius: 12rpx;
+    overflow: hidden;
+    margin-right: 20rpx;
+  }
+  .result-img {
+    width: 160rpx;
+    height: 160rpx;
+  }
+  .result-img-placeholder {
+    width: 160rpx;
+    height: 160rpx;
+    background-color: #f5f6f8;
+  }
+  .result-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .result-name {
+    font-size: 28rpx;
+    color: #333;
+    font-weight: 500;
+  }
+  .result-desc {
+    margin-top: 6rpx;
+    font-size: 22rpx;
+    color: #999;
+  }
+  .result-bottom {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .result-price {
+    color: #FF2A2A;
+    font-size: 30rpx;
+    font-weight: bold;
+  }
+  .result-sales {
+    color: #999;
+    font-size: 22rpx;
+  }
+</style>

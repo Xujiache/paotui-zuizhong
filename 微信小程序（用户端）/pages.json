@@ -1,44 +1,187 @@
 {
-	"pages": [
-		{
-			"path": "pages/index/index",
-			"style": {
-				"navigationBarTitleText": "首页"
-			}
-		},
-		{
-			"path": "pages/login/login",
-			"style": {
-				"navigationBarTitleText": "登录",
-				"navigationStyle": "custom"
-			}
-		},
-		{
-			"path": "pages/mine/mine",
-			"style": {
-				"navigationBarTitleText": "我的",
-				"navigationStyle": "custom"
-			}
-		}
-	],
-	"globalStyle": {
-		"pageOrientation": "portrait",
-		"navigationBarTitleText": "同城O2O配送",
-		"navigationBarTextStyle": "white",
-		"navigationBarBackgroundColor": "#008AFF",
-		"backgroundColor": "#F8F8F8"
-	},
-	"tabBar": {
-		"selectedColor": "#008AFF",
-		"list": [
-			{
-				"pagePath": "pages/index/index",
-				"text": "首页"
-			},
-			{
-				"pagePath": "pages/mine/mine",
-				"text": "我的"
-			}
-		]
-	}
+  "pages": [
+    {
+      "path": "pages/launch/index",
+      "style": {
+        "navigationBarTitleText": "启动",
+        "navigationStyle": "custom",
+        "disableScroll": true
+      }
+    },
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "首页",
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/errand/index",
+      "style": {
+        "navigationBarTitleText": "跑腿",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/order/list",
+      "style": {
+        "navigationBarTitleText": "我的订单"
+      }
+    },
+    {
+      "path": "pages/mine/mine",
+      "style": {
+        "navigationBarTitleText": "我的",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "登录",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/search/index",
+      "style": {
+        "navigationBarTitleText": "搜索"
+      }
+    },
+    {
+      "path": "pages/category/index",
+      "style": {
+        "navigationBarTitleText": "分类"
+      }
+    },
+    {
+      "path": "pages/address/index",
+      "style": {
+        "navigationBarTitleText": "地址管理"
+      }
+    },
+    {
+      "path": "pages/address/edit",
+      "style": {
+        "navigationBarTitleText": "编辑地址"
+      }
+    },
+    {
+      "path": "pages/message/index",
+      "style": {
+        "navigationBarTitleText": "消息中心"
+      }
+    },
+    {
+      "path": "pages/service/index",
+      "style": {
+        "navigationBarTitleText": "客服中心"
+      }
+    },
+    {
+      "path": "pages/merchant/list",
+      "style": {
+        "navigationBarTitleText": "商家列表"
+      }
+    },
+    {
+      "path": "pages/merchant/detail",
+      "style": {
+        "navigationBarTitleText": "商家详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/cart/index",
+      "style": {
+        "navigationBarTitleText": "购物车"
+      }
+    },
+    {
+      "path": "pages/order/confirm",
+      "style": {
+        "navigationBarTitleText": "确认订单"
+      }
+    },
+    {
+      "path": "pages/coupon/select",
+      "style": {
+        "navigationBarTitleText": "选择优惠券"
+      }
+    },
+    {
+      "path": "pages/coupon/list",
+      "style": {
+        "navigationBarTitleText": "我的优惠券"
+      }
+    },
+    {
+      "path": "pages/pay/index",
+      "style": {
+        "navigationBarTitleText": "收银台"
+      }
+    },
+    {
+      "path": "pages/errand/form",
+      "style": {
+        "navigationBarTitleText": "跑腿发单"
+      }
+    },
+    {
+      "path": "pages/errand/confirm",
+      "style": {
+        "navigationBarTitleText": "确认跑腿订单"
+      }
+    },
+    {
+      "path": "pages/errand/track",
+      "style": {
+        "navigationBarTitleText": "订单追踪"
+      }
+    },
+    {
+      "path": "pages/order/detail",
+      "style": {
+        "navigationBarTitleText": "订单详情"
+      }
+    },
+    {
+      "path": "pages/order/aftersale",
+      "style": {
+        "navigationBarTitleText": "售后/评价"
+      }
+    }
+  ],
+  "globalStyle": {
+    "pageOrientation": "portrait",
+    "navigationBarTitleText": "同城O2O配送",
+    "navigationBarTextStyle": "white",
+    "navigationBarBackgroundColor": "#008AFF",
+    "backgroundColor": "#F5F6F8"
+  },
+  "tabBar": {
+    "color": "#7A7A7A",
+    "selectedColor": "#008AFF",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/errand/index",
+        "text": "跑腿"
+      },
+      {
+        "pagePath": "pages/order/list",
+        "text": "订单"
+      },
+      {
+        "pagePath": "pages/mine/mine",
+        "text": "我的"
+      }
+    ]
+  }
 }

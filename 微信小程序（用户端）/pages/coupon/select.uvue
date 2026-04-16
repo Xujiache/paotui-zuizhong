@@ -1,0 +1,288 @@
+<template>
+  <view class="container">
+    <view class="tab-bar">
+      <view class="tab" :class="{ active: tab == 'available' }" @click="tab = 'available'">
+        <text class="tab-text" :class="{ active: tab == 'available' }">可使用 ({{ availableList.length }})</text>
+      </view>
+      <view class="tab" :class="{ active: tab == 'unavailable' }" @click="tab = 'unavailable'">
+        <text class="tab-text" :class="{ active: tab == 'unavailable' }">不可使用 ({{ unavailableList.length }})</text>
+      </view>
+    </view>
+
+    <view v-if="tab == 'available'" class="coupon-wrap">
+      <view class="no-coupon-row" @click="handleChoose(null)">
+        <text class="no-coupon-text">不使用优惠券</text>
+        <text class="arrow">›</text>
+      </view>
+
+      <view v-if="availableList.length == 0" class="empty-wrap">
+        <EmptyState icon="🎟" text="暂无可用优惠券" />
+      </view>
+
+      <view
+        v-for="c in availableList"
+        :key="c.id"
+        class="coupon-card"
+        @click="handleChoose(c)"
+      >
+        <view class="coupon-left">
+          <text class="coupon-amount">¥{{ formatYuan(c.discountFen) }}</text>
+          <text class="coupon-condition">满{{ formatYuan(c.minAmountFen) }}可用</text>
+        </view>
+        <view class="coupon-right">
+          <text class="coupon-name">{{ c.name }}</text>
+          <text class="coupon-scope">{{ c.scopeText }}</text>
+        </view>
+        <view class="use-btn">
+          <text class="use-btn-text">使用</text>
+        </view>
+      </view>
+    </view>
+
+    <view v-else class="coupon-wrap">
+      <view v-if="unavailableList.length == 0" class="empty-wrap">
+        <EmptyState icon="🎟" text="暂无不可用券" />
+      </view>
+
+      <view v-for="c in unavailableList" :key="c.id" class="coupon-card disabled">
+        <view class="coupon-left">
+          <text class="coupon-amount disabled">{{ c.discountText }}</text>
+          <text class="coupon-condition">满{{ formatYuan(c.minAmountFen) }}可用</text>
+        </view>
+        <view class="coupon-right">
+          <text class="coupon-name">{{ c.name }}</text>
+          <text class="coupon-scope">{{ c.scopeText }}</text>
+          <text v-if="c.reason != ''" class="coupon-reason">{{ c.reason }}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+  import { listApplicableCoupons } from '@/api/coupon'
+  import { fen2yuan } from '@/utils/format'
+  import EmptyState from '@/components/EmptyState.uvue'
+
+  /**
+   * 下单页的"选择优惠券"
+   *
+   * 后端返回结构 services/coupon.service.ts -> getApplicableForOrder：
+   *   { applicable: [{ couponRecordId, couponName, type, value, minAmount, discountAmount }, ...],
+   *     notApplicable: [{ couponRecordId, couponName, type, value, minAmount, reason }, ...] }
+   * 旧代码取 id / name / discountFen / minAmountFen / endTime，字段完全不对，
+   * 导致"应用"列表金额永远是 0、面额列空白、回传给确认页的 id 也不对。
+   */
+  type CouponItem = {
+    id: number
+    name: string
+    discountFen: number
+    discountText: string
+    minAmountFen: number
+    scopeText: string
+    reason: string
+  }
+
+  export default {
+    components: { EmptyState },
+    data() {
+      return {
+        tab: 'available',
+        storeId: 0,
+        orderAmount: 0,
+        availableList: [] as CouponItem[],
+        unavailableList: [] as CouponItem[],
+      }
+    },
+    onLoad(query: UTSJSONObject) {
+      this.storeId = Number(query['storeId'])
+      this.orderAmount = Number(query['orderAmount'] ?? 0)
+      this.fetchList()
+    },
+    methods: {
+      async fetchList() {
+        try {
+          const res = await listApplicableCoupons(this.storeId, this.orderAmount)
+          const data = res.data as UTSJSONObject
+          const avails = (data['applicable'] as UTSJSONObject[]) ?? []
+          const unavs = (data['notApplicable'] as UTSJSONObject[]) ?? []
+          this.availableList = this.parseCoupons(avails, false)
+          this.unavailableList = this.parseCoupons(unavs, true)
+        } catch (e) {
+          console.error('拉取优惠券失败', e)
+        }
+      },
+      parseCoupons(arr: UTSJSONObject[], withReason: boolean): CouponItem[] {
+        const res: CouponItem[] = []
+        for (let i = 0; i < arr.length; i++) {
+          const it = arr[i]
+          const type = (it['type'] as string) ?? 'FIXED'
+          const value = (it['value'] as number) ?? 0
+          // applicable 列表里后端已经把实际可抵扣金额（fen）算在 discountAmount 上；
+          // notApplicable 列表没有 discountAmount，就根据面额估算一个展示值即可。
+          const discountFen = (it['discountAmount'] as number) ?? 0
+          res.push({
+            id: (it['couponRecordId'] as number) ?? 0,
+            name: (it['couponName'] as string) ?? '优惠券',
+            discountFen: discountFen,
+            discountText: this.formatDiscountText(type, value, discountFen),
+            minAmountFen: (it['minAmount'] as number) ?? 0,
+            scopeText: this.formatScope((it['scope'] as string) ?? 'ALL'),
+            reason: withReason ? ((it['reason'] as string) ?? '') : '',
+          } as CouponItem)
+        }
+        return res
+      },
+      formatDiscountText(type: string, value: number, discountFen: number): string {
+        if (type == 'PERCENT') {
+          if (value > 0 && value < 100) {
+            const folded = value / 10
+            return `${folded.toFixed(1)}折`
+          }
+          return `${value}%`
+        }
+        const yuan = discountFen > 0 ? discountFen / 100 : value
+        return `¥${yuan.toFixed(2)}`
+      },
+      formatScope(scope: string): string {
+        if (scope == 'STORE') return '指定门店可用'
+        if (scope == 'CATEGORY') return '指定分类可用'
+        return '全场通用'
+      },
+      formatYuan(fen: number): string {
+        return fen2yuan(fen)
+      },
+      handleChoose(c: CouponItem | null) {
+        const pages = getCurrentPages()
+        if (pages.length >= 2) {
+          const prev = pages[pages.length - 2] as any
+          if (c == null) {
+            prev.$vm?.onCouponChosen?.(null)
+          } else {
+            prev.$vm?.onCouponChosen?.({
+              id: c.id,
+              name: c.name,
+              discountFen: c.discountFen,
+            })
+          }
+        }
+        uni.navigateBack({ delta: 1 })
+      },
+    },
+  }
+</script>
+
+<style lang="scss">
+  .container {
+    min-height: 100vh;
+    background-color: #f5f6f8;
+  }
+  .tab-bar {
+    display: flex;
+    flex-direction: row;
+    background-color: #fff;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .tab {
+    flex: 1;
+    padding: 28rpx 0;
+    text-align: center;
+    border-bottom: 4rpx solid transparent;
+  }
+  .tab.active {
+    border-bottom-color: #008AFF;
+  }
+  .tab-text {
+    color: #666;
+    font-size: 28rpx;
+  }
+  .tab-text.active {
+    color: #008AFF;
+    font-weight: 500;
+  }
+  .coupon-wrap {
+    padding: 20rpx 24rpx;
+  }
+  .no-coupon-row {
+    background-color: #fff;
+    padding: 24rpx;
+    border-radius: 16rpx;
+    margin-bottom: 16rpx;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .no-coupon-text {
+    color: #333;
+    font-size: 28rpx;
+  }
+  .arrow {
+    color: #bbb;
+    font-size: 32rpx;
+  }
+  .coupon-card {
+    background-color: #fff;
+    border-radius: 16rpx;
+    padding: 24rpx;
+    margin-bottom: 16rpx;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+  }
+  .coupon-card.disabled {
+    opacity: 0.6;
+  }
+  .coupon-left {
+    width: 200rpx;
+    padding-right: 24rpx;
+    border-right: 1px dashed #eee;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .coupon-amount {
+    color: #FF2A2A;
+    font-size: 48rpx;
+    font-weight: bold;
+  }
+  .coupon-amount.disabled {
+    color: #999;
+  }
+  .coupon-condition {
+    color: #999;
+    font-size: 22rpx;
+    margin-top: 8rpx;
+  }
+  .coupon-right {
+    flex: 1;
+    padding-left: 24rpx;
+  }
+  .coupon-name {
+    color: #333;
+    font-size: 28rpx;
+    font-weight: 500;
+  }
+  .coupon-scope {
+    margin-top: 6rpx;
+    color: #666;
+    font-size: 22rpx;
+  }
+  .coupon-reason {
+    margin-top: 8rpx;
+    color: #FF9500;
+    font-size: 20rpx;
+  }
+  .use-btn {
+    padding: 12rpx 24rpx;
+    border: 1px solid #008AFF;
+    border-radius: 24rpx;
+  }
+  .use-btn-text {
+    color: #008AFF;
+    font-size: 24rpx;
+  }
+  .empty-wrap {
+    padding: 80rpx 0;
+  }
+</style>

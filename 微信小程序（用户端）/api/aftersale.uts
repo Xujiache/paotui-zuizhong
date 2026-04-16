@@ -1,0 +1,17 @@
+import { get, post, ApiResponse } from './request'
+
+export const applyRefund = (data: UTSJSONObject): Promise<ApiResponse> => {
+  return post('/aftersale/refund', data)
+}
+
+export const submitComplaint = (data: UTSJSONObject): Promise<ApiResponse> => {
+  return post('/aftersale/complaints', data)
+}
+
+export const listAftersales = (params: UTSJSONObject): Promise<ApiResponse> => {
+  return get('/aftersale/aftersales', params)
+}
+
+export const getAftersaleDetail = (id: number): Promise<ApiResponse> => {
+  return get(`/aftersale/aftersales/${id}`)
+}

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import Joi from 'joi';
-import { tokenAuth } from '../middleware/auth';
+import { tokenAuth, adminOnly } from '../middleware/auth';
 import { validate } from '../middleware/validator';
 import { paginate } from '../middleware/pagination';
 import { asyncHandler } from '../middleware/errorHandler';
@@ -97,10 +97,12 @@ router.delete(
   }),
 );
 
-// 内部发送消息（首期开放给 admin 触发用，服务间调用时走 messageService.sendMessage）
+// 内部发送消息：仅 admin 触发（服务间调用时应直接走 messageService.sendMessage，
+// 不通过 HTTP）。曾经只有 tokenAuth()，导致任意已登录用户都能伪造站内消息。
 router.post(
   '/send',
   tokenAuth(),
+  adminOnly,
   validate({
     body: Joi.object({
       targetType: Joi.string().valid('USER', 'MERCHANT', 'RIDER', 'ADMIN').required(),

@@ -1,0 +1,297 @@
+<template>
+  <view class="container">
+    <view class="tab-bar">
+      <view v-for="t in tabs" :key="t.value" class="tab" :class="{ active: status == t.value }" @click="switchTab(t.value)">
+        <text class="tab-text" :class="{ active: status == t.value }">{{ t.label }}</text>
+      </view>
+    </view>
+
+    <scroll-view class="body" scroll-y="true" @scrolltolower="loadMore">
+      <view v-if="loading && list.length == 0" class="loading">
+        <text class="loading-text">加载中...</text>
+      </view>
+      <view v-else-if="list.length == 0" class="empty-wrap">
+        <EmptyState icon="🎟" :text="emptyText" />
+      </view>
+      <view v-else class="coupons">
+        <view v-for="c in list" :key="c.id" class="coupon" :class="{ used: c.status != 'UNUSED' }">
+          <view class="amount-box">
+            <text class="amount">{{ c.discountText }}</text>
+            <text class="condition">满{{ formatYuan(c.minAmountFen) }}可用</text>
+          </view>
+          <view class="info-box">
+            <text class="name">{{ c.name }}</text>
+            <text class="scope">{{ c.scopeText }}</text>
+            <text class="expire">有效期至 {{ c.expireDate }}</text>
+          </view>
+          <view v-if="c.status == 'UNUSED'" class="stamp-unused">
+            <text class="stamp-text">未使用</text>
+          </view>
+          <view v-else-if="c.status == 'USED'" class="stamp-used">
+            <text class="stamp-text-used">已使用</text>
+          </view>
+          <view v-else class="stamp-expired">
+            <text class="stamp-text-used">已过期</text>
+          </view>
+        </view>
+        <LoadMore :status="loadMoreStatus" @retry="loadMore" />
+      </view>
+    </scroll-view>
+  </view>
+</template>
+
+<script lang="uts">
+  import { listMyCoupons } from '@/api/coupon'
+  import { fen2yuan, formatDateTime, parseDateTs } from '@/utils/format'
+  import EmptyState from '@/components/EmptyState.uvue'
+  import LoadMore from '@/components/LoadMore.uvue'
+
+  /**
+   * 我的优惠券列表
+   *
+   * 后端 DTO（services/coupon.service.ts -> formatRecord）返回的字段是：
+   *   couponRecordId / couponName / type / value / minAmount(fen) / scope / status / validEnd / usedAt ...
+   * 前端此前按 id / name / discountFen / minAmountFen / endTime 解析，是旧约定，全部解不出来。
+   * 这里改为读 DTO 字段，并按 type 自行合成展示文案：
+   *   - FIXED   显示 ¥{value}
+   *   - PERCENT 显示 {value}折 / {value}%
+   */
+  type CouponItem = {
+    id: number
+    name: string
+    discountText: string
+    minAmountFen: number
+    scopeText: string
+    expireDate: string
+    status: string
+  }
+
+  type TabItem = {
+    label: string
+    value: string
+  }
+
+  export default {
+    components: { EmptyState, LoadMore },
+    data() {
+      return {
+        tabs: [
+          { label: '未使用', value: 'UNUSED' } as TabItem,
+          { label: '已使用', value: 'USED' } as TabItem,
+          { label: '已过期', value: 'EXPIRED' } as TabItem,
+        ] as TabItem[],
+        status: 'UNUSED',
+        list: [] as CouponItem[],
+        page: 1,
+        pageSize: 20,
+        total: 0,
+        loading: false,
+        loadMoreStatus: 'more',
+      }
+    },
+    computed: {
+      emptyText(): string {
+        if (this.status == 'UNUSED') return '暂无可用优惠券'
+        if (this.status == 'USED') return '暂无已使用优惠券'
+        return '暂无过期优惠券'
+      },
+    },
+    onLoad() {
+      this.fetchList(true)
+    },
+    methods: {
+      async fetchList(reset: boolean) {
+        if (this.loading) return
+        this.loading = true
+        if (reset) {
+          this.page = 1
+          this.list = []
+        }
+        try {
+          const res = await listMyCoupons({
+            status: this.status,
+            page: this.page,
+            pageSize: this.pageSize,
+          } as UTSJSONObject)
+          const data = res.data as UTSJSONObject
+          const rawList = (data['list'] as UTSJSONObject[]) ?? []
+          const items: CouponItem[] = []
+          for (let i = 0; i < rawList.length; i++) {
+            const it = rawList[i]
+            const type = (it['type'] as string) ?? 'FIXED'
+            const value = (it['value'] as number) ?? 0
+            items.push({
+              id: (it['couponRecordId'] as number) ?? 0,
+              name: (it['couponName'] as string) ?? '优惠券',
+              discountText: this.formatDiscount(type, value),
+              minAmountFen: (it['minAmount'] as number) ?? 0,
+              scopeText: this.formatScope((it['scope'] as string) ?? 'ALL'),
+              expireDate: formatDateTime(it['validEnd']),
+              status: (it['status'] as string) ?? 'UNUSED',
+            } as CouponItem)
+          }
+          this.list = reset ? items : this.list.concat(items)
+          const pag = data['pagination'] as UTSJSONObject
+          this.total = (pag['total'] as number) ?? items.length
+          if (this.list.length >= this.total) {
+            this.loadMoreStatus = 'nomore'
+          } else {
+            this.loadMoreStatus = 'more'
+            this.page++
+          }
+        } catch (e) {
+          this.loadMoreStatus = 'error'
+        } finally {
+          this.loading = false
+        }
+      },
+      formatDiscount(type: string, value: number): string {
+        if (type == 'PERCENT') {
+          // 后端 discount_value 对百分比券一般存 0-100，90 表示 9 折
+          if (value <= 0 || value >= 100) return `${value}%`
+          const discount = 100 - value
+          if (discount % 10 == 0) return `${(value / 10).toFixed(1)}折`
+          return `${value}%`
+        }
+        return `¥${value.toFixed(2)}`
+      },
+      formatScope(scope: string): string {
+        if (scope == 'STORE') return '指定门店可用'
+        if (scope == 'CATEGORY') return '指定分类可用'
+        return '全场通用'
+      },
+      loadMore() {
+        if (this.loadMoreStatus != 'more') return
+        this.fetchList(false)
+      },
+      switchTab(v: string) {
+        if (this.status == v) return
+        this.status = v
+        this.fetchList(true)
+      },
+      formatYuan(fen: number): string {
+        return fen2yuan(fen)
+      },
+    },
+  }
+</script>
+
+<style lang="scss">
+  .container {
+    min-height: 100vh;
+    background-color: #f5f6f8;
+  }
+  .tab-bar {
+    display: flex;
+    flex-direction: row;
+    background-color: #fff;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .tab {
+    flex: 1;
+    padding: 28rpx 0;
+    text-align: center;
+    border-bottom: 4rpx solid transparent;
+  }
+  .tab.active {
+    border-bottom-color: #008AFF;
+  }
+  .tab-text {
+    color: #666;
+    font-size: 28rpx;
+  }
+  .tab-text.active {
+    color: #008AFF;
+    font-weight: 500;
+  }
+  .body {
+    padding: 20rpx 24rpx;
+  }
+  .loading {
+    padding: 80rpx 0;
+    text-align: center;
+  }
+  .loading-text {
+    color: #999;
+  }
+  .empty-wrap {
+    padding: 80rpx 0;
+  }
+  .coupons {
+    padding-bottom: 20rpx;
+  }
+  .coupon {
+    position: relative;
+    background-color: #fff;
+    border-radius: 16rpx;
+    padding: 24rpx;
+    margin-bottom: 16rpx;
+    display: flex;
+    flex-direction: row;
+  }
+  .coupon.used {
+    opacity: 0.6;
+  }
+  .amount-box {
+    width: 200rpx;
+    padding-right: 24rpx;
+    border-right: 1px dashed #eee;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .amount {
+    color: #FF2A2A;
+    font-size: 48rpx;
+    font-weight: bold;
+  }
+  .condition {
+    color: #999;
+    font-size: 22rpx;
+    margin-top: 8rpx;
+  }
+  .info-box {
+    flex: 1;
+    padding-left: 24rpx;
+  }
+  .name {
+    color: #333;
+    font-size: 28rpx;
+    font-weight: 500;
+  }
+  .scope {
+    margin-top: 6rpx;
+    color: #666;
+    font-size: 22rpx;
+  }
+  .expire {
+    margin-top: 6rpx;
+    color: #999;
+    font-size: 22rpx;
+  }
+  .stamp-unused,
+  .stamp-used,
+  .stamp-expired {
+    position: absolute;
+    right: 20rpx;
+    top: 20rpx;
+    padding: 4rpx 12rpx;
+    border-radius: 6rpx;
+  }
+  .stamp-unused {
+    background-color: #E8F3FF;
+  }
+  .stamp-text {
+    color: #008AFF;
+    font-size: 20rpx;
+  }
+  .stamp-used,
+  .stamp-expired {
+    background-color: #f0f0f0;
+  }
+  .stamp-text-used {
+    color: #999;
+    font-size: 20rpx;
+  }
+</style>

@@ -90,6 +90,11 @@ const formatStore = (row: StoreRow, distanceMeters?: number) => ({
   commissionRate: readDecimal(row.commission_rate),
   areaId: row.area_id,
   printerConfig: parseJson(row.printer_config),
+  // stores 表暂无评分/月销列，先返回占位值让前端字段对齐，
+  // 避免首页、分类页、详情页拿不到字段直接显示空白。真实数据在订单/评价模块接入后回填。
+  rating: 5.0,
+  monthSales: 0,
+  salesCount: 0,
   distance: distanceMeters,
 });
 

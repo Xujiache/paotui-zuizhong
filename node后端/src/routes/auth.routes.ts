@@ -58,6 +58,36 @@ router.post(
   }),
 );
 
+router.post(
+  '/user/send-code',
+  validate({
+    body: Joi.object({
+      phone: phoneSchema.required(),
+      scene: Joi.string().default('LOGIN'),
+    }),
+  }),
+  asyncHandler(async (req, res) => {
+    const data = await sendSmsCode(req.body.phone, req.body.scene || 'LOGIN');
+    success(res, data, '验证码已发送');
+  }),
+);
+
+router.post(
+  '/user/phone-login',
+  authLimiter,
+  validate({
+    body: Joi.object({
+      phone: phoneSchema.required(),
+      code: smsCodeSchema.required(),
+    }),
+  }),
+  asyncHandler(async (req, res) => {
+    const { phone, code } = req.body as { phone: string; code: string };
+    const data = await authService.userPhoneLogin(phone, code, pickClientType(req));
+    success(res, data);
+  }),
+);
+
 router.put(
   '/user/profile',
   tokenAuth(),

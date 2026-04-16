@@ -1,0 +1,415 @@
+<template>
+  <view class="container">
+    <scroll-view class="body" scroll-y="true">
+      <view class="section summary">
+        <text class="section-title">服务摘要</text>
+        <view class="summary-row">
+          <text class="summary-label">服务类型</text>
+          <text class="summary-value">{{ typeText }}</text>
+        </view>
+        <view class="summary-row">
+          <text class="summary-label">取件地址</text>
+          <text class="summary-value">{{ form.pickupAddress }}</text>
+        </view>
+        <view v-if="form.deliveryAddressId > 0" class="summary-row">
+          <text class="summary-label">送达地址</text>
+          <text class="summary-value">{{ form.deliveryAddressText }}</text>
+        </view>
+      </view>
+
+      <view class="section">
+        <text class="section-title">费用明细</text>
+        <view v-if="loading" class="estimating">
+          <text class="estimating-text">正在计算费用...</text>
+        </view>
+        <view v-else>
+          <view class="fee-row">
+            <text class="fee-label">基础服务费</text>
+            <text class="fee-value">¥{{ formatYuan(estimate.baseFee) }}</text>
+          </view>
+          <view v-if="estimate.distanceFee > 0" class="fee-row">
+            <text class="fee-label">距离费</text>
+            <text class="fee-value">¥{{ formatYuan(estimate.distanceFee) }}</text>
+          </view>
+          <view v-if="estimate.weightFee > 0" class="fee-row">
+            <text class="fee-label">重量费</text>
+            <text class="fee-value">¥{{ formatYuan(estimate.weightFee) }}</text>
+          </view>
+          <view v-if="estimate.floorFee > 0" class="fee-row">
+            <text class="fee-label">楼层费</text>
+            <text class="fee-value">¥{{ formatYuan(estimate.floorFee) }}</text>
+          </view>
+          <view v-if="estimate.timeSurcharge > 0" class="fee-row">
+            <text class="fee-label">时段加价</text>
+            <text class="fee-value">¥{{ formatYuan(estimate.timeSurcharge) }}</text>
+          </view>
+          <view v-if="estimate.weatherSurcharge > 0" class="fee-row">
+            <text class="fee-label">天气加价</text>
+            <text class="fee-value">¥{{ formatYuan(estimate.weatherSurcharge) }}</text>
+          </view>
+          <view v-if="form.type == 'BUY' && buyBudget > 0" class="fee-row">
+            <text class="fee-label">代买预算</text>
+            <text class="fee-value">¥{{ formatYuan(buyBudget) }}</text>
+          </view>
+          <view v-if="tipAmount > 0" class="fee-row">
+            <text class="fee-label">小费</text>
+            <text class="fee-value">¥{{ formatYuan(tipAmount) }}</text>
+          </view>
+          <view class="fee-row total">
+            <text class="fee-label total">合计</text>
+            <text class="fee-value total">¥{{ formatYuan(totalAmount) }}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="section">
+        <text class="section-title">加小费让骑手更快接单</text>
+        <view class="tip-row">
+          <view
+            v-for="t in tipOptions"
+            :key="t.value"
+            class="tip-chip"
+            :class="{ active: tipAmount == t.value }"
+            @click="selectTip(t.value)"
+          >
+            <text class="tip-chip-text" :class="{ active: tipAmount == t.value }">{{ t.label }}</text>
+          </view>
+          <view class="tip-chip" :class="{ active: customTip }" @click="openCustomTip">
+            <text class="tip-chip-text" :class="{ active: customTip }">自定义</text>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="footer">
+      <view class="pay-box">
+        <text class="pay-label">合计</text>
+        <text class="pay-amount">¥{{ formatYuan(totalAmount) }}</text>
+      </view>
+      <view class="btn-submit" :class="{ disabled: submitting }" @click="handleSubmit">
+        <text class="btn-submit-text">确认发单</text>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+  import { getObject } from '@/utils/storage'
+  import { estimateErrand } from '@/api/pricing'
+  import { createErrandOrder } from '@/api/order'
+  import { fen2yuan } from '@/utils/format'
+
+  type EstimateVO = {
+    baseFee: number
+    distanceFee: number
+    weightFee: number
+    floorFee: number
+    timeSurcharge: number
+    weatherSurcharge: number
+    estimateTotal: number
+  }
+
+  type TipOpt = {
+    label: string
+    value: number
+  }
+
+  export default {
+    data() {
+      return {
+        form: {} as UTSJSONObject,
+        estimate: {
+          baseFee: 0,
+          distanceFee: 0,
+          weightFee: 0,
+          floorFee: 0,
+          timeSurcharge: 0,
+          weatherSurcharge: 0,
+          estimateTotal: 0,
+        } as EstimateVO,
+        tipAmount: 0,
+        customTip: false,
+        tipOptions: [
+          { label: '不加', value: 0 } as TipOpt,
+          { label: '¥2', value: 200 } as TipOpt,
+          { label: '¥5', value: 500 } as TipOpt,
+          { label: '¥10', value: 1000 } as TipOpt,
+        ] as TipOpt[],
+        loading: false,
+        submitting: false,
+      }
+    },
+    computed: {
+      typeText(): string {
+        const map: Map<string, string> = new Map<string, string>([
+          ['DELIVER', '帮送'],
+          ['PICKUP', '帮取'],
+          ['BUY', '帮买'],
+          ['ERRAND', '代办'],
+        ])
+        return map.get((this.form['type'] as string) ?? '') ?? '跑腿'
+      },
+      buyBudget(): number {
+        const b = this.form['budget'] as number
+        return Number.isFinite(b) ? Math.round(b * 100) : 0
+      },
+      /**
+       * 与后端 calculateErrandOrder 对齐：
+       *   - tipAmount 已经被算进 estimateTotal（pricing.totalAmount），这里不能再加一遍；
+       *   - budgetAmount 是代买预算，单独字段存储，不计入订单 totalAmount/paidAmount。
+       * 所以合计就是 estimateTotal 本身；tipAmount 变化时必须 refetch 预览。
+       */
+      totalAmount(): number {
+        return this.estimate.estimateTotal
+      },
+    },
+    onLoad() {
+      const draft = getObject('errand_form_draft')
+      if (draft == null) {
+        uni.showToast({ title: '表单数据丢失，请重新填写', icon: 'none' })
+        setTimeout(() => {
+          uni.navigateBack({ delta: 1 })
+        }, 800)
+        return
+      }
+      this.form = draft as UTSJSONObject
+      this.fetchEstimate()
+    },
+    methods: {
+      async fetchEstimate() {
+        this.loading = true
+        try {
+          const body: UTSJSONObject = {
+            serviceType: this.form['type'],
+            pickupLat: this.form['pickupLat'],
+            pickupLng: this.form['pickupLng'],
+            deliveryLat: this.form['deliveryLat'] != null ? this.form['deliveryLat'] : this.form['pickupLat'],
+            deliveryLng: this.form['deliveryLng'] != null ? this.form['deliveryLng'] : this.form['pickupLng'],
+            itemWeight: this.form['itemWeight'],
+            floorInfo: this.form['floorInfo'],
+            tipAmount: this.tipAmount,
+          } as UTSJSONObject
+          const res = await estimateErrand(body)
+          const data = res.data as UTSJSONObject
+          this.estimate = {
+            baseFee: (data['baseFee'] as number) ?? 0,
+            distanceFee: (data['distanceFee'] as number) ?? 0,
+            weightFee: (data['weightFee'] as number) ?? 0,
+            floorFee: (data['floorFee'] as number) ?? 0,
+            timeSurcharge: (data['extraFee'] as number) ?? 0,
+            weatherSurcharge: 0,
+            estimateTotal: (data['totalAmount'] as number) ?? 0,
+          } as EstimateVO
+        } catch (e) {
+          console.error('费用预估失败', e)
+        } finally {
+          this.loading = false
+        }
+      },
+      formatYuan(fen: number): string {
+        return fen2yuan(fen)
+      },
+      selectTip(v: number) {
+        this.tipAmount = v
+        this.customTip = false
+        // tipAmount 会被后端重新计入 totalAmount，必须刷新预览，否则页面 totalAmount 会落后
+        this.fetchEstimate()
+      },
+      openCustomTip() {
+        uni.showModal({
+          title: '自定义小费',
+          editable: true,
+          placeholderText: '请输入小费金额（元）',
+          success: (res) => {
+            if (res.confirm && res.content != null) {
+              const n = Number(res.content)
+              if (Number.isFinite(n) && n >= 0) {
+                this.tipAmount = Math.round(n * 100)
+                this.customTip = true
+                this.fetchEstimate()
+              }
+            }
+          },
+        })
+      },
+      async handleSubmit() {
+        if (this.submitting) return
+        this.submitting = true
+        try {
+          const body: UTSJSONObject = {
+            serviceType: this.form['type'],
+            deliveryAddressId: this.form['deliveryAddressId'] ?? 0,
+            pickupAddress: this.form['pickupAddress'],
+            pickupLat: this.form['pickupLat'],
+            pickupLng: this.form['pickupLng'],
+            itemDescription: this.form['itemDesc'] ?? this.form['taskContent'] ?? this.form['goodsName'] ?? '',
+            itemWeight: this.form['itemWeight'] ?? 0,
+            floorInfo: this.form['floorInfo'] ?? '',
+            hasElevator: this.form['hasElevator'] ?? true,
+            budgetAmount: this.buyBudget,
+            tipAmount: this.tipAmount,
+            remark: this.form['remark'] ?? '',
+          } as UTSJSONObject
+
+          const res = await createErrandOrder(body)
+          const data = res.data as UTSJSONObject
+          // 后端 userCreateErrandOrder 返回的是 orderId 字段，不是 id。
+          const orderId = data['orderId'] as number
+          const orderNo = data['orderNo'] as string
+          const payAmount = (data['paidAmount'] as number) ?? (data['totalAmount'] as number) ?? this.totalAmount
+
+          uni.redirectTo({
+            url: `/pages/pay/index?orderId=${orderId}&orderNo=${orderNo}&payAmount=${payAmount}&orderType=errand`,
+          })
+        } catch (e) {
+          console.error('创建跑腿订单失败', e)
+        } finally {
+          this.submitting = false
+        }
+      },
+    },
+  }
+</script>
+
+<style lang="scss">
+  .container {
+    height: 100vh;
+    background-color: #f5f6f8;
+    display: flex;
+    flex-direction: column;
+  }
+  .body {
+    flex: 1;
+    padding-bottom: 120rpx;
+  }
+  .section {
+    margin: 20rpx 24rpx 0;
+    background-color: #fff;
+    border-radius: 16rpx;
+    padding: 24rpx;
+  }
+  .section-title {
+    display: block;
+    font-size: 28rpx;
+    color: #333;
+    font-weight: bold;
+    margin-bottom: 16rpx;
+  }
+  .summary-row {
+    display: flex;
+    flex-direction: row;
+    padding: 8rpx 0;
+  }
+  .summary-label {
+    width: 140rpx;
+    color: #999;
+    font-size: 26rpx;
+  }
+  .summary-value {
+    flex: 1;
+    color: #333;
+    font-size: 26rpx;
+  }
+  .estimating {
+    padding: 40rpx 0;
+    text-align: center;
+  }
+  .estimating-text {
+    color: #999;
+    font-size: 26rpx;
+  }
+  .fee-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 10rpx 0;
+  }
+  .fee-row.total {
+    padding-top: 16rpx;
+    border-top: 1px solid #f0f0f0;
+    margin-top: 8rpx;
+  }
+  .fee-label {
+    color: #666;
+    font-size: 26rpx;
+  }
+  .fee-value {
+    color: #333;
+    font-size: 26rpx;
+  }
+  .fee-label.total {
+    color: #333;
+    font-size: 28rpx;
+    font-weight: 500;
+  }
+  .fee-value.total {
+    color: #FF2A2A;
+    font-size: 32rpx;
+    font-weight: bold;
+  }
+  .tip-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .tip-chip {
+    padding: 14rpx 32rpx;
+    margin-right: 16rpx;
+    margin-top: 12rpx;
+    background-color: #f5f6f8;
+    border-radius: 28rpx;
+  }
+  .tip-chip.active {
+    background-color: #008AFF;
+  }
+  .tip-chip-text {
+    color: #666;
+    font-size: 24rpx;
+  }
+  .tip-chip-text.active {
+    color: #fff;
+    font-weight: 500;
+  }
+  .footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 100rpx;
+    background-color: #fff;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 0 24rpx;
+    box-shadow: 0 -4rpx 16rpx rgba(0,0,0,0.08);
+  }
+  .pay-box {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+  }
+  .pay-label {
+    color: #666;
+    font-size: 26rpx;
+    margin-right: 12rpx;
+  }
+  .pay-amount {
+    color: #FF2A2A;
+    font-size: 36rpx;
+    font-weight: bold;
+  }
+  .btn-submit {
+    padding: 20rpx 48rpx;
+    background-color: #07C160;
+    border-radius: 44rpx;
+  }
+  .btn-submit.disabled {
+    background-color: #ccc;
+  }
+  .btn-submit-text {
+    color: #fff;
+    font-size: 30rpx;
+    font-weight: 500;
+  }
+</style>

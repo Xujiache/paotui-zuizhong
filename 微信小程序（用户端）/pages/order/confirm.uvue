@@ -1,0 +1,594 @@
+<template>
+  <view class="container">
+    <scroll-view class="body" scroll-y="true">
+      <view class="addr-card" @click="goPickAddress">
+        <view v-if="selectedAddress == null" class="addr-empty">
+          <text class="addr-empty-text">⚠️ 请选择收货地址</text>
+          <text class="addr-arrow">›</text>
+        </view>
+        <view v-else class="addr-content">
+          <view class="addr-main">
+            <view class="addr-row">
+              <text class="addr-name">{{ selectedAddress!.contactName }}</text>
+              <text class="addr-phone">{{ selectedAddress!.contactPhone }}</text>
+            </view>
+            <text class="addr-detail">{{ fullAddress(selectedAddress!) }}</text>
+          </view>
+          <text class="addr-arrow">›</text>
+        </view>
+      </view>
+
+      <view class="section">
+        <view class="section-row">
+          <text class="section-label">配送时间</text>
+          <view class="section-value-row" @click="chooseDeliveryTime">
+            <text class="section-value">{{ deliveryTimeText }}</text>
+            <text class="section-arrow">›</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="section">
+        <text class="section-title">商品清单</text>
+        <view v-for="it in items" :key="it.id" class="item-row">
+          <view class="item-img-box">
+            <image v-if="it.image != ''" class="item-img" :src="it.image" mode="aspectFill" />
+            <view v-else class="item-img-placeholder"></view>
+          </view>
+          <view class="item-info">
+            <text class="item-name">{{ it.productName }}</text>
+            <text v-if="it.skuText != ''" class="item-spec">{{ it.skuText }}</text>
+            <view class="item-bottom">
+              <text class="item-price">¥{{ formatYuan(it.priceFen) }}</text>
+              <text class="item-qty">×{{ it.quantity }}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="section">
+        <view class="section-row" @click="goCoupon">
+          <text class="section-label">优惠券</text>
+          <view class="section-value-row">
+            <text class="section-value">{{ couponText }}</text>
+            <text class="section-arrow">›</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="section">
+        <text class="section-label">订单备注</text>
+        <textarea
+          class="remark-input"
+          placeholder="例如：不要放香菜"
+          v-model="remark"
+          maxlength="200"
+        />
+        <text class="remark-count">{{ remark.length }}/200</text>
+      </view>
+
+      <view class="section">
+        <text class="section-title">费用明细</text>
+        <view class="fee-row">
+          <text class="fee-label">商品金额</text>
+          <text class="fee-value">¥{{ formatYuan(productAmount) }}</text>
+        </view>
+        <view class="fee-row">
+          <text class="fee-label">打包费</text>
+          <text class="fee-value">¥{{ formatYuan(packingFee) }}</text>
+        </view>
+        <view class="fee-row">
+          <text class="fee-label">配送费</text>
+          <text class="fee-value">¥{{ formatYuan(deliveryFee) }}</text>
+        </view>
+        <view v-if="couponDiscount > 0" class="fee-row">
+          <text class="fee-label">优惠券抵扣</text>
+          <text class="fee-value discount">−¥{{ formatYuan(couponDiscount) }}</text>
+        </view>
+        <view class="fee-row total">
+          <text class="fee-label total">合计</text>
+          <text class="fee-value total">¥{{ formatYuan(payAmount) }}</text>
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="footer">
+      <view class="pay-box">
+        <text class="pay-label">应付</text>
+        <text class="pay-amount">¥{{ formatYuan(payAmount) }}</text>
+      </view>
+      <view class="submit-btn" :class="{ disabled: !canSubmit }" @click="handleSubmit">
+        <text class="submit-btn-text">提交订单</text>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+  import { getCart } from '@/api/cart'
+  import { listAddresses } from '@/api/user'
+  import { previewProductOrder } from '@/api/pricing'
+  import { createProductOrder } from '@/api/order'
+  import { fen2yuan } from '@/utils/format'
+
+  type CartItemVO = {
+    id: number
+    productId: number
+    productName: string
+    skuId: number
+    skuText: string
+    image: string
+    priceFen: number
+    quantity: number
+  }
+
+  type AddressVO = {
+    id: number
+    contactName: string
+    contactPhone: string
+    province: string
+    city: string
+    district: string
+    address: string
+    houseNumber: string
+    lat: number
+    lng: number
+    isDefault: boolean
+  }
+
+  type CouponVO = {
+    id: number
+    name: string
+    discountFen: number
+  }
+
+  export default {
+    data() {
+      return {
+        storeId: 0,
+        storeName: '',
+        items: [] as CartItemVO[],
+        addresses: [] as AddressVO[],
+        selectedAddress: null as AddressVO | null,
+        deliveryTimeText: '尽快送达',
+        remark: '',
+        selectedCoupon: null as CouponVO | null,
+        availableCouponCount: 0,
+        productAmount: 0,
+        packingFee: 0,
+        deliveryFee: 0,
+        couponDiscount: 0,
+        payAmount: 0,
+        submitting: false,
+      }
+    },
+    computed: {
+      couponText(): string {
+        if (this.selectedCoupon != null) {
+          return '−¥' + fen2yuan(this.selectedCoupon!.discountFen)
+        }
+        if (this.availableCouponCount > 0) {
+          return `${this.availableCouponCount}张可用`
+        }
+        return '暂无可用'
+      },
+      canSubmit(): boolean {
+        return this.selectedAddress != null && this.items.length > 0 && !this.submitting
+      },
+    },
+    onLoad(query: UTSJSONObject) {
+      this.storeId = Number(query['storeId'])
+      this.init()
+    },
+    methods: {
+      async init() {
+        await Promise.all([this.fetchCart(), this.fetchAddresses()])
+        await this.recalculate()
+      },
+      async fetchCart() {
+        try {
+          const res = await getCart()
+          const data = res.data as UTSJSONObject
+          const groups = (data['groups'] as UTSJSONObject[]) ?? []
+          const mine: CartItemVO[] = []
+          for (let i = 0; i < groups.length; i++) {
+            const g = groups[i]
+            if ((g['storeId'] as number) != this.storeId) continue
+            if (this.storeName == '') this.storeName = (g['storeName'] as string) ?? ''
+            const rawItems = (g['items'] as UTSJSONObject[]) ?? []
+            for (let j = 0; j < rawItems.length; j++) {
+              const it = rawItems[j]
+              const prod = (it['product'] as UTSJSONObject) ?? ({} as UTSJSONObject)
+              mine.push({
+                id: it['id'] as number,
+                productId: it['productId'] as number,
+                productName: (prod['name'] as string) ?? '',
+                skuId: it['skuId'] as number,
+                skuText: (prod['specText'] as string) ?? '',
+                image: (prod['image'] as string) ?? '',
+                priceFen: (prod['price'] as number) ?? 0,
+                quantity: it['quantity'] as number,
+              } as CartItemVO)
+            }
+          }
+          this.items = mine
+        } catch (e) {
+          console.error(e)
+        }
+      },
+      async fetchAddresses() {
+        try {
+          const res = await listAddresses()
+          const data = res.data as UTSJSONObject
+          const list = data['list'] as UTSJSONObject[]
+          const arr: AddressVO[] = []
+          for (let i = 0; i < list.length; i++) {
+            const it = list[i]
+            arr.push({
+              id: it['id'] as number,
+              contactName: it['contactName'] as string,
+              contactPhone: it['contactPhone'] as string,
+              province: (it['province'] as string) ?? '',
+              city: (it['city'] as string) ?? '',
+              district: (it['district'] as string) ?? '',
+              address: (it['address'] as string) ?? '',
+              houseNumber: (it['houseNumber'] as string) ?? '',
+              lat: (it['lat'] as number) ?? 0,
+              lng: (it['lng'] as number) ?? 0,
+              isDefault: (it['isDefault'] as boolean) ?? false,
+            } as AddressVO)
+          }
+          this.addresses = arr
+          for (let i = 0; i < arr.length; i++) {
+            if (arr[i].isDefault) {
+              this.selectedAddress = arr[i]
+              break
+            }
+          }
+          if (this.selectedAddress == null && arr.length > 0) {
+            this.selectedAddress = arr[0]
+          }
+        } catch (e) {
+          console.error(e)
+        }
+      },
+      async recalculate() {
+        if (this.selectedAddress == null || this.items.length == 0) return
+        try {
+          const apiItems: UTSJSONObject[] = []
+          for (let i = 0; i < this.items.length; i++) {
+            apiItems.push({ skuId: this.items[i].skuId, quantity: this.items[i].quantity } as UTSJSONObject)
+          }
+          const body: UTSJSONObject = {
+            storeId: this.storeId,
+            items: apiItems,
+            deliveryLat: this.selectedAddress!.lat,
+            deliveryLng: this.selectedAddress!.lng,
+          } as UTSJSONObject
+          if (this.selectedCoupon != null) {
+            body['couponRecordId'] = this.selectedCoupon!.id
+          }
+          const res = await previewProductOrder(body)
+          const data = res.data as UTSJSONObject
+          this.productAmount = (data['productAmount'] as number) ?? 0
+          this.packingFee = (data['packingFee'] as number) ?? 0
+          this.deliveryFee = (data['deliveryFee'] as number) ?? 0
+          this.couponDiscount = (data['discountAmount'] as number) ?? 0
+          this.payAmount = (data['paidAmount'] as number) ?? (data['totalAmount'] as number) ?? 0
+        } catch (e) {
+          console.error('定价失败', e)
+          let total = 0
+          for (let i = 0; i < this.items.length; i++) {
+            total += this.items[i].priceFen * this.items[i].quantity
+          }
+          this.productAmount = total
+          this.payAmount = total + this.deliveryFee + this.packingFee - this.couponDiscount
+        }
+      },
+      formatYuan(fen: number): string {
+        return fen2yuan(fen)
+      },
+      fullAddress(a: AddressVO): string {
+        return `${a.province}${a.city}${a.district}${a.address} ${a.houseNumber}`
+      },
+      goPickAddress() {
+        uni.navigateTo({ url: '/pages/address/index?pick=1' })
+      },
+      onAddressChosen(addr: AddressVO) {
+        this.selectedAddress = addr
+        this.recalculate()
+      },
+      chooseDeliveryTime() {
+        uni.showActionSheet({
+          itemList: ['尽快送达', '30分钟内', '1小时后'],
+          success: (res) => {
+            const arr = ['尽快送达', '30分钟内', '1小时后']
+            this.deliveryTimeText = arr[res.tapIndex]
+          },
+        })
+      },
+      goCoupon() {
+        uni.navigateTo({
+          url: `/pages/coupon/select?storeId=${this.storeId}&orderAmount=${this.productAmount}`,
+        })
+      },
+      onCouponChosen(c: CouponVO | null) {
+        this.selectedCoupon = c
+        this.recalculate()
+      },
+      async handleSubmit() {
+        if (!this.canSubmit) {
+          if (this.selectedAddress == null) {
+            uni.showToast({ title: '请选择收货地址', icon: 'none' })
+          }
+          return
+        }
+        this.submitting = true
+        try {
+          const apiItems: UTSJSONObject[] = []
+          for (let i = 0; i < this.items.length; i++) {
+            apiItems.push({ skuId: this.items[i].skuId, quantity: this.items[i].quantity } as UTSJSONObject)
+          }
+          const body: UTSJSONObject = {
+            storeId: this.storeId,
+            addressId: this.selectedAddress!.id,
+            items: apiItems,
+            remark: this.remark,
+            clearCartAfterCreate: true,
+          } as UTSJSONObject
+          if (this.selectedCoupon != null) {
+            body['couponRecordId'] = this.selectedCoupon!.id
+          }
+          const res = await createProductOrder(body)
+          const data = res.data as UTSJSONObject
+          // 后端 userCreateProductOrder 返回的是 orderId 字段，不是 id。
+          // 取 id 会得到 undefined，导致支付页 orderId=undefined。
+          const orderId = data['orderId'] as number
+          const orderNo = data['orderNo'] as string
+          const payAmount = (data['paidAmount'] as number) ?? (data['totalAmount'] as number) ?? this.payAmount
+          uni.redirectTo({
+            url: `/pages/pay/index?orderId=${orderId}&orderNo=${orderNo}&payAmount=${payAmount}&orderType=product`,
+          })
+        } catch (e) {
+          console.error('创建订单失败', e)
+        } finally {
+          this.submitting = false
+        }
+      },
+    },
+  }
+</script>
+
+<style lang="scss">
+  .container {
+    height: 100vh;
+    background-color: #f5f6f8;
+    display: flex;
+    flex-direction: column;
+  }
+  .body {
+    flex: 1;
+    padding-bottom: 120rpx;
+  }
+  .addr-card {
+    margin: 20rpx 24rpx;
+    background-color: #fff;
+    border-radius: 16rpx;
+    padding: 24rpx;
+  }
+  .addr-empty {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .addr-empty-text {
+    color: #FF9500;
+    font-size: 28rpx;
+  }
+  .addr-arrow {
+    color: #bbb;
+    font-size: 32rpx;
+  }
+  .addr-content {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+  }
+  .addr-main {
+    flex: 1;
+  }
+  .addr-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+  }
+  .addr-name {
+    font-size: 30rpx;
+    color: #333;
+    font-weight: 600;
+    margin-right: 16rpx;
+  }
+  .addr-phone {
+    font-size: 26rpx;
+    color: #666;
+  }
+  .addr-detail {
+    margin-top: 12rpx;
+    font-size: 26rpx;
+    color: #555;
+    line-height: 40rpx;
+  }
+  .section {
+    margin: 0 24rpx 20rpx;
+    background-color: #fff;
+    border-radius: 16rpx;
+    padding: 24rpx;
+  }
+  .section-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .section-value-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+  }
+  .section-label {
+    font-size: 28rpx;
+    color: #333;
+  }
+  .section-value {
+    font-size: 28rpx;
+    color: #666;
+    margin-right: 12rpx;
+  }
+  .section-arrow {
+    color: #bbb;
+    font-size: 32rpx;
+  }
+  .section-title {
+    font-size: 28rpx;
+    color: #333;
+    font-weight: 600;
+    padding-bottom: 16rpx;
+  }
+  .item-row {
+    display: flex;
+    flex-direction: row;
+    padding: 16rpx 0;
+    border-top: 1px solid #f0f0f0;
+  }
+  .item-row:first-child {
+    border-top: 0;
+  }
+  .item-img-box {
+    width: 100rpx;
+    height: 100rpx;
+    border-radius: 12rpx;
+    overflow: hidden;
+    margin-right: 16rpx;
+  }
+  .item-img {
+    width: 100rpx;
+    height: 100rpx;
+  }
+  .item-img-placeholder {
+    width: 100rpx;
+    height: 100rpx;
+    background-color: #f0f0f0;
+  }
+  .item-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .item-name {
+    font-size: 26rpx;
+    color: #333;
+  }
+  .item-spec {
+    font-size: 22rpx;
+    color: #999;
+  }
+  .item-bottom {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+  .item-price {
+    color: #FF2A2A;
+    font-size: 26rpx;
+    font-weight: bold;
+  }
+  .item-qty {
+    color: #999;
+    font-size: 22rpx;
+  }
+  .remark-input {
+    width: 100%;
+    min-height: 100rpx;
+    padding: 16rpx 0 0;
+    font-size: 26rpx;
+    color: #333;
+  }
+  .remark-count {
+    text-align: right;
+    font-size: 22rpx;
+    color: #bbb;
+  }
+  .fee-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 12rpx 0;
+  }
+  .fee-row.total {
+    padding-top: 16rpx;
+    border-top: 1px solid #f0f0f0;
+    margin-top: 8rpx;
+  }
+  .fee-label {
+    color: #666;
+    font-size: 26rpx;
+  }
+  .fee-value {
+    color: #333;
+    font-size: 26rpx;
+  }
+  .fee-value.discount {
+    color: #FF9500;
+  }
+  .fee-label.total {
+    color: #333;
+    font-size: 28rpx;
+    font-weight: 500;
+  }
+  .fee-value.total {
+    color: #FF2A2A;
+    font-size: 32rpx;
+    font-weight: bold;
+  }
+  .footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 100rpx;
+    background-color: #fff;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 0 24rpx;
+    box-shadow: 0 -4rpx 16rpx rgba(0,0,0,0.08);
+  }
+  .pay-box {
+    flex: 1;
+  }
+  .pay-label {
+    color: #666;
+    font-size: 26rpx;
+    margin-right: 12rpx;
+  }
+  .pay-amount {
+    color: #FF2A2A;
+    font-size: 36rpx;
+    font-weight: bold;
+  }
+  .submit-btn {
+    padding: 20rpx 48rpx;
+    background-color: #008AFF;
+    border-radius: 44rpx;
+  }
+  .submit-btn.disabled {
+    background-color: #ccc;
+  }
+  .submit-btn-text {
+    color: #fff;
+    font-size: 30rpx;
+    font-weight: 500;
+  }
+</style>

@@ -101,6 +101,53 @@ export const wxLogin = async (
   };
 };
 
+/**
+ * 用户手机号 + 验证码登录（真正的手机号登录，不再伪造微信 code）
+ * - 手机号已存在：直接签发 token
+ * - 手机号不存在：创建新用户（phone 直接落库）再签发 token
+ */
+export const userPhoneLogin = async (
+  phone: string,
+  code: string,
+  clientType?: string,
+): Promise<WxLoginResponseData> => {
+  await verifySmsCode(phone, code);
+
+  let user = await findUserByPhone(phone);
+  let isNewUser = false;
+  if (!user) {
+    const userId = await createUser({
+      phone,
+      nickname: `用户${phone.slice(-4)}`,
+    });
+    user = await findUserById(userId);
+    isNewUser = true;
+  } else {
+    await updateUserLoginInfo(user.id, null);
+  }
+
+  if (!user) {
+    throw new AppError(ErrorCode.SERVER_ERROR, '用户信息获取失败', 500);
+  }
+
+  const tokens = await issueTokens(UserRole.USER, user.id, clientType);
+
+  const userInfo: UserInfoData = {
+    id: user.id,
+    nickname: user.nickname,
+    avatar: user.avatar,
+    phone: user.phone ? maskPhone(user.phone) : null,
+    gender: user.gender,
+  };
+
+  return {
+    ...tokens,
+    isNewUser,
+    hasPhone: !!user.phone,
+    userInfo,
+  };
+};
+
 export const bindUserPhone = async (
   userId: number,
   phone: string,

@@ -1,0 +1,311 @@
+<template>
+  <view class="container">
+    <view class="form">
+      <view class="form-item">
+        <text class="label">联系人</text>
+        <input class="input" type="text" placeholder="请输入联系人姓名" v-model="form.contactName" maxlength="32" />
+      </view>
+      <view class="form-item">
+        <text class="label">手机号</text>
+        <input class="input" type="number" placeholder="请输入手机号" v-model="form.contactPhone" maxlength="11" />
+      </view>
+      <view class="form-item" @click="handleChooseLocation">
+        <text class="label">所在地区</text>
+        <view class="value-row">
+          <text class="value" :class="{ placeholder: form.province == '' }">
+            {{ form.province == '' ? '点击选择地图位置' : (form.province + form.city + form.district) }}
+          </text>
+          <text class="arrow">›</text>
+        </view>
+      </view>
+      <view class="form-item">
+        <text class="label">详细地址</text>
+        <input class="input" type="text" placeholder="小区/街道名" v-model="form.address" maxlength="256" />
+      </view>
+      <view class="form-item">
+        <text class="label">门牌号</text>
+        <input class="input" type="text" placeholder="例如：3栋1单元502" v-model="form.houseNumber" maxlength="64" />
+      </view>
+      <view class="form-item">
+        <text class="label">标签</text>
+        <view class="tags">
+          <view
+            v-for="t in tags"
+            :key="t"
+            class="tag-chip"
+            :class="{ active: form.tag == t }"
+            @click="selectTag(t)"
+          >
+            <text class="tag-chip-text" :class="{ active: form.tag == t }">{{ t }}</text>
+          </view>
+        </view>
+      </view>
+      <view class="form-item row-flex">
+        <text class="label">设为默认</text>
+        <switch :checked="form.isDefault" color="#008AFF" @change="toggleDefault" />
+      </view>
+    </view>
+
+    <view class="footer">
+      <view class="btn-save" @click="handleSubmit">
+        <text class="btn-save-text">保存地址</text>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+  import { listAddresses, addAddress, updateAddress } from '@/api/user'
+  import { isPhone, isNonEmpty } from '@/utils/validate'
+
+  type AddressForm = {
+    contactName: string
+    contactPhone: string
+    province: string
+    city: string
+    district: string
+    address: string
+    houseNumber: string
+    tag: string
+    isDefault: boolean
+    lat: number
+    lng: number
+  }
+
+  export default {
+    data() {
+      return {
+        editId: 0,
+        tags: ['家', '公司', '学校'] as string[],
+        form: {
+          contactName: '',
+          contactPhone: '',
+          province: '',
+          city: '',
+          district: '',
+          address: '',
+          houseNumber: '',
+          tag: '',
+          isDefault: false,
+          lat: 0,
+          lng: 0,
+        } as AddressForm,
+      }
+    },
+    onLoad(query: UTSJSONObject) {
+      const id = query['id']
+      if (id != null) {
+        this.editId = Number(id)
+        uni.setNavigationBarTitle({ title: '编辑地址' })
+        this.loadAddress()
+      } else {
+        uni.setNavigationBarTitle({ title: '新增地址' })
+      }
+    },
+    methods: {
+      async loadAddress() {
+        try {
+          const res = await listAddresses()
+          const data = res.data as UTSJSONObject
+          const list = data['list'] as UTSJSONObject[]
+          for (let i = 0; i < list.length; i++) {
+            const it = list[i]
+            if ((it['id'] as number) == this.editId) {
+              this.form.contactName = it['contactName'] as string
+              this.form.contactPhone = it['contactPhone'] as string
+              this.form.province = (it['province'] as string) ?? ''
+              this.form.city = (it['city'] as string) ?? ''
+              this.form.district = (it['district'] as string) ?? ''
+              this.form.address = (it['address'] as string) ?? ''
+              this.form.houseNumber = (it['houseNumber'] as string) ?? ''
+              this.form.tag = (it['tag'] as string) ?? ''
+              this.form.isDefault = (it['isDefault'] as boolean) ?? false
+              this.form.lat = (it['lat'] as number) ?? 0
+              this.form.lng = (it['lng'] as number) ?? 0
+              break
+            }
+          }
+        } catch (e) {
+          console.error('加载地址失败', e)
+        }
+      },
+      handleChooseLocation() {
+        uni.chooseLocation({
+          success: (res) => {
+            this.form.lat = res.latitude
+            this.form.lng = res.longitude
+            // 简化处理：省市区默认以北京市东城区为默认，真实项目用逆地理解析
+            this.form.province = this.form.province != '' ? this.form.province : '北京市'
+            this.form.city = this.form.city != '' ? this.form.city : '北京市'
+            this.form.district = this.form.district != '' ? this.form.district : '东城区'
+            if (res.address != null && res.address != '') {
+              this.form.address = res.address
+            } else if (res.name != null && res.name != '') {
+              this.form.address = res.name
+            }
+          },
+          fail: () => {
+            uni.showToast({ title: '选择位置失败', icon: 'none' })
+          },
+        })
+      },
+      selectTag(t: string) {
+        this.form.tag = this.form.tag == t ? '' : t
+      },
+      toggleDefault(e: any) {
+        this.form.isDefault = e.detail.value as boolean
+      },
+      async handleSubmit() {
+        if (!isNonEmpty(this.form.contactName)) {
+          uni.showToast({ title: '请输入联系人', icon: 'none' })
+          return
+        }
+        if (!isPhone(this.form.contactPhone)) {
+          uni.showToast({ title: '手机号格式不正确', icon: 'none' })
+          return
+        }
+        if (!isNonEmpty(this.form.province) || !isNonEmpty(this.form.city)) {
+          uni.showToast({ title: '请选择地区', icon: 'none' })
+          return
+        }
+        if (!isNonEmpty(this.form.address)) {
+          uni.showToast({ title: '请输入详细地址', icon: 'none' })
+          return
+        }
+        if (this.form.lat == 0 || this.form.lng == 0) {
+          uni.showToast({ title: '请在地图上选择位置', icon: 'none' })
+          return
+        }
+
+        const body: UTSJSONObject = {
+          contactName: this.form.contactName,
+          contactPhone: this.form.contactPhone,
+          province: this.form.province,
+          city: this.form.city,
+          district: this.form.district,
+          address: this.form.address,
+          houseNumber: this.form.houseNumber,
+          tag: this.form.tag,
+          isDefault: this.form.isDefault,
+          lat: this.form.lat,
+          lng: this.form.lng,
+        } as UTSJSONObject
+
+        try {
+          if (this.editId > 0) {
+            await updateAddress(this.editId, body)
+            uni.showToast({ title: '保存成功', icon: 'success' })
+          } else {
+            await addAddress(body)
+            uni.showToast({ title: '新增成功', icon: 'success' })
+          }
+          setTimeout(() => {
+            uni.navigateBack({ delta: 1 })
+          }, 500)
+        } catch (e) {
+          console.error('保存失败', e)
+        }
+      },
+    },
+  }
+</script>
+
+<style lang="scss">
+  .container {
+    min-height: 100vh;
+    background-color: #f5f6f8;
+    padding-bottom: 160rpx;
+  }
+  .form {
+    margin: 20rpx 24rpx;
+    background-color: #fff;
+    border-radius: 16rpx;
+    padding: 0 24rpx;
+  }
+  .form-item {
+    padding: 24rpx 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .form-item:last-child {
+    border-bottom: 0;
+  }
+  .label {
+    font-size: 26rpx;
+    color: #999;
+    margin-bottom: 12rpx;
+  }
+  .input {
+    width: 100%;
+    font-size: 30rpx;
+    color: #333;
+  }
+  .value-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .value {
+    font-size: 30rpx;
+    color: #333;
+    flex: 1;
+  }
+  .value.placeholder {
+    color: #ccc;
+  }
+  .arrow {
+    color: #bbb;
+    font-size: 32rpx;
+  }
+  .tags {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .tag-chip {
+    padding: 10rpx 24rpx;
+    margin-right: 16rpx;
+    margin-top: 8rpx;
+    border: 1px solid #ddd;
+    border-radius: 28rpx;
+  }
+  .tag-chip.active {
+    border-color: #008AFF;
+    background-color: #E8F3FF;
+  }
+  .tag-chip-text {
+    color: #666;
+    font-size: 24rpx;
+  }
+  .tag-chip-text.active {
+    color: #008AFF;
+  }
+  .row-flex {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 20rpx 24rpx;
+    background-color: #fff;
+    border-top: 1px solid #f0f0f0;
+  }
+  .btn-save {
+    height: 88rpx;
+    background-color: #008AFF;
+    border-radius: 44rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-save-text {
+    color: #fff;
+    font-size: 30rpx;
+    font-weight: 500;
+  }
+</style>

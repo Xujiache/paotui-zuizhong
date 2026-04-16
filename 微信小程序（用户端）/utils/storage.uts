@@ -1,0 +1,52 @@
+/**
+ * 统一本地存储封装：类型安全的 get/set
+ * 在 UTS 里 uni.getStorageSync 返回 any，这里统一包装
+ */
+
+export const setStorage = (key: string, value: any) => {
+  uni.setStorageSync(key, value)
+}
+
+export const getString = (key: string, defaultValue: string = ''): string => {
+  const v = uni.getStorageSync(key)
+  if (v == null) return defaultValue
+  return v as string
+}
+
+export const getNumber = (key: string, defaultValue: number = 0): number => {
+  const v = uni.getStorageSync(key)
+  if (v == null) return defaultValue
+  if (typeof v == 'number') return v as number
+  return defaultValue
+}
+
+export const getBool = (key: string, defaultValue: boolean = false): boolean => {
+  const v = uni.getStorageSync(key)
+  if (v == null) return defaultValue
+  if (typeof v == 'boolean') return v as boolean
+  return defaultValue
+}
+
+export const getObject = (key: string): any | null => {
+  const v = uni.getStorageSync(key)
+  if (v == null) return null
+  return v
+}
+
+export const removeStorage = (key: string) => {
+  uni.removeStorageSync(key)
+}
+
+export const clearAll = () => {
+  uni.clearStorageSync()
+}
+
+// Keys
+export const STORAGE_KEYS = {
+  TOKEN: 'o2o_token',
+  REFRESH_TOKEN: 'o2o_refresh_token',
+  USER_INFO: 'o2o_user_info',
+  LOCATION: 'o2o_location',
+  HISTORY_KEYWORDS: 'o2o_history_keywords',
+  LAST_ADDRESS: 'o2o_last_address',
+}

@@ -1,0 +1,15 @@
+import { get, ApiResponse } from './request'
+
+/**
+ * 附近商家列表
+ */
+export const listNearbyStores = (params: UTSJSONObject): Promise<ApiResponse> => {
+  return get('/merchant/nearby', params)
+}
+
+/**
+ * 店铺详情（用户端公开）
+ */
+export const getStoreDetail = (id: number): Promise<ApiResponse> => {
+  return get(`/merchant/stores/${id}/detail`)
+}

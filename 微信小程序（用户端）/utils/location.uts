@@ -1,0 +1,66 @@
+/**
+ * 定位与距离工具
+ */
+
+import { DEFAULT_CITY } from './env'
+
+export type LocationInfo = {
+  lat: number
+  lng: number
+  province: string
+  city: string
+  district: string
+  address: string
+}
+
+/**
+ * 获取当前定位（uni.getLocation 封装）
+ * 失败时 resolve 默认城市，不 reject，以便主流程能继续
+ */
+export const getCurrentLocation = (): Promise<LocationInfo> => {
+  return new Promise((resolve) => {
+    uni.getLocation({
+      type: 'gcj02',
+      success: (res) => {
+        resolve({
+          lat: res.latitude,
+          lng: res.longitude,
+          province: DEFAULT_CITY.province,
+          city: DEFAULT_CITY.city,
+          district: DEFAULT_CITY.district,
+          address: '当前位置',
+        } as LocationInfo)
+      },
+      fail: () => {
+        resolve({
+          lat: DEFAULT_CITY.lat,
+          lng: DEFAULT_CITY.lng,
+          province: DEFAULT_CITY.province,
+          city: DEFAULT_CITY.city,
+          district: DEFAULT_CITY.district,
+          address: '默认位置',
+        } as LocationInfo)
+      },
+    })
+  })
+}
+
+/**
+ * Haversine 公式：返回两点之间的距离（米）
+ */
+export const haversineDistance = (
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number => {
+  const R = 6371000
+  const toRad = (d: number): number => (d * Math.PI) / 180
+  const dLat = toRad(lat2 - lat1)
+  const dLng = toRad(lng2 - lng1)
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c
+}

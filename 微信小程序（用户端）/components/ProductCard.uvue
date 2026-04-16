@@ -1,0 +1,165 @@
+<template>
+  <view class="product">
+    <view class="img-box">
+      <image v-if="image != ''" class="img" :src="image" mode="aspectFill" />
+      <view v-else class="img-placeholder">
+        <text class="img-placeholder-text">商品</text>
+      </view>
+    </view>
+    <view class="info">
+      <text class="name">{{ name }}</text>
+      <text v-if="description != ''" class="desc">{{ description }}</text>
+      <view class="tags-row">
+        <text v-if="monthSales > 0" class="tag-sale">月售 {{ monthSales }}</text>
+        <text v-if="rating > 0" class="tag-rating">好评 {{ rating.toFixed(1) }}</text>
+      </view>
+      <view class="bottom-row">
+        <view class="price-box">
+          <text class="price-symbol">¥</text>
+          <text class="price">{{ priceText }}</text>
+          <text v-if="originalPrice > 0 && originalPrice != price" class="price-original">¥{{ originalPriceText }}</text>
+        </view>
+        <view v-if="!hideAdd" class="add-btn" @click="handleAdd">
+          <text class="add-btn-text">+</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+  import { fen2yuan } from '@/utils/format'
+
+  export default {
+    name: 'ProductCard',
+    props: {
+      id: { type: Number, default: 0 },
+      name: { type: String, default: '' },
+      description: { type: String, default: '' },
+      image: { type: String, default: '' },
+      price: { type: Number, default: 0 },
+      originalPrice: { type: Number, default: 0 },
+      monthSales: { type: Number, default: 0 },
+      rating: { type: Number, default: 0 },
+      hideAdd: { type: Boolean, default: false },
+    },
+    emits: ['add'],
+    computed: {
+      priceText(): string {
+        return fen2yuan(this.price)
+      },
+      originalPriceText(): string {
+        return fen2yuan(this.originalPrice)
+      },
+    },
+    methods: {
+      handleAdd() {
+        this.$emit('add', this.id)
+      },
+    },
+  }
+</script>
+
+<style lang="scss">
+  .product {
+    display: flex;
+    flex-direction: row;
+    padding: 20rpx 24rpx;
+    background-color: #fff;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .img-box {
+    width: 160rpx;
+    height: 160rpx;
+    border-radius: 12rpx;
+    overflow: hidden;
+    margin-right: 20rpx;
+  }
+  .img {
+    width: 160rpx;
+    height: 160rpx;
+  }
+  .img-placeholder {
+    width: 160rpx;
+    height: 160rpx;
+    background-color: #F5F6F8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .img-placeholder-text {
+    color: #ccc;
+    font-size: 24rpx;
+  }
+  .info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .name {
+    font-size: 28rpx;
+    color: #333;
+    font-weight: 500;
+  }
+  .desc {
+    margin-top: 6rpx;
+    font-size: 22rpx;
+    color: #999;
+  }
+  .tags-row {
+    display: flex;
+    flex-direction: row;
+    margin-top: 8rpx;
+  }
+  .tag-sale {
+    font-size: 22rpx;
+    color: #999;
+    margin-right: 16rpx;
+  }
+  .tag-rating {
+    font-size: 22rpx;
+    color: #FF9500;
+  }
+  .bottom-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 10rpx;
+  }
+  .price-box {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+  }
+  .price-symbol {
+    color: #FF2A2A;
+    font-size: 22rpx;
+  }
+  .price {
+    color: #FF2A2A;
+    font-size: 32rpx;
+    font-weight: bold;
+  }
+  .price-original {
+    margin-left: 10rpx;
+    color: #999;
+    font-size: 22rpx;
+    text-decoration: line-through;
+  }
+  .add-btn {
+    width: 44rpx;
+    height: 44rpx;
+    border-radius: 22rpx;
+    background-color: #008AFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .add-btn-text {
+    color: #fff;
+    font-size: 36rpx;
+    font-weight: bold;
+  }
+</style>

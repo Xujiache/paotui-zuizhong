@@ -1,0 +1,477 @@
+<template>
+  <view class="container">
+    <view class="status-card">
+      <text class="status-text">{{ statusText }}</text>
+      <text v-if="estimatedText != ''" class="estimate-text">{{ estimatedText }}</text>
+    </view>
+
+    <view v-if="hasRider" class="rider-card">
+      <view class="rider-avatar">
+        <text class="rider-avatar-text">{{ riderInitial }}</text>
+      </view>
+      <view class="rider-info">
+        <text class="rider-name">{{ rider.name }}</text>
+        <text class="rider-sub">★ {{ rider.rating.toFixed(1) }} · 配送{{ rider.completedCount }}单</text>
+      </view>
+      <view class="contact-btn" @click="callRider">
+        <text class="contact-icon">📞</text>
+      </view>
+    </view>
+
+    <view class="map-placeholder">
+      <text class="map-text">📍 地图追踪</text>
+      <text class="map-sub" v-if="rider.lat > 0">骑手当前位置 ({{ rider.lat.toFixed(4) }}, {{ rider.lng.toFixed(4) }})</text>
+      <text class="map-sub" v-else>暂无骑手位置信息</text>
+    </view>
+
+    <view class="section">
+      <text class="section-title">订单信息</text>
+      <view class="info-row">
+        <text class="info-label">订单号</text>
+        <text class="info-value copyable" @click="copyOrderNo">{{ order.orderNo }}</text>
+      </view>
+      <view class="info-row">
+        <text class="info-label">服务类型</text>
+        <text class="info-value">{{ serviceTypeText }}</text>
+      </view>
+      <view class="info-row">
+        <text class="info-label">取件地址</text>
+        <text class="info-value">{{ order.pickupAddress }}</text>
+      </view>
+      <view v-if="order.deliveryAddress != ''" class="info-row">
+        <text class="info-label">送达地址</text>
+        <text class="info-value">{{ order.deliveryAddress }}</text>
+      </view>
+      <view v-if="order.itemDescription != ''" class="info-row">
+        <text class="info-label">物品/任务</text>
+        <text class="info-value">{{ order.itemDescription }}</text>
+      </view>
+      <view class="info-row">
+        <text class="info-label">支付金额</text>
+        <text class="info-value danger">¥{{ formatYuan(order.payAmount) }}</text>
+      </view>
+    </view>
+
+    <view v-if="timeline.length > 0" class="section">
+      <text class="section-title">订单动态</text>
+      <view v-for="(t, idx) in timeline" :key="idx" class="tl-row">
+        <view class="tl-dot" :class="{ active: idx == 0 }"></view>
+        <view class="tl-content">
+          <text class="tl-text" :class="{ active: idx == 0 }">{{ t.text }}</text>
+          <text class="tl-time">{{ t.time }}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="footer">
+      <view v-if="canCancel" class="btn-outline" @click="handleCancel">
+        <text class="btn-outline-text">取消订单</text>
+      </view>
+      <view class="btn-outline" @click="goService">
+        <text class="btn-outline-text">联系客服</text>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+  import { getOrderDetail, getOrderLogs, cancelOrder } from '@/api/order'
+  import {
+    fen2yuan,
+    orderStatusText,
+    formatDateTime,
+    parseDateTs,
+    isCancellable,
+  } from '@/utils/format'
+
+  type RiderInfo = {
+    id: number
+    name: string
+    phone: string
+    avatar: string
+    rating: number
+    completedCount: number
+    lat: number
+    lng: number
+  }
+
+  type OrderInfo = {
+    id: number
+    orderNo: string
+    serviceType: string
+    status: string
+    pickupAddress: string
+    deliveryAddress: string
+    itemDescription: string
+    payAmount: number
+  }
+
+  type TimelineItem = {
+    text: string
+    time: string
+  }
+
+  export default {
+    data() {
+      return {
+        orderId: 0,
+        order: {
+          id: 0,
+          orderNo: '',
+          serviceType: '',
+          status: '',
+          pickupAddress: '',
+          deliveryAddress: '',
+          itemDescription: '',
+          payAmount: 0,
+        } as OrderInfo,
+        rider: {
+          id: 0,
+          name: '',
+          phone: '',
+          avatar: '',
+          rating: 5.0,
+          completedCount: 0,
+          lat: 0,
+          lng: 0,
+        } as RiderInfo,
+        timeline: [] as TimelineItem[],
+        pollingId: 0,
+      }
+    },
+    computed: {
+      statusText(): string {
+        return orderStatusText(this.order.status)
+      },
+      estimatedText(): string {
+        const st = this.order.status
+        // 跑腿订单真实枚举：PENDING_DISPATCH / PENDING_REVIEW / RIDER_ACCEPTED / ON_THE_WAY / IN_PROGRESS / DELIVERED / COMPLETED
+        if (st == 'PENDING_DISPATCH' || st == 'PENDING_REVIEW') return '正在为您寻找骑手...'
+        if (st == 'RIDER_ACCEPTED') return '骑手已接单，正在前往'
+        if (st == 'ON_THE_WAY') return '骑手前往取件中'
+        if (st == 'IN_PROGRESS') return '骑手已取件，正在配送'
+        if (st == 'DELIVERED') return '已送达，请确认'
+        if (st == 'COMPLETED') return '任务已完成'
+        if (st == 'CANCELLED') return '订单已取消'
+        // 兼容旧值
+        if (st == 'PAID' || st == 'DISPATCHING') return '正在为您寻找骑手...'
+        if (st == 'RIDER_ASSIGNED') return '骑手已接单，正在前往'
+        if (st == 'RIDER_PICKUP') return '骑手已取件，正在配送'
+        if (st == 'DELIVERING') return '配送中，预计很快送达'
+        return ''
+      },
+      hasRider(): boolean {
+        return this.rider.id > 0
+      },
+      riderInitial(): string {
+        return this.rider.name.length > 0 ? this.rider.name.substring(0, 1) : '骑'
+      },
+      serviceTypeText(): string {
+        const map: Map<string, string> = new Map<string, string>([
+          ['DELIVER', '帮送'],
+          ['PICKUP', '帮取'],
+          ['BUY', '帮买'],
+          ['ERRAND', '代办'],
+        ])
+        return map.get(this.order.serviceType) ?? '跑腿'
+      },
+      canCancel(): boolean {
+        return isCancellable(this.order.status)
+      },
+    },
+    onLoad(query: UTSJSONObject) {
+      this.orderId = Number(query['id'])
+      this.fetchAll()
+      this.startPolling()
+    },
+    onUnload() {
+      if (this.pollingId != 0) clearInterval(this.pollingId)
+    },
+    methods: {
+      async fetchAll() {
+        await this.fetchOrder()
+        await this.fetchLogs()
+      },
+      async fetchOrder() {
+        try {
+          const res = await getOrderDetail(this.orderId)
+          const data = res.data as UTSJSONObject
+          const errand = (data['errand'] as UTSJSONObject) ?? ({} as UTSJSONObject)
+          this.order = {
+            id: data['id'] as number,
+            orderNo: (data['orderNo'] as string) ?? '',
+            serviceType: (errand['serviceType'] as string) ?? '',
+            status: (data['status'] as string) ?? '',
+            pickupAddress: (errand['pickupAddress'] as string) ?? '',
+            deliveryAddress: (data['deliveryAddress'] as string) ?? '',
+            itemDescription: (errand['itemDescription'] as string) ?? '',
+            payAmount: (data['paidAmount'] as number) ?? (data['totalAmount'] as number) ?? 0,
+          } as OrderInfo
+          const rider = data['rider'] as UTSJSONObject | null
+          if (rider != null) {
+            this.rider = {
+              id: (rider['id'] as number) ?? 0,
+              name: (rider['name'] as string) ?? '',
+              phone: (rider['phone'] as string) ?? '',
+              avatar: (rider['avatar'] as string) ?? '',
+              rating: (rider['rating'] as number) ?? 5.0,
+              completedCount: (rider['completedCount'] as number) ?? 0,
+              lat: (rider['lat'] as number) ?? 0,
+              lng: (rider['lng'] as number) ?? 0,
+            } as RiderInfo
+          }
+        } catch (e) {
+          console.error('订单详情失败', e)
+        }
+      },
+      async fetchLogs() {
+        try {
+          const res = await getOrderLogs(this.orderId)
+          const data = res.data as UTSJSONObject
+          const list = (data['list'] as UTSJSONObject[]) ?? []
+          const tl: TimelineItem[] = []
+          for (let i = list.length - 1; i >= 0; i--) {
+            const it = list[i]
+            const remark = (it['remark'] as string) ?? ''
+            const toStatus = (it['toStatus'] as string) ?? ''
+            const ts = parseDateTs(it['createdAt'])
+            tl.push({
+              text: remark != '' ? remark : orderStatusText(toStatus),
+              time: formatDateTime(ts > 0 ? ts : Date.now()),
+            } as TimelineItem)
+          }
+          this.timeline = tl
+        } catch (e) {
+          console.warn('日志失败', e)
+        }
+      },
+      startPolling() {
+        this.pollingId = setInterval(() => {
+          this.fetchOrder()
+        }, 8000) as unknown as number
+      },
+      formatYuan(fen: number): string {
+        return fen2yuan(fen)
+      },
+      callRider() {
+        if (this.rider.phone == '') {
+          uni.showToast({ title: '骑手电话暂不可见', icon: 'none' })
+          return
+        }
+        uni.makePhoneCall({ phoneNumber: this.rider.phone })
+      },
+      copyOrderNo() {
+        uni.setClipboardData({ data: this.order.orderNo })
+      },
+      async handleCancel() {
+        uni.showModal({
+          title: '提示',
+          content: '确认取消订单？',
+          success: async (res) => {
+            if (res.confirm) {
+              try {
+                await cancelOrder(this.orderId, '用户主动取消')
+                uni.showToast({ title: '已取消', icon: 'success' })
+                this.fetchOrder()
+                this.fetchLogs()
+              } catch (e) {
+                console.error(e)
+              }
+            }
+          },
+        })
+      },
+      goService() {
+        uni.navigateTo({ url: '/pages/service/index' })
+      },
+    },
+  }
+</script>
+
+<style lang="scss">
+  .container {
+    min-height: 100vh;
+    background-color: #f5f6f8;
+    padding-bottom: 140rpx;
+  }
+  .status-card {
+    background: linear-gradient(180deg, #008AFF 0%, #00A3FF 100%);
+    padding: 60rpx 32rpx;
+  }
+  .status-text {
+    color: #fff;
+    font-size: 40rpx;
+    font-weight: bold;
+  }
+  .estimate-text {
+    display: block;
+    margin-top: 12rpx;
+    color: rgba(255,255,255,0.85);
+    font-size: 26rpx;
+  }
+  .rider-card {
+    margin: -40rpx 24rpx 0;
+    background-color: #fff;
+    border-radius: 16rpx;
+    padding: 24rpx;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.06);
+  }
+  .rider-avatar {
+    width: 96rpx;
+    height: 96rpx;
+    border-radius: 48rpx;
+    background-color: #E8F3FF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .rider-avatar-text {
+    color: #008AFF;
+    font-size: 36rpx;
+    font-weight: bold;
+  }
+  .rider-info {
+    flex: 1;
+    margin-left: 20rpx;
+  }
+  .rider-name {
+    color: #333;
+    font-size: 30rpx;
+    font-weight: 500;
+  }
+  .rider-sub {
+    margin-top: 6rpx;
+    display: block;
+    color: #999;
+    font-size: 22rpx;
+  }
+  .contact-btn {
+    width: 72rpx;
+    height: 72rpx;
+    border-radius: 36rpx;
+    background-color: #07C160;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .contact-icon {
+    color: #fff;
+    font-size: 32rpx;
+  }
+  .map-placeholder {
+    margin: 20rpx 24rpx 0;
+    height: 300rpx;
+    background-color: #E8F3FF;
+    border-radius: 16rpx;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .map-text {
+    color: #008AFF;
+    font-size: 30rpx;
+    font-weight: 500;
+  }
+  .map-sub {
+    margin-top: 12rpx;
+    color: #666;
+    font-size: 22rpx;
+  }
+  .section {
+    margin: 20rpx 24rpx 0;
+    background-color: #fff;
+    border-radius: 16rpx;
+    padding: 24rpx;
+  }
+  .section-title {
+    display: block;
+    font-size: 28rpx;
+    color: #333;
+    font-weight: bold;
+    margin-bottom: 16rpx;
+  }
+  .info-row {
+    display: flex;
+    flex-direction: row;
+    padding: 10rpx 0;
+  }
+  .info-label {
+    width: 160rpx;
+    color: #999;
+    font-size: 26rpx;
+  }
+  .info-value {
+    flex: 1;
+    color: #333;
+    font-size: 26rpx;
+  }
+  .info-value.copyable {
+    color: #008AFF;
+  }
+  .info-value.danger {
+    color: #FF2A2A;
+    font-weight: bold;
+  }
+  .tl-row {
+    display: flex;
+    flex-direction: row;
+    padding: 12rpx 0;
+  }
+  .tl-dot {
+    width: 16rpx;
+    height: 16rpx;
+    border-radius: 8rpx;
+    background-color: #ccc;
+    margin-top: 12rpx;
+    margin-right: 20rpx;
+  }
+  .tl-dot.active {
+    background-color: #008AFF;
+  }
+  .tl-content {
+    flex: 1;
+  }
+  .tl-text {
+    color: #666;
+    font-size: 26rpx;
+  }
+  .tl-text.active {
+    color: #333;
+    font-weight: 500;
+  }
+  .tl-time {
+    display: block;
+    margin-top: 4rpx;
+    color: #999;
+    font-size: 22rpx;
+  }
+  .footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 20rpx 24rpx;
+    background-color: #fff;
+    display: flex;
+    flex-direction: row;
+    box-shadow: 0 -4rpx 16rpx rgba(0,0,0,0.06);
+  }
+  .btn-outline {
+    flex: 1;
+    margin: 0 10rpx;
+    height: 80rpx;
+    border: 1px solid #008AFF;
+    border-radius: 40rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-outline-text {
+    color: #008AFF;
+    font-size: 26rpx;
+  }
+</style>

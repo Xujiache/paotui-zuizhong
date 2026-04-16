@@ -1,0 +1,99 @@
+<template>
+  <view class="nav-wrap" :style="wrapStyle">
+    <view class="nav-bar" :style="barStyle">
+      <view class="nav-left" @click="handleBack">
+        <text v-if="showBack" class="nav-back">‹</text>
+      </view>
+      <view class="nav-title">
+        <text class="nav-title-text" :style="titleStyle">{{ title }}</text>
+      </view>
+      <view class="nav-right">
+        <slot name="right"></slot>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+  export default {
+    name: 'NavBar',
+    props: {
+      title: { type: String, default: '' },
+      showBack: { type: Boolean, default: true },
+      bgColor: { type: String, default: '#008AFF' },
+      textColor: { type: String, default: '#FFFFFF' },
+    },
+    data() {
+      return {
+        statusBarHeight: 0,
+        navHeight: 44,
+      }
+    },
+    computed: {
+      wrapStyle(): string {
+        return `background-color:${this.bgColor};padding-top:${this.statusBarHeight}px;`
+      },
+      barStyle(): string {
+        return `height:${this.navHeight}px;`
+      },
+      titleStyle(): string {
+        return `color:${this.textColor};`
+      },
+    },
+    created() {
+      const sysInfo = uni.getSystemInfoSync()
+      this.statusBarHeight = sysInfo.statusBarHeight ?? 20
+    },
+    methods: {
+      handleBack() {
+        if (this.showBack) {
+          const pages = getCurrentPages()
+          if (pages.length > 1) {
+            uni.navigateBack({ delta: 1 })
+          } else {
+            uni.switchTab({ url: '/pages/index/index' })
+          }
+        }
+      },
+    },
+  }
+</script>
+
+<style lang="scss">
+  .nav-wrap {
+    width: 100%;
+  }
+  .nav-bar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24rpx;
+  }
+  .nav-left {
+    width: 80rpx;
+    height: 100%;
+    display: flex;
+    align-items: center;
+  }
+  .nav-back {
+    color: #fff;
+    font-size: 48rpx;
+    font-weight: bold;
+  }
+  .nav-title {
+    flex: 1;
+    text-align: center;
+  }
+  .nav-title-text {
+    font-size: 32rpx;
+    font-weight: 500;
+  }
+  .nav-right {
+    width: 80rpx;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+</style>

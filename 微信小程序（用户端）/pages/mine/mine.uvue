@@ -1,95 +1,422 @@
 <template>
-  <view class="container">
-    <view class="user-card">
-      <view class="avatar-wrap">
-        <text class="avatar-text">U</text>
-      </view>
-      <view class="user-info">
-        <text class="username">未登录</text>
-        <text class="tip">点击登录享受更多服务</text>
+  <view class="mine">
+    <view class="header" :style="headerPadding">
+      <view class="user-row" @click="handleUserCardClick">
+        <view class="avatar-wrap">
+          <image v-if="hasAvatar" class="avatar-img" :src="userState.userInfo!.avatar" mode="aspectFill" />
+          <view v-else class="avatar-placeholder">
+            <text class="avatar-text">{{ avatarInitial }}</text>
+          </view>
+        </view>
+        <view class="user-info">
+          <text class="username">{{ usernameText }}</text>
+          <text class="user-sub">{{ subText }}</text>
+        </view>
+        <text class="row-arrow">›</text>
       </view>
     </view>
-    <view class="menu-list">
-      <text class="menu-item">我的订单</text>
-      <text class="menu-item">收货地址</text>
-      <text class="menu-item">我的收藏</text>
-      <text class="menu-item">设置</text>
+
+    <view class="order-panel">
+      <view class="panel-title">
+        <text class="panel-title-text">我的订单</text>
+        <text class="panel-action" @click="goOrderList">查看全部 ›</text>
+      </view>
+      <view class="order-entries">
+        <view class="order-entry" @click="goOrderListByStatus('PENDING_PAYMENT')">
+          <text class="oe-icon">💰</text>
+          <text class="oe-name">待支付</text>
+        </view>
+        <view class="order-entry" @click="goOrderListByStatus('IN_PROGRESS')">
+          <text class="oe-icon">🛵</text>
+          <text class="oe-name">进行中</text>
+        </view>
+        <view class="order-entry" @click="goAftersale">
+          <text class="oe-icon">↩️</text>
+          <text class="oe-name">售后中</text>
+        </view>
+        <view class="order-entry" @click="goOrderList">
+          <text class="oe-icon">📋</text>
+          <text class="oe-name">全部订单</text>
+        </view>
+      </view>
     </view>
-    <view class="footer">
-      <text class="footer-text">个人中心页面待开发（阶段04实现）</text>
+
+    <view class="menu-card">
+      <view class="menu-item" @click="goAddress">
+        <text class="menu-icon">📍</text>
+        <text class="menu-label">我的地址</text>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-item" @click="goCoupon">
+        <text class="menu-icon">🎟</text>
+        <text class="menu-label">我的优惠券</text>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-item" @click="goFavorite">
+        <text class="menu-icon">⭐</text>
+        <text class="menu-label">我的收藏</text>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-item" @click="goHistory">
+        <text class="menu-icon">🕒</text>
+        <text class="menu-label">浏览历史</text>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-item" @click="goMessage">
+        <text class="menu-icon">🔔</text>
+        <text class="menu-label">消息中心</text>
+        <view v-if="unreadCount > 0" class="badge">
+          <text class="badge-text">{{ unreadText }}</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+    </view>
+
+    <view class="menu-card">
+      <view class="menu-item" @click="goService">
+        <text class="menu-icon">🎧</text>
+        <text class="menu-label">客服中心</text>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-item" @click="goHelp">
+        <text class="menu-icon">❓</text>
+        <text class="menu-label">帮助与反馈</text>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-item" @click="goAbout">
+        <text class="menu-icon">ℹ️</text>
+        <text class="menu-label">关于我们</text>
+        <text class="menu-arrow">›</text>
+      </view>
+    </view>
+
+    <view v-if="userState.isLogin" class="logout-wrap">
+      <view class="btn-logout" @click="handleLogout">
+        <text class="btn-logout-text">退出登录</text>
+      </view>
     </view>
   </view>
 </template>
 
 <script lang="uts">
+  import { userState, logoutUser } from '@/stores/user'
+  import { getUnreadCount } from '@/api/message'
+  import { logout } from '@/api/auth'
+  import { getProfile } from '@/api/user'
+  import { updateUserInfo } from '@/stores/user'
+  import { setStorage } from '@/utils/storage'
+
   export default {
     data() {
-      return {}
+      return {
+        unreadCount: 0,
+        statusBarHeight: 0,
+        userState,
+      }
     },
-    onLoad() {},
-    methods: {}
+    computed: {
+      headerPadding(): string {
+        return `padding-top:${this.statusBarHeight + 20}px;`
+      },
+      hasAvatar(): boolean {
+        return userState.userInfo != null && (userState.userInfo!.avatar ?? '') != ''
+      },
+      avatarInitial(): string {
+        const info = userState.userInfo
+        if (info == null) return '?'
+        const n = info.nickname
+        return n.length > 0 ? n.substring(0, 1) : '?'
+      },
+      usernameText(): string {
+        if (!userState.isLogin) return '未登录'
+        const info = userState.userInfo
+        if (info == null) return '同城用户'
+        return info.nickname != '' ? info.nickname : '同城用户'
+      },
+      subText(): string {
+        if (!userState.isLogin) return '点击登录 · 享受更多服务'
+        const info = userState.userInfo
+        if (info == null || info.phone == '') return '点击完善资料'
+        return '手机：' + info.phone.substring(0, 3) + '****' + info.phone.substring(7)
+      },
+      unreadText(): string {
+        return this.unreadCount > 99 ? '99+' : '' + this.unreadCount
+      },
+    },
+    onLoad() {
+      const sysInfo = uni.getSystemInfoSync()
+      this.statusBarHeight = sysInfo.statusBarHeight ?? 20
+    },
+    onShow() {
+      this.fetchUnread()
+      if (userState.isLogin) {
+        this.refreshProfile()
+      }
+    },
+    methods: {
+      async fetchUnread() {
+        if (!userState.isLogin) {
+          this.unreadCount = 0
+          return
+        }
+        try {
+          const res = await getUnreadCount()
+          const data = res.data as UTSJSONObject
+          // 后端 getUnreadCount 返回 { unread: number }，旧代码取 total 永远得不到值
+          this.unreadCount = (data['unread'] as number) ?? 0
+        } catch (e) {
+          this.unreadCount = 0
+        }
+      },
+      async refreshProfile() {
+        try {
+          const res = await getProfile()
+          const data = res.data as UTSJSONObject
+          updateUserInfo({
+            id: (data['id'] as number) ?? 0,
+            nickname: (data['nickname'] as string) ?? '',
+            phone: (data['phone'] as string) ?? '',
+            avatar: (data['avatar'] as string) ?? '',
+            gender: (data['gender'] as number) ?? 0,
+          })
+        } catch (e) {
+          console.warn('刷新资料失败', e)
+        }
+      },
+      handleUserCardClick() {
+        if (!userState.isLogin) {
+          uni.navigateTo({ url: '/pages/login/login' })
+        } else {
+          uni.showToast({ title: '资料编辑页待完善', icon: 'none' })
+        }
+      },
+      goOrderList() {
+        uni.switchTab({ url: '/pages/order/list' })
+      },
+      goOrderListByStatus(status: string) {
+        setStorage('o2o_order_list_tab', status)
+        uni.switchTab({ url: '/pages/order/list' })
+      },
+      goAftersale() {
+        uni.navigateTo({ url: '/pages/order/aftersale' })
+      },
+      goAddress() {
+        if (!this.ensureLogin()) return
+        uni.navigateTo({ url: '/pages/address/index' })
+      },
+      goCoupon() {
+        if (!this.ensureLogin()) return
+        uni.navigateTo({ url: '/pages/coupon/list' })
+      },
+      goFavorite() {
+        uni.showToast({ title: '收藏夹开发中', icon: 'none' })
+      },
+      goHistory() {
+        uni.showToast({ title: '浏览历史开发中', icon: 'none' })
+      },
+      goMessage() {
+        if (!this.ensureLogin()) return
+        uni.navigateTo({ url: '/pages/message/index' })
+      },
+      goService() {
+        uni.navigateTo({ url: '/pages/service/index' })
+      },
+      goHelp() {
+        uni.showToast({ title: '帮助中心开发中', icon: 'none' })
+      },
+      goAbout() {
+        uni.showToast({ title: '同城O2O配送 v1.0.0', icon: 'none' })
+      },
+      ensureLogin(): boolean {
+        if (!userState.isLogin) {
+          uni.showToast({ title: '请先登录', icon: 'none' })
+          setTimeout(() => {
+            uni.navigateTo({ url: '/pages/login/login' })
+          }, 600)
+          return false
+        }
+        return true
+      },
+      async handleLogout() {
+        uni.showModal({
+          title: '提示',
+          content: '确认退出登录？',
+          success: async (res) => {
+            if (res.confirm) {
+              try {
+                await logout()
+              } catch (e) {
+                console.warn('登出接口失败', e)
+              }
+              logoutUser()
+              uni.showToast({ title: '已退出', icon: 'success' })
+            }
+          },
+        })
+      },
+    },
   }
 </script>
 
 <style lang="scss">
-.container {
-  min-height: 100vh;
-  background-color: #f5f6f8;
-}
-.user-card {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  padding: 40rpx 30rpx;
-  background-color: #008AFF;
-}
-.avatar-wrap {
-  width: 100rpx;
-  height: 100rpx;
-  border-radius: 50rpx;
-  background-color: rgba(255,255,255,0.3);
-  justify-content: center;
-  align-items: center;
-  display: flex;
-}
-.avatar-text {
-  font-size: 40rpx;
-  color: #fff;
-  font-weight: bold;
-}
-.user-info {
-  margin-left: 24rpx;
-}
-.username {
-  font-size: 34rpx;
-  color: #fff;
-  font-weight: bold;
-}
-.tip {
-  display: block;
-  margin-top: 8rpx;
-  font-size: 24rpx;
-  color: rgba(255,255,255,0.7);
-}
-.menu-list {
-  margin: 20rpx 30rpx;
-  background-color: #fff;
-  border-radius: 16rpx;
-  overflow: hidden;
-}
-.menu-item {
-  display: block;
-  padding: 30rpx 24rpx;
-  font-size: 30rpx;
-  color: #333;
-  border-bottom: 1px solid #f0f0f0;
-}
-.footer {
-  margin-top: 40rpx;
-  text-align: center;
-}
-.footer-text {
-  font-size: 24rpx;
-  color: #ccc;
-}
+  .mine {
+    min-height: 100vh;
+    background-color: #f5f6f8;
+    padding-bottom: 40rpx;
+  }
+  .header {
+    background: linear-gradient(180deg, #008AFF 0%, #00A3FF 100%);
+    padding-bottom: 80rpx;
+    padding-left: 30rpx;
+    padding-right: 30rpx;
+  }
+  .user-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 20rpx 0 40rpx;
+  }
+  .avatar-wrap {
+    width: 120rpx;
+    height: 120rpx;
+    border-radius: 60rpx;
+    overflow: hidden;
+    border: 4rpx solid rgba(255,255,255,0.4);
+  }
+  .avatar-img {
+    width: 112rpx;
+    height: 112rpx;
+  }
+  .avatar-placeholder {
+    width: 112rpx;
+    height: 112rpx;
+    background-color: rgba(255,255,255,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .avatar-text {
+    font-size: 48rpx;
+    color: #fff;
+    font-weight: bold;
+  }
+  .user-info {
+    flex: 1;
+    margin-left: 24rpx;
+  }
+  .username {
+    font-size: 36rpx;
+    color: #fff;
+    font-weight: bold;
+  }
+  .user-sub {
+    margin-top: 12rpx;
+    font-size: 24rpx;
+    color: rgba(255,255,255,0.85);
+  }
+  .row-arrow {
+    color: rgba(255,255,255,0.85);
+    font-size: 40rpx;
+  }
+  .order-panel {
+    margin: -60rpx 24rpx 0;
+    background-color: #fff;
+    border-radius: 16rpx;
+    padding: 24rpx;
+    box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.04);
+  }
+  .panel-title {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 16rpx;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .panel-title-text {
+    font-size: 30rpx;
+    font-weight: 600;
+    color: #333;
+  }
+  .panel-action {
+    font-size: 24rpx;
+    color: #666;
+  }
+  .order-entries {
+    display: flex;
+    flex-direction: row;
+    padding-top: 24rpx;
+  }
+  .order-entry {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .oe-icon {
+    font-size: 48rpx;
+  }
+  .oe-name {
+    margin-top: 8rpx;
+    font-size: 24rpx;
+    color: #666;
+  }
+  .menu-card {
+    margin: 20rpx 24rpx 0;
+    background-color: #fff;
+    border-radius: 16rpx;
+    padding: 0 24rpx;
+  }
+  .menu-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 28rpx 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .menu-item:last-child {
+    border-bottom: 0;
+  }
+  .menu-icon {
+    font-size: 36rpx;
+    margin-right: 20rpx;
+  }
+  .menu-label {
+    flex: 1;
+    font-size: 28rpx;
+    color: #333;
+  }
+  .menu-arrow {
+    color: #bbb;
+    font-size: 32rpx;
+  }
+  .badge {
+    background-color: #FF2A2A;
+    padding: 4rpx 12rpx;
+    border-radius: 20rpx;
+    min-width: 36rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12rpx;
+  }
+  .badge-text {
+    color: #fff;
+    font-size: 20rpx;
+  }
+  .logout-wrap {
+    margin: 40rpx 24rpx 0;
+  }
+  .btn-logout {
+    height: 88rpx;
+    background-color: #fff;
+    border-radius: 44rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-logout-text {
+    color: #E53935;
+    font-size: 28rpx;
+  }
 </style>

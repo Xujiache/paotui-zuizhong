@@ -1,0 +1,300 @@
+<template>
+  <view class="container">
+    <view class="hero" :style="heroStyle">
+      <text class="hero-title">跑腿服务</text>
+      <text class="hero-sub">帮送、帮取、帮买、代办 一个平台搞定</text>
+    </view>
+
+    <view class="service-grid">
+      <view
+        v-for="t in serviceTypes"
+        :key="t.type"
+        class="service-card"
+        :class="{ disabled: !t.enabled }"
+        @click="handleChooseType(t)"
+      >
+        <view class="svc-icon-box" :style="'background-color:' + t.color">
+          <text class="svc-icon">{{ t.icon }}</text>
+        </view>
+        <text class="svc-name">{{ t.name }}</text>
+        <text class="svc-desc">{{ t.description }}</text>
+      </view>
+    </view>
+
+    <view class="scene-card">
+      <text class="scene-title">常见场景</text>
+      <view v-for="s in scenes" :key="s.title" class="scene-item">
+        <text class="scene-name">• {{ s.title }}</text>
+        <text class="scene-desc">{{ s.desc }}</text>
+      </view>
+    </view>
+
+    <view v-if="activeOrders.length > 0" class="active-panel">
+      <text class="active-title">进行中的订单</text>
+      <view v-for="o in activeOrders" :key="o.id" class="active-card" @click="goTrack(o.id)">
+        <view class="active-row">
+          <text class="active-name">{{ o.title }}</text>
+          <text class="active-status">{{ o.statusText }}</text>
+        </view>
+        <text class="active-addr">{{ o.addressSummary }}</text>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+  import { listOrders } from '@/api/order'
+  import { orderStatusText } from '@/utils/format'
+
+  type ServiceType = {
+    type: string
+    name: string
+    icon: string
+    color: string
+    description: string
+    enabled: boolean
+  }
+
+  type Scene = {
+    title: string
+    desc: string
+  }
+
+  type ActiveOrder = {
+    id: number
+    title: string
+    statusText: string
+    addressSummary: string
+  }
+
+  export default {
+    data() {
+      return {
+        statusBarHeight: 0,
+        serviceTypes: [
+          {
+            type: 'DELIVER',
+            name: '帮送',
+            icon: '📦',
+            color: '#E8F3FF',
+            description: '同城代送，东西快速送达',
+            enabled: true,
+          } as ServiceType,
+          {
+            type: 'PICKUP',
+            name: '帮取',
+            icon: '📮',
+            color: '#E8F9EE',
+            description: '帮你取快递、取外卖',
+            enabled: true,
+          } as ServiceType,
+          {
+            type: 'BUY',
+            name: '帮买',
+            icon: '🛍',
+            color: '#FFF3E0',
+            description: '代买商品送上门',
+            enabled: true,
+          } as ServiceType,
+          {
+            type: 'ERRAND',
+            name: '代办',
+            icon: '📝',
+            color: '#FFE8EE',
+            description: '排队、代驾等其他代办事项',
+            enabled: true,
+          } as ServiceType,
+        ] as ServiceType[],
+        scenes: [
+          { title: '帮送文件', desc: '急件快速送到目的地' } as Scene,
+          { title: '帮取快递', desc: '上班忙没空去菜鸟驿站' } as Scene,
+          { title: '帮买药品', desc: '家人突然生病需要代买' } as Scene,
+          { title: '代排队', desc: '网红餐厅排队耗时' } as Scene,
+        ] as Scene[],
+        activeOrders: [] as ActiveOrder[],
+      }
+    },
+    computed: {
+      heroStyle(): string {
+        return `padding-top:${this.statusBarHeight + 40}px;`
+      },
+    },
+    onLoad() {
+      const sysInfo = uni.getSystemInfoSync()
+      this.statusBarHeight = sysInfo.statusBarHeight ?? 20
+    },
+    onShow() {
+      this.fetchActiveOrders()
+    },
+    methods: {
+      async fetchActiveOrders() {
+        try {
+          const res = await listOrders({ orderType: 'ERRAND', page: 1, pageSize: 5 } as UTSJSONObject)
+          const data = res.data as UTSJSONObject
+          const list = data['list'] as UTSJSONObject[]
+          const arr: ActiveOrder[] = []
+          for (let i = 0; i < list.length; i++) {
+            const it = list[i]
+            const status = it['status'] as string
+            if (status == 'COMPLETED' || status == 'CANCELLED' || status == 'CANCELED' || status == 'CLOSED' || status == 'REFUNDED') continue
+            const pickup = (it['pickupAddress'] as string) ?? ''
+            const deliv = (it['deliveryAddress'] as string) ?? ''
+            arr.push({
+              id: it['id'] as number,
+              title: (it['serviceTypeText'] as string) ?? '跑腿订单',
+              statusText: orderStatusText(status),
+              addressSummary: pickup != '' ? `${pickup} → ${deliv}` : deliv,
+            } as ActiveOrder)
+            if (arr.length >= 3) break
+          }
+          this.activeOrders = arr
+        } catch (e) {
+          console.warn('拉取进行中订单失败', e)
+        }
+      },
+      handleChooseType(t: ServiceType) {
+        if (!t.enabled) {
+          uni.showToast({ title: '该服务暂未开放', icon: 'none' })
+          return
+        }
+        uni.navigateTo({ url: `/pages/errand/form?type=${t.type}` })
+      },
+      goTrack(id: number) {
+        uni.navigateTo({ url: `/pages/errand/track?id=${id}` })
+      },
+    },
+  }
+</script>
+
+<style lang="scss">
+  .container {
+    min-height: 100vh;
+    background-color: #f5f6f8;
+    padding-bottom: 40rpx;
+  }
+  .hero {
+    background: linear-gradient(180deg, #008AFF 0%, #00A3FF 100%);
+    padding: 40rpx 32rpx 60rpx;
+  }
+  .hero-title {
+    color: #fff;
+    font-size: 44rpx;
+    font-weight: bold;
+  }
+  .hero-sub {
+    margin-top: 16rpx;
+    display: block;
+    color: rgba(255,255,255,0.85);
+    font-size: 26rpx;
+  }
+  .service-grid {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 0 24rpx;
+    margin-top: -40rpx;
+  }
+  .service-card {
+    width: calc(50% - 12rpx);
+    background-color: #fff;
+    border-radius: 16rpx;
+    padding: 24rpx;
+    margin-bottom: 20rpx;
+    box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.04);
+  }
+  .service-card:nth-child(odd) {
+    margin-right: 24rpx;
+  }
+  .service-card.disabled {
+    opacity: 0.5;
+  }
+  .svc-icon-box {
+    width: 96rpx;
+    height: 96rpx;
+    border-radius: 48rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .svc-icon {
+    font-size: 48rpx;
+  }
+  .svc-name {
+    margin-top: 16rpx;
+    font-size: 30rpx;
+    color: #333;
+    font-weight: bold;
+  }
+  .svc-desc {
+    margin-top: 8rpx;
+    font-size: 22rpx;
+    color: #999;
+  }
+  .scene-card {
+    margin: 20rpx 24rpx;
+    background-color: #fff;
+    border-radius: 16rpx;
+    padding: 24rpx;
+  }
+  .scene-title {
+    font-size: 30rpx;
+    color: #333;
+    font-weight: bold;
+  }
+  .scene-item {
+    padding: 16rpx 0;
+    border-top: 1px solid #f0f0f0;
+    margin-top: 12rpx;
+  }
+  .scene-item:first-of-type {
+    border-top: 0;
+    margin-top: 16rpx;
+  }
+  .scene-name {
+    font-size: 26rpx;
+    color: #333;
+  }
+  .scene-desc {
+    margin-top: 6rpx;
+    display: block;
+    font-size: 22rpx;
+    color: #999;
+  }
+  .active-panel {
+    margin: 20rpx 24rpx;
+    background-color: #fff;
+    border-radius: 16rpx;
+    padding: 24rpx;
+  }
+  .active-title {
+    font-size: 28rpx;
+    color: #333;
+    font-weight: bold;
+  }
+  .active-card {
+    margin-top: 12rpx;
+    padding: 16rpx;
+    background-color: #E8F3FF;
+    border-radius: 12rpx;
+  }
+  .active-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .active-name {
+    color: #333;
+    font-size: 26rpx;
+    font-weight: 500;
+  }
+  .active-status {
+    color: #008AFF;
+    font-size: 22rpx;
+  }
+  .active-addr {
+    margin-top: 8rpx;
+    color: #666;
+    font-size: 22rpx;
+  }
+</style>
