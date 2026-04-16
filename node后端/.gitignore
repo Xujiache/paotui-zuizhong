@@ -1,6 +1,5 @@
 # 依赖
 node_modules/
-package-lock.json
 
 # 编译输出
 dist/
