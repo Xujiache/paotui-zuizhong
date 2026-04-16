@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:3000'
+import { BASE_URL, CLIENT_TYPE } from '@/utils/env'
 
 type RequestOptions = {
   url: string
@@ -36,7 +36,7 @@ export const request = (options: RequestOptions): Promise<ApiResponse> => {
   return new Promise((resolve, reject) => {
     const header: any = {
       'Content-Type': 'application/json',
-      'X-Client-Type': 'miniapp'
+      'X-Client-Type': CLIENT_TYPE
     }
     const t = getToken()
     if (t != '') {

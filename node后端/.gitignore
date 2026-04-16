@@ -17,6 +17,9 @@ logs/
 # 上传文件
 uploads/
 
+# 本地测试产物
+test.jpg
+
 # 编辑器
 .idea/
 .vscode/
@@ -28,11 +31,3 @@ uploads/
 .DS_Store
 Thumbs.db
 
-# 旧代码（已迁移到 src/ 下的 TypeScript 版本）
-/server.js
-/app.js
-/config/
-/middlewares/
-/routes/
-/utils/
-/scripts/

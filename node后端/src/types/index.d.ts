@@ -1,21 +1,28 @@
 import { Request } from 'express';
+import { UserRole, ClientType } from './enums';
 
 export interface JwtPayload {
-  id: number;
-  type: 'mobile' | 'admin';
-  role?: string;
-  permissions?: Record<string, string[]>;
+  userId: number;
+  role: UserRole | string;
+  clientType?: ClientType | string;
   iat?: number;
   exp?: number;
 }
 
+export interface AuthUser extends JwtPayload {
+  userId: number;
+  role: UserRole | string;
+}
+
 export interface AuthRequest extends Request {
-  user?: JwtPayload;
+  user?: AuthUser;
+  pagination?: PaginationParams;
 }
 
 export interface PaginationParams {
   page: number;
   pageSize: number;
+  offset: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
@@ -34,7 +41,6 @@ export interface ApiResponse<T = unknown> {
   code: number;
   message: string;
   data: T | null;
-  timestamp?: string;
 }
 
 export interface ApiErrorResponse extends ApiResponse {

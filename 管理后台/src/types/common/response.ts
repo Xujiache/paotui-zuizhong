@@ -1,30 +1,40 @@
 /**
- * API 响应类型定义模块
+ * API 响应类型定义模块（对齐后端 PRD 《接口规范与状态机》§1.1）
  *
- * 提供统一的 API 响应结构类型定义
- *
- * ## 主要功能
- *
- * - 基础响应结构定义
- * - 泛型支持（适配不同数据类型）
- * - 统一的响应格式约束
- *
- * ## 使用场景
- *
- * - API 请求响应类型约束
- * - 接口数据类型定义
- * - 响应数据解析
+ * - 成功响应: { code: 0, message: string, data: T }
+ * - 分页响应: data.list + data.pagination{ page, pageSize, total, totalPages }
+ * - 错误响应: { code: number, message: string, data: null, errors?: FieldError[] }
  *
  * @module types/common/response
- * @author Art Design Pro Team
  */
+
+/** 字段级校验错误 */
+export interface FieldError {
+  /** 出错的字段名（可能带 body. / query. 前缀） */
+  field: string
+  /** 错误信息 */
+  message: string
+}
 
 /** 基础 API 响应结构 */
 export interface BaseResponse<T = unknown> {
-  /** 状态码 */
+  /** 业务状态码，0 表示成功，其余见错误码表 */
   code: number
-  /** 消息 */
-  msg: string
-  /** 数据 */
+  /** 可读消息 */
+  message: string
+  /** 业务数据 */
   data: T
+  /** 参数校验失败时的字段明细（可选） */
+  errors?: FieldError[]
+}
+
+/** 分页响应包装 */
+export interface PaginationWrapper<T> {
+  list: T[]
+  pagination: {
+    page: number
+    pageSize: number
+    total: number
+    totalPages: number
+  }
 }

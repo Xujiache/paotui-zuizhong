@@ -1,45 +1,64 @@
-import { Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken } from '../utils/jwt';
-import { AuthRequest } from '../types';
-import { UserType, ErrorCode } from '../types/enums';
+import { redis } from '../utils/redis';
+import { AppError } from '../utils/AppError';
+import { ErrorCode, UserRole } from '../types/enums';
 
-export const authMiddleware = (allowedTypes?: UserType | UserType[]) => {
-  return (req: AuthRequest, res: Response, next: NextFunction): void => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(401).json({
-        code: ErrorCode.NOT_LOGGED_IN,
-        message: '未提供授权令牌',
-        data: null,
-      });
-      return;
-    }
+const extractToken = (req: Request): string | null => {
+  const header = req.headers.authorization;
+  if (!header) return null;
+  if (header.startsWith('Bearer ')) {
+    return header.slice(7).trim();
+  }
+  return header.trim();
+};
 
-    const token = authHeader.split(' ')[1];
-    const decoded = verifyAccessToken(token);
+export const tokenAuth = (options?: { optional?: boolean }) => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const token = extractToken(req);
 
-    if (!decoded) {
-      res.status(401).json({
-        code: ErrorCode.TOKEN_INVALID,
-        message: 'Token无效或已过期',
-        data: null,
-      });
-      return;
-    }
-
-    if (allowedTypes) {
-      const types = Array.isArray(allowedTypes) ? allowedTypes : [allowedTypes];
-      if (!types.includes(decoded.type as UserType)) {
-        res.status(403).json({
-          code: ErrorCode.PERMISSION_DENIED,
-          message: '无权访问此接口',
-          data: null,
-        });
-        return;
+      if (!token) {
+        if (options?.optional) return next();
+        return next(AppError.unauthorized('未登录或Token过期'));
       }
-    }
 
-    req.user = decoded;
+      if (await redis.isBlacklisted(token)) {
+        return next(AppError.tokenInvalid('Token已失效，请重新登录'));
+      }
+
+      const payload = verifyAccessToken(token);
+      if (!payload) {
+        return next(new AppError(ErrorCode.NOT_LOGGED_IN, 'Token无效或已过期', 401));
+      }
+
+      req.user = {
+        userId: payload.userId,
+        role: payload.role,
+        clientType: payload.clientType,
+        iat: payload.iat,
+        exp: payload.exp,
+      };
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+};
+
+export const requireRole = (...roles: Array<UserRole | string>) => {
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      return next(AppError.unauthorized());
+    }
+    if (!roles.includes(req.user.role as UserRole)) {
+      return next(AppError.forbidden(`仅 ${roles.join('/')} 角色可访问`));
+    }
     next();
   };
 };
+
+export const userOnly = requireRole(UserRole.USER);
+export const merchantOnly = requireRole(UserRole.MERCHANT);
+export const riderOnly = requireRole(UserRole.RIDER);
+export const adminOnly = requireRole(UserRole.ADMIN);

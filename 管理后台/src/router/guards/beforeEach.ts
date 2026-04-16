@@ -393,8 +393,11 @@ function handleRootPathRedirect(to: RouteLocationNormalized, next: NavigationGua
 }
 
 /**
- * 判断是否为未授权错误（401）
+ * 判断是否为未登录/Token 过期错误（业务码 11001/11002）
  */
 function isUnauthorizedError(error: unknown): boolean {
-  return isHttpError(error) && error.code === ApiStatus.unauthorized
+  return (
+    isHttpError(error) &&
+    (error.code === ApiStatus.notLoggedIn || error.code === ApiStatus.tokenInvalid)
+  )
 }

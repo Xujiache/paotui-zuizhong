@@ -1,75 +1,255 @@
 {
   "mcpServers": {
     "mcpmessenger_slot1": {
-      "command": "C:\\Program Files\\Cursor\\Cursor.exe",
+      "command": "C:\\Program Files\\cursor\\Cursor.exe",
       "args": [
         "c:\\Users\\Administrator\\.cursor\\extensions\\startheme.mcpmessenger-2.1.25\\dist\\mcp-server.mjs"
       ],
       "disabled": false,
       "env": {
-        "MESSENGER_DATA_DIR": "C:\\Users\\Administrator\\.mcpmessenger\\ws_5ce77c17\\slot_1",
+        "MESSENGER_DATA_DIR": "C:\\Users\\Administrator\\.mcpmessenger\\ws_f9a68775\\slot_1",
         "MESSENGER_SLOT": "1",
-        "MESSENGER_WINDOW_ID": "16528db5725507bc"
+        "MESSENGER_WINDOW_ID": "5ce8ec1dd5b9c4b3"
       }
     },
     "mcpmessenger_slot2": {
-      "command": "C:\\Program Files\\Cursor\\Cursor.exe",
+      "command": "C:\\Program Files\\cursor\\Cursor.exe",
       "args": [
         "c:\\Users\\Administrator\\.cursor\\extensions\\startheme.mcpmessenger-2.1.25\\dist\\mcp-server.mjs"
       ],
       "disabled": false,
       "env": {
-        "MESSENGER_DATA_DIR": "C:\\Users\\Administrator\\.mcpmessenger\\ws_5ce77c17\\slot_2",
+        "MESSENGER_DATA_DIR": "C:\\Users\\Administrator\\.mcpmessenger\\ws_f9a68775\\slot_2",
         "MESSENGER_SLOT": "2",
-        "MESSENGER_WINDOW_ID": "16528db5725507bc"
+        "MESSENGER_WINDOW_ID": "5ce8ec1dd5b9c4b3"
       }
     },
     "mcpmessenger_slot3": {
-      "command": "C:\\Program Files\\Cursor\\Cursor.exe",
+      "command": "C:\\Program Files\\cursor\\Cursor.exe",
       "args": [
         "c:\\Users\\Administrator\\.cursor\\extensions\\startheme.mcpmessenger-2.1.25\\dist\\mcp-server.mjs"
       ],
       "disabled": false,
       "env": {
-        "MESSENGER_DATA_DIR": "C:\\Users\\Administrator\\.mcpmessenger\\ws_5ce77c17\\slot_3",
+        "MESSENGER_DATA_DIR": "C:\\Users\\Administrator\\.mcpmessenger\\ws_f9a68775\\slot_3",
         "MESSENGER_SLOT": "3",
-        "MESSENGER_WINDOW_ID": "16528db5725507bc"
+        "MESSENGER_WINDOW_ID": "5ce8ec1dd5b9c4b3"
       }
     },
     "mcpmessenger_slot4": {
-      "command": "C:\\Program Files\\Cursor\\Cursor.exe",
+      "command": "C:\\Program Files\\cursor\\Cursor.exe",
       "args": [
         "c:\\Users\\Administrator\\.cursor\\extensions\\startheme.mcpmessenger-2.1.25\\dist\\mcp-server.mjs"
       ],
       "disabled": false,
       "env": {
-        "MESSENGER_DATA_DIR": "C:\\Users\\Administrator\\.mcpmessenger\\ws_5ce77c17\\slot_4",
+        "MESSENGER_DATA_DIR": "C:\\Users\\Administrator\\.mcpmessenger\\ws_f9a68775\\slot_4",
         "MESSENGER_SLOT": "4",
-        "MESSENGER_WINDOW_ID": "16528db5725507bc"
+        "MESSENGER_WINDOW_ID": "5ce8ec1dd5b9c4b3"
       }
     },
     "mcpmessenger_slot5": {
-      "command": "C:\\Program Files\\Cursor\\Cursor.exe",
+      "command": "C:\\Program Files\\cursor\\Cursor.exe",
       "args": [
         "c:\\Users\\Administrator\\.cursor\\extensions\\startheme.mcpmessenger-2.1.25\\dist\\mcp-server.mjs"
       ],
       "disabled": false,
       "env": {
-        "MESSENGER_DATA_DIR": "C:\\Users\\Administrator\\.mcpmessenger\\ws_5ce77c17\\slot_5",
+        "MESSENGER_DATA_DIR": "C:\\Users\\Administrator\\.mcpmessenger\\ws_f9a68775\\slot_5",
         "MESSENGER_SLOT": "5",
-        "MESSENGER_WINDOW_ID": "16528db5725507bc"
+        "MESSENGER_WINDOW_ID": "5ce8ec1dd5b9c4b3"
       }
     },
     "mcpmessenger_slot6": {
-      "command": "C:\\Program Files\\Cursor\\Cursor.exe",
+      "command": "C:\\Program Files\\cursor\\Cursor.exe",
       "args": [
         "c:\\Users\\Administrator\\.cursor\\extensions\\startheme.mcpmessenger-2.1.25\\dist\\mcp-server.mjs"
       ],
       "disabled": false,
       "env": {
-        "MESSENGER_DATA_DIR": "C:\\Users\\Administrator\\.mcpmessenger\\ws_5ce77c17\\slot_6",
+        "MESSENGER_DATA_DIR": "C:\\Users\\Administrator\\.mcpmessenger\\ws_f9a68775\\slot_6",
         "MESSENGER_SLOT": "6",
-        "MESSENGER_WINDOW_ID": "16528db5725507bc"
+        "MESSENGER_WINDOW_ID": "5ce8ec1dd5b9c4b3"
+      }
+    },
+    "my-mcp-1": {
+      "command": "node",
+      "args": [
+        "C:/Users/Administrator/.cursor/my-mcp-server/index.mjs"
+      ],
+      "env": {
+        "MOMO_SESSION": "1"
+      }
+    },
+    "my-mcp-2": {
+      "command": "node",
+      "args": [
+        "C:/Users/Administrator/.cursor/my-mcp-server/index.mjs"
+      ],
+      "env": {
+        "MOMO_SESSION": "2"
+      }
+    },
+    "my-mcp-3": {
+      "command": "node",
+      "args": [
+        "C:/Users/Administrator/.cursor/my-mcp-server/index.mjs"
+      ],
+      "env": {
+        "MOMO_SESSION": "3"
+      }
+    },
+    "my-mcp-4": {
+      "command": "node",
+      "args": [
+        "C:/Users/Administrator/.cursor/my-mcp-server/index.mjs"
+      ],
+      "env": {
+        "MOMO_SESSION": "4"
+      }
+    },
+    "my-mcp-5": {
+      "command": "node",
+      "args": [
+        "C:/Users/Administrator/.cursor/my-mcp-server/index.mjs"
+      ],
+      "env": {
+        "MOMO_SESSION": "5"
+      }
+    },
+    "my-mcp-6": {
+      "command": "node",
+      "args": [
+        "C:/Users/Administrator/.cursor/my-mcp-server/index.mjs"
+      ],
+      "env": {
+        "MOMO_SESSION": "6"
+      }
+    },
+    "my-mcp-7": {
+      "command": "node",
+      "args": [
+        "C:/Users/Administrator/.cursor/my-mcp-server/index.mjs"
+      ],
+      "env": {
+        "MOMO_SESSION": "7"
+      }
+    },
+    "my-mcp-8": {
+      "command": "node",
+      "args": [
+        "C:/Users/Administrator/.cursor/my-mcp-server/index.mjs"
+      ],
+      "env": {
+        "MOMO_SESSION": "8"
+      }
+    },
+    "my-mcp-9": {
+      "command": "node",
+      "args": [
+        "C:/Users/Administrator/.cursor/my-mcp-server/index.mjs"
+      ],
+      "env": {
+        "MOMO_SESSION": "9"
+      }
+    },
+    "my-mcp-10": {
+      "command": "node",
+      "args": [
+        "C:/Users/Administrator/.cursor/my-mcp-server/index.mjs"
+      ],
+      "env": {
+        "MOMO_SESSION": "10"
+      }
+    },
+    "my-mcp-11": {
+      "command": "node",
+      "args": [
+        "C:/Users/Administrator/.cursor/my-mcp-server/index.mjs"
+      ],
+      "env": {
+        "MOMO_SESSION": "11"
+      }
+    },
+    "my-mcp-12": {
+      "command": "node",
+      "args": [
+        "C:/Users/Administrator/.cursor/my-mcp-server/index.mjs"
+      ],
+      "env": {
+        "MOMO_SESSION": "12"
+      }
+    },
+    "my-mcp-13": {
+      "command": "node",
+      "args": [
+        "C:/Users/Administrator/.cursor/my-mcp-server/index.mjs"
+      ],
+      "env": {
+        "MOMO_SESSION": "13"
+      }
+    },
+    "my-mcp-14": {
+      "command": "node",
+      "args": [
+        "C:/Users/Administrator/.cursor/my-mcp-server/index.mjs"
+      ],
+      "env": {
+        "MOMO_SESSION": "14"
+      }
+    },
+    "my-mcp-15": {
+      "command": "node",
+      "args": [
+        "C:/Users/Administrator/.cursor/my-mcp-server/index.mjs"
+      ],
+      "env": {
+        "MOMO_SESSION": "15"
+      }
+    },
+    "my-mcp-16": {
+      "command": "node",
+      "args": [
+        "C:/Users/Administrator/.cursor/my-mcp-server/index.mjs"
+      ],
+      "env": {
+        "MOMO_SESSION": "16"
+      }
+    },
+    "my-mcp-17": {
+      "command": "node",
+      "args": [
+        "C:/Users/Administrator/.cursor/my-mcp-server/index.mjs"
+      ],
+      "env": {
+        "MOMO_SESSION": "17"
+      }
+    },
+    "my-mcp-18": {
+      "command": "node",
+      "args": [
+        "C:/Users/Administrator/.cursor/my-mcp-server/index.mjs"
+      ],
+      "env": {
+        "MOMO_SESSION": "18"
+      }
+    },
+    "my-mcp-19": {
+      "command": "node",
+      "args": [
+        "C:/Users/Administrator/.cursor/my-mcp-server/index.mjs"
+      ],
+      "env": {
+        "MOMO_SESSION": "19"
+      }
+    },
+    "my-mcp-20": {
+      "command": "node",
+      "args": [
+        "C:/Users/Administrator/.cursor/my-mcp-server/index.mjs"
+      ],
+      "env": {
+        "MOMO_SESSION": "20"
       }
     }
   }

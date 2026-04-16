@@ -1,25 +1,20 @@
 /**
  * HTTP 请求封装模块
- * 基于 Axios 封装的 HTTP 请求工具，提供统一的请求/响应处理
  *
- * ## 主要功能
- *
- * - 请求/响应拦截器（自动添加 Token、统一错误处理）
- * - 401 未授权自动登出（带防抖机制）
- * - 请求失败自动重试（可配置）
- * - 统一的成功/错误消息提示
- * - 支持 GET/POST/PUT/DELETE 等常用方法
+ * 对齐后端 PRD《接口规范与状态机》§1.1：
+ * - 成功：{ code: 0, message, data }
+ * - 错误：{ code: <业务码>, message, data: null, errors? }
+ * - 认证头：Authorization: Bearer <accessToken>
  *
  * @module utils/http
- * @author Art Design Pro Team
  */
 
 import axios, { AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import { useUserStore } from '@/store/modules/user'
 import { ApiStatus } from './status'
-import { HttpError, handleError, showError, showSuccess } from './error'
+import { HttpError, handleError, isAuthExpired, showError, showSuccess } from './error'
 import { $t } from '@/locales'
-import { BaseResponse } from '@/types'
+import type { BaseResponse } from '@/types/common/response'
 
 /** 请求配置常量 */
 const REQUEST_TIMEOUT = 15000
@@ -61,11 +56,18 @@ const axiosInstance = axios.create({
   ]
 })
 
-/** 请求拦截器 */
+/** 请求拦截器：注入 Bearer Token 和通用头 */
 axiosInstance.interceptors.request.use(
   (request: InternalAxiosRequestConfig) => {
     const { accessToken } = useUserStore()
-    if (accessToken) request.headers.set('Authorization', accessToken)
+    if (accessToken) {
+      const value = accessToken.startsWith('Bearer ') ? accessToken : `Bearer ${accessToken}`
+      request.headers.set('Authorization', value)
+    }
+
+    if (!request.headers.has('X-Client-Type')) {
+      request.headers.set('X-Client-Type', 'admin-web')
+    }
 
     if (request.data && !(request.data instanceof FormData) && !request.headers['Content-Type']) {
       request.headers.set('Content-Type', 'application/json')
@@ -75,40 +77,47 @@ axiosInstance.interceptors.request.use(
     return request
   },
   (error) => {
-    showError(createHttpError($t('httpMsg.requestConfigError'), ApiStatus.error))
+    showError(createHttpError($t('httpMsg.requestConfigError'), ApiStatus.operationFailed))
     return Promise.reject(error)
   }
 )
 
-/** 响应拦截器 */
+/** 响应拦截器：按后端业务契约判成功/失败 */
 axiosInstance.interceptors.response.use(
   (response: AxiosResponse<BaseResponse>) => {
-    const { code, msg } = response.data
+    const body = response.data
+    if (!body || typeof body !== 'object') {
+      throw createHttpError($t('httpMsg.requestFailed'), ApiStatus.operationFailed)
+    }
+    const { code, message, errors } = body
+
     if (code === ApiStatus.success) return response
-    if (code === ApiStatus.unauthorized) handleUnauthorizedError(msg)
-    throw createHttpError(msg || $t('httpMsg.requestFailed'), code)
+    if (isAuthExpired(code)) handleUnauthorizedError(message)
+    throw createHttpError(message || $t('httpMsg.requestFailed'), code, errors)
   },
   (error) => {
-    if (error.response?.status === ApiStatus.unauthorized) handleUnauthorizedError()
+    const status = error.response?.status
+    const code = error.response?.data?.code as number | undefined
+    if (status === 401 || (typeof code === 'number' && isAuthExpired(code))) {
+      handleUnauthorizedError()
+    }
     return Promise.reject(handleError(error))
   }
 )
 
 /** 统一创建HttpError */
-function createHttpError(message: string, code: number) {
-  return new HttpError(message, code)
+function createHttpError(message: string, code: number, errors?: BaseResponse['errors']) {
+  return new HttpError(message, code, { errors })
 }
 
-/** 处理401错误（带防抖） */
+/** 处理未登录/Token 过期错误（带防抖） */
 function handleUnauthorizedError(message?: string): never {
-  const error = createHttpError(message || $t('httpMsg.unauthorized'), ApiStatus.unauthorized)
+  const error = createHttpError(message || $t('httpMsg.unauthorized'), ApiStatus.notLoggedIn)
 
   if (!isUnauthorizedErrorShown) {
     isUnauthorizedErrorShown = true
     logOut()
-
     unauthorizedTimer = setTimeout(resetUnauthorizedError, UNAUTHORIZED_DEBOUNCE_TIME)
-
     showError(error, true)
     throw error
   }
@@ -130,15 +139,9 @@ function logOut() {
   }, LOGOUT_DELAY)
 }
 
-/** 是否需要重试 */
-function shouldRetry(statusCode: number) {
-  return [
-    ApiStatus.requestTimeout,
-    ApiStatus.internalServerError,
-    ApiStatus.badGateway,
-    ApiStatus.serviceUnavailable,
-    ApiStatus.gatewayTimeout
-  ].includes(statusCode)
+/** 是否需要重试（仅服务器/网关类错误） */
+function shouldRetry(code: number) {
+  return code === ApiStatus.serverError
 }
 
 /** 请求重试逻辑 */
@@ -177,14 +180,13 @@ async function request<T = any>(config: ExtendedAxiosRequestConfig): Promise<T> 
   try {
     const res = await axiosInstance.request<BaseResponse<T>>(config)
 
-    // 显示成功消息
-    if (config.showSuccessMessage && res.data.msg) {
-      showSuccess(res.data.msg)
+    if (config.showSuccessMessage && res.data.message) {
+      showSuccess(res.data.message)
     }
 
     return res.data.data as T
   } catch (error) {
-    if (error instanceof HttpError && error.code !== ApiStatus.unauthorized) {
+    if (error instanceof HttpError && !isAuthExpired(error.code)) {
       const showMsg = config.showErrorMessage !== false
       showError(error, showMsg)
     }

@@ -11,9 +11,11 @@ if (!fs.existsSync(logDir)) {
 
 const logFormat = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-  winston.format.printf(({ level, message, timestamp, ...meta }) => {
+  winston.format.errors({ stack: true }),
+  winston.format.printf(({ level, message, timestamp, stack, ...meta }) => {
     const metaStr = Object.keys(meta).length > 0 ? ` ${JSON.stringify(meta)}` : '';
-    return `${timestamp} [${level.toUpperCase()}]: ${message}${metaStr}`;
+    const text = stack ? `${message}\n${stack}` : message;
+    return `${timestamp} [${level.toUpperCase()}]: ${text}${metaStr}`;
   }),
 );
 
@@ -34,7 +36,7 @@ const createFileTransport = (level: string): DailyRotateFile => {
 };
 
 const logger = winston.createLogger({
-  level: config.server.env === 'development' ? 'debug' : 'info',
+  level: config.log.level,
   format: logFormat,
   transports: [
     new winston.transports.Console({
@@ -43,7 +45,6 @@ const logger = winston.createLogger({
     createFileTransport('error'),
     createFileTransport('warn'),
     createFileTransport('info'),
-    createFileTransport('debug'),
     new DailyRotateFile({
       dirname: logDir,
       filename: 'combined-%DATE%.log',

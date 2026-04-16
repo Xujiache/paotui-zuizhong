@@ -1,9 +1,13 @@
 import { Router, Application, Request, Response } from 'express';
+import express from 'express';
+import path from 'path';
+import config from '../config';
 import { success } from '../middleware/responseFormatter';
 import { ErrorCode } from '../types/enums';
 import { testConnection } from '../utils/database';
-import { redisClient } from '../utils/redis';
+import { isRedisReady } from '../utils/redis';
 import authRoutes from './auth.routes';
+import commonRoutes from './common.routes';
 import userRoutes from './user.routes';
 import merchantRoutes from './merchant.routes';
 import riderRoutes from './rider.routes';
@@ -20,31 +24,38 @@ import adminRoutes from './admin.routes';
 
 const router = Router();
 
+const handleLegacyHealth = async (_req: Request, res: Response): Promise<void> => {
+  const dbOk = await testConnection();
+  const redisOk = isRedisReady();
+  const payload = {
+    status: dbOk && redisOk ? 'ok' : 'degraded',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    dependencies: {
+      database: dbOk ? 'connected' : 'disconnected',
+      redis: redisOk ? 'connected' : 'disconnected',
+    },
+  };
+  if (!dbOk || !redisOk) {
+    res.status(503).json({
+      code: ErrorCode.SERVER_ERROR,
+      message: '部分依赖不可用',
+      data: payload,
+    });
+    return;
+  }
+  success(res, payload, 'Server is running');
+};
+
 const registerRoutes = (app: Application): void => {
-  router.get('/api/v1/health', async (_req: Request, res: Response) => {
-    const dbOk = await testConnection();
-    const redisOk = redisClient.isReady;
+  const uploadAbs = path.isAbsolute(config.upload.dir)
+    ? config.upload.dir
+    : path.resolve(process.cwd(), config.upload.dir);
+  app.use(config.upload.urlPrefix, express.static(uploadAbs));
 
-    const payload = {
-      status: dbOk && redisOk ? 'ok' : 'degraded',
-      uptime: process.uptime(),
-      dependencies: {
-        database: dbOk ? 'connected' : 'disconnected',
-        redis: redisOk ? 'connected' : 'disconnected',
-      },
-    };
+  router.get('/api/v1/health', handleLegacyHealth);
 
-    if (dbOk && redisOk) {
-      success(res, payload, 'Server is running');
-    } else {
-      res.status(503).json({
-        code: ErrorCode.SERVER_ERROR,
-        message: 'Service dependencies unavailable',
-        data: payload,
-      });
-    }
-  });
-
+  router.use('/api/v1/common', commonRoutes);
   router.use('/api/v1/auth', authRoutes);
   router.use('/api/v1/user', userRoutes);
   router.use('/api/v1/merchant', merchantRoutes);

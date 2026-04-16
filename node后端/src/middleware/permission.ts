@@ -1,39 +1,37 @@
-import { Response, NextFunction } from 'express';
-import { AuthRequest } from '../types';
-import { ErrorCode } from '../types/enums';
+import { Request, Response, NextFunction } from 'express';
+import { AppError } from '../utils/AppError';
+import { UserRole } from '../types/enums';
+import { findAdminById } from '../models/admin.model';
+import { findRoleById, findPermissionsByRoleId } from '../models/role.model';
+import { SUPER_ADMIN_ROLE_CODE } from '../config/constants';
 
-export const checkPermission = (resource: string, action: string) => {
-  return (req: AuthRequest, res: Response, next: NextFunction): void => {
-    const user = req.user;
-    if (!user || !user.permissions) {
-      res.status(403).json({ code: ErrorCode.PERMISSION_DENIED, message: '无权限访问', data: null });
-      return;
-    }
+export const requirePermission = (...permissions: string[]) => {
+  return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user) return next(AppError.unauthorized());
 
-    const perms = user.permissions;
-    if ((perms as Record<string, unknown>)['admin'] === true) {
+      if (req.user.role !== UserRole.ADMIN) {
+        return next(AppError.forbidden('仅管理员可访问此接口'));
+      }
+
+      const admin = await findAdminById(req.user.userId);
+      if (!admin) return next(AppError.forbidden('管理员账号不存在'));
+
+      const role = await findRoleById(admin.role_id);
+      if (!role) return next(AppError.forbidden('角色不存在'));
+
+      if (role.code === SUPER_ADMIN_ROLE_CODE) {
+        return next();
+      }
+
+      const rolePerms = await findPermissionsByRoleId(admin.role_id);
+      const hasPermission = permissions.some((p) => rolePerms.includes(p));
+      if (!hasPermission) {
+        return next(AppError.forbidden('权限不足'));
+      }
       next();
-      return;
+    } catch (error) {
+      next(error);
     }
-
-    if (perms[resource] && Array.isArray(perms[resource]) && perms[resource].includes(action)) {
-      next();
-      return;
-    }
-
-    res.status(403).json({ code: ErrorCode.PERMISSION_DENIED, message: '无权限执行此操作', data: null });
   };
-};
-
-export const isAdmin = (req: AuthRequest, res: Response, next: NextFunction): void => {
-  const user = req.user;
-  if (!user || !user.permissions) {
-    res.status(403).json({ code: ErrorCode.PERMISSION_DENIED, message: '需要管理员权限', data: null });
-    return;
-  }
-  if ((user.permissions as Record<string, unknown>)['admin'] === true) {
-    next();
-    return;
-  }
-  res.status(403).json({ code: ErrorCode.PERMISSION_DENIED, message: '需要管理员权限', data: null });
 };

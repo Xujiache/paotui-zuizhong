@@ -1,9 +1,14 @@
-import { JwtPayload } from './index';
+import { AuthUser, PaginationParams } from './index';
 
 declare global {
   namespace Express {
     interface Request {
-      user?: JwtPayload;
+      user?: AuthUser;
+      pagination?: PaginationParams;
+      requestId?: string;
+      startTime?: number;
     }
   }
 }
+
+export {};

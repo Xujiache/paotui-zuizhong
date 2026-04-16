@@ -79,7 +79,12 @@ export const useUserStore = defineStore(
      * @param newInfo 新的用户信息
      */
     const setUserInfo = (newInfo: Api.Auth.UserInfo) => {
-      info.value = newInfo
+      info.value = {
+        ...newInfo,
+        // 兼容旧视图：显示用 userName / userId
+        userName: newInfo.userName ?? newInfo.username,
+        userId: newInfo.userId ?? newInfo.id
+      }
     }
 
     /**
@@ -142,7 +147,7 @@ export const useUserStore = defineStore(
      */
     const logOut = () => {
       // 保存当前用户 ID，用于下次登录时判断是否为同一用户
-      const currentUserId = info.value.userId
+      const currentUserId = info.value.id ?? info.value.userId
       if (currentUserId) {
         localStorage.setItem(StorageConfig.LAST_USER_ID_KEY, String(currentUserId))
       }
@@ -182,7 +187,7 @@ export const useUserStore = defineStore(
      */
     const checkAndClearWorktabs = () => {
       const lastUserId = localStorage.getItem(StorageConfig.LAST_USER_ID_KEY)
-      const currentUserId = info.value.userId
+      const currentUserId = info.value.id ?? info.value.userId
 
       // 无法获取当前用户 ID，跳过检查
       if (!currentUserId) return

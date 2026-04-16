@@ -1,48 +1,26 @@
 /**
  * HTTP 错误处理模块
  *
- * 提供统一的 HTTP 请求错误处理机制
- *
- * ## 主要功能
- *
- * - 自定义 HttpError 错误类，封装错误信息、状态码、时间戳等
- * - 错误拦截和转换，将 Axios 错误转换为标准的 HttpError
- * - 错误消息国际化处理，根据状态码返回对应的多语言错误提示
- * - 错误日志记录，便于问题追踪和调试
- * - 错误和成功消息的统一展示
- * - 类型守卫函数，用于判断错误类型
- *
- * ## 使用场景
- *
- * - HTTP 请求拦截器中统一处理错误
- * - 业务代码中捕获和处理特定错误
- * - 错误日志收集和上报
+ * 约定：HttpError.code 存业务码（与后端 PRD 错误码表对齐），
+ * 传输层的 HTTP 状态码通过 HttpStatus 处理并转成对应业务码。
  *
  * @module utils/http/error
- * @author Art Design Pro Team
  */
 import { AxiosError } from 'axios'
-import { ApiStatus } from './status'
+import { ApiStatus, HttpStatus } from './status'
 import { $t } from '@/locales'
-
-// 错误响应接口
-export interface ErrorResponse {
-  /** 错误状态码 */
-  code: number
-  /** 错误消息 */
-  msg: string
-  /** 错误附加数据 */
-  data?: unknown
-}
+import type { BaseResponse, FieldError } from '@/types/common/response'
 
 // 错误日志数据接口
 export interface ErrorLogData {
-  /** 错误状态码 */
+  /** 业务错误码 */
   code: number
   /** 错误消息 */
   message: string
   /** 错误附加数据 */
   data?: unknown
+  /** 字段级校验错误 */
+  errors?: FieldError[]
   /** 错误发生时间戳 */
   timestamp: string
   /** 请求 URL */
@@ -57,6 +35,7 @@ export interface ErrorLogData {
 export class HttpError extends Error {
   public readonly code: number
   public readonly data?: unknown
+  public readonly errors?: FieldError[]
   public readonly timestamp: string
   public readonly url?: string
   public readonly method?: string
@@ -66,6 +45,7 @@ export class HttpError extends Error {
     code: number,
     options?: {
       data?: unknown
+      errors?: FieldError[]
       url?: string
       method?: string
     }
@@ -74,6 +54,7 @@ export class HttpError extends Error {
     this.name = 'HttpError'
     this.code = code
     this.data = options?.data
+    this.errors = options?.errors
     this.timestamp = new Date().toISOString()
     this.url = options?.url
     this.method = options?.method
@@ -84,6 +65,7 @@ export class HttpError extends Error {
       code: this.code,
       message: this.message,
       data: this.data,
+      errors: this.errors,
       timestamp: this.timestamp,
       url: this.url,
       method: this.method,
@@ -93,55 +75,87 @@ export class HttpError extends Error {
 }
 
 /**
- * 获取错误消息
- * @param status 错误状态码
- * @returns 错误消息
+ * 将 HTTP 状态码映射到业务错误码
  */
-const getErrorMessage = (status: number): string => {
-  const errorMap: Record<number, string> = {
-    [ApiStatus.unauthorized]: 'httpMsg.unauthorized',
-    [ApiStatus.forbidden]: 'httpMsg.forbidden',
-    [ApiStatus.notFound]: 'httpMsg.notFound',
-    [ApiStatus.methodNotAllowed]: 'httpMsg.methodNotAllowed',
-    [ApiStatus.requestTimeout]: 'httpMsg.requestTimeout',
-    [ApiStatus.internalServerError]: 'httpMsg.internalServerError',
-    [ApiStatus.badGateway]: 'httpMsg.badGateway',
-    [ApiStatus.serviceUnavailable]: 'httpMsg.serviceUnavailable',
-    [ApiStatus.gatewayTimeout]: 'httpMsg.gatewayTimeout'
+const mapHttpStatusToApiCode = (status: number): number => {
+  switch (status) {
+    case HttpStatus.unauthorized:
+      return ApiStatus.notLoggedIn
+    case HttpStatus.forbidden:
+      return ApiStatus.permissionDenied
+    case HttpStatus.notFound:
+      return ApiStatus.dataNotFound
+    case HttpStatus.methodNotAllowed:
+      return ApiStatus.methodNotAllowed
+    case HttpStatus.tooManyRequests:
+      return ApiStatus.rateLimitExceeded
+    case HttpStatus.requestTimeout:
+    case HttpStatus.gatewayTimeout:
+    case HttpStatus.serviceUnavailable:
+    case HttpStatus.badGateway:
+    case HttpStatus.internalServerError:
+      return ApiStatus.serverError
+    default:
+      return ApiStatus.operationFailed
   }
-
-  return $t(errorMap[status] || 'httpMsg.internalServerError')
 }
 
 /**
- * 处理错误
- * @param error 错误对象
- * @returns 错误对象
+ * 根据状态码返回本地化错误消息
  */
-export function handleError(error: AxiosError<ErrorResponse>): never {
-  // 处理取消的请求
+const getErrorMessage = (status: number): string => {
+  const map: Record<number, string> = {
+    [HttpStatus.unauthorized]: 'httpMsg.unauthorized',
+    [HttpStatus.forbidden]: 'httpMsg.forbidden',
+    [HttpStatus.notFound]: 'httpMsg.notFound',
+    [HttpStatus.methodNotAllowed]: 'httpMsg.methodNotAllowed',
+    [HttpStatus.requestTimeout]: 'httpMsg.requestTimeout',
+    [HttpStatus.internalServerError]: 'httpMsg.internalServerError',
+    [HttpStatus.badGateway]: 'httpMsg.badGateway',
+    [HttpStatus.serviceUnavailable]: 'httpMsg.serviceUnavailable',
+    [HttpStatus.gatewayTimeout]: 'httpMsg.gatewayTimeout'
+  }
+  return $t(map[status] || 'httpMsg.internalServerError')
+}
+
+/**
+ * 处理错误（axios 的网络层错误或业务错误）
+ */
+export function handleError(error: AxiosError<BaseResponse>): never {
   if (error.code === 'ERR_CANCELED') {
     console.warn('Request cancelled:', error.message)
-    throw new HttpError($t('httpMsg.requestCancelled'), ApiStatus.error)
+    throw new HttpError($t('httpMsg.requestCancelled'), ApiStatus.operationFailed)
   }
 
   const statusCode = error.response?.status
-  const errorMessage = error.response?.data?.msg || error.message
+  const backendPayload = error.response?.data
   const requestConfig = error.config
 
   // 处理网络错误
   if (!error.response) {
-    throw new HttpError($t('httpMsg.networkError'), ApiStatus.error, {
+    throw new HttpError($t('httpMsg.networkError'), ApiStatus.serverError, {
       url: requestConfig?.url,
       method: requestConfig?.method?.toUpperCase()
     })
   }
 
-  // 处理 HTTP 状态码错误
-  const message = statusCode
-    ? getErrorMessage(statusCode)
-    : errorMessage || $t('httpMsg.requestFailed')
-  throw new HttpError(message, statusCode || ApiStatus.error, {
+  // 后端已返回结构化 body，优先使用
+  if (backendPayload && typeof backendPayload === 'object' && 'code' in backendPayload) {
+    throw new HttpError(
+      backendPayload.message || $t('httpMsg.requestFailed'),
+      backendPayload.code ?? mapHttpStatusToApiCode(statusCode ?? 0),
+      {
+        data: backendPayload.data,
+        errors: backendPayload.errors,
+        url: requestConfig?.url,
+        method: requestConfig?.method?.toUpperCase()
+      }
+    )
+  }
+
+  // 无结构化 body：根据 HTTP 状态码翻译
+  const message = statusCode ? getErrorMessage(statusCode) : $t('httpMsg.requestFailed')
+  throw new HttpError(message, mapHttpStatusToApiCode(statusCode ?? 0), {
     data: error.response.data,
     url: requestConfig?.url,
     method: requestConfig?.method?.toUpperCase()
@@ -150,21 +164,16 @@ export function handleError(error: AxiosError<ErrorResponse>): never {
 
 /**
  * 显示错误消息
- * @param error 错误对象
- * @param showMessage 是否显示错误消息
  */
 export function showError(error: HttpError, showMessage: boolean = true): void {
   if (showMessage) {
     ElMessage.error(error.message)
   }
-  // 记录错误日志
   console.error('[HTTP Error]', error.toLogData())
 }
 
 /**
  * 显示成功消息
- * @param message 成功消息
- * @param showMessage 是否显示消息
  */
 export function showSuccess(message: string, showMessage: boolean = true): void {
   if (showMessage) {
@@ -174,9 +183,13 @@ export function showSuccess(message: string, showMessage: boolean = true): void 
 
 /**
  * 判断是否为 HttpError 类型
- * @param error 错误对象
- * @returns 是否为 HttpError 类型
  */
 export const isHttpError = (error: unknown): error is HttpError => {
   return error instanceof HttpError
 }
+
+/**
+ * 判断业务码是否属于"未登录/Token 失效"类（用于自动登出）
+ */
+export const isAuthExpired = (code: number): boolean =>
+  code === ApiStatus.notLoggedIn || code === ApiStatus.tokenInvalid

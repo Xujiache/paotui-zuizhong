@@ -5,8 +5,13 @@
       <text class="logo-sub">骑手登录</text>
     </view>
     <view class="form-area">
-      <input class="input" type="text" placeholder="请输入手机号" v-model="phone" />
-      <input class="input" type="password" placeholder="请输入密码" v-model="password" />
+      <input class="input" type="text" placeholder="请输入手机号" v-model="phone" maxlength="11" />
+      <view class="row">
+        <input class="input input-code" type="number" placeholder="请输入验证码" v-model="code" maxlength="6" />
+        <button class="btn-code" :disabled="codeCountdown > 0" @click="handleSendCode">
+          {{ codeCountdown > 0 ? codeCountdown + 's' : '获取验证码' }}
+        </button>
+      </view>
       <button class="btn-login" @click="handleLogin">登 录</button>
     </view>
   </view>
@@ -17,15 +22,38 @@
     data() {
       return {
         phone: '',
-        password: ''
+        code: '',
+        codeCountdown: 0
       }
     },
     methods: {
-      handleLogin() {
-        if (this.phone == '' || this.password == '') {
-          uni.showToast({ title: '请输入手机号和密码', icon: 'none' })
+      handleSendCode() {
+        if (!/^1[3-9]\d{9}$/.test(this.phone)) {
+          uni.showToast({ title: '请输入正确的手机号', icon: 'none' })
           return
         }
+        // TODO: 阶段02-03 调用 /api/v1/auth/rider/send-code
+        uni.showToast({ title: '验证码发送（阶段02-03实现）', icon: 'none' })
+        this.codeCountdown = 60
+        const timer = setInterval(() => {
+          if (this.codeCountdown <= 1) {
+            clearInterval(timer)
+            this.codeCountdown = 0
+          } else {
+            this.codeCountdown--
+          }
+        }, 1000)
+      },
+      handleLogin() {
+        if (!/^1[3-9]\d{9}$/.test(this.phone)) {
+          uni.showToast({ title: '请输入正确的手机号', icon: 'none' })
+          return
+        }
+        if (this.code == '') {
+          uni.showToast({ title: '请输入验证码', icon: 'none' })
+          return
+        }
+        // TODO: 阶段02-03 调用 /api/v1/auth/rider/login
         uni.showToast({ title: '登录功能待开发（阶段02-03实现）', icon: 'none' })
       }
     }
@@ -63,6 +91,26 @@
   padding: 0 24rpx;
   margin-bottom: 30rpx;
   font-size: 30rpx;
+}
+.row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 30rpx;
+}
+.input-code {
+  flex: 1;
+  margin-bottom: 0;
+  margin-right: 20rpx;
+}
+.btn-code {
+  height: 90rpx;
+  line-height: 90rpx;
+  padding: 0 24rpx;
+  background-color: #E6F9EE;
+  color: #00C853;
+  border-radius: 12rpx;
+  font-size: 26rpx;
 }
 .btn-login {
   margin-top: 20rpx;

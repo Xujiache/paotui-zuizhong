@@ -1,7 +1,13 @@
 import { Response } from 'express';
 import { ErrorCode } from '../types/enums';
+import { PaginationResult } from '../types';
 
-export const success = (res: Response, data: unknown = null, message: string = '操作成功', statusCode: number = 200) => {
+export const success = <T>(
+  res: Response,
+  data: T = null as unknown as T,
+  message: string = 'success',
+  statusCode: number = 200,
+): Response => {
   return res.status(statusCode).json({
     code: ErrorCode.SUCCESS,
     message,
@@ -9,33 +15,26 @@ export const success = (res: Response, data: unknown = null, message: string = '
   });
 };
 
-export const error = (res: Response, message: string = '操作失败', statusCode: number = 400, code: number = ErrorCode.OPERATION_FAILED) => {
-  return res.status(statusCode).json({
-    code,
-    message,
-    data: null,
-  });
-};
-
-export const paginate = (
+export const paginated = <T>(
   res: Response,
-  list: unknown[],
-  total: number,
-  page: number,
-  pageSize: number,
-  message: string = '获取成功',
-) => {
+  payload: PaginationResult<T>,
+  message: string = 'success',
+): Response => {
   return res.status(200).json({
     code: ErrorCode.SUCCESS,
     message,
-    data: {
-      list,
-      pagination: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-      },
-    },
+    data: payload,
   });
+};
+
+export const fail = (
+  res: Response,
+  code: number = ErrorCode.OPERATION_FAILED,
+  message: string = '操作失败',
+  statusCode: number = 400,
+  errors?: Array<{ field: string; message: string }>,
+): Response => {
+  const body: Record<string, unknown> = { code, message, data: null };
+  if (errors && errors.length) body.errors = errors;
+  return res.status(statusCode).json(body);
 };
