@@ -205,6 +205,100 @@ export class RedisStore {
   }
 }
 
+/**
+ * 骑手 Geo 索引：按 lat/lng 查附近骑手（Redis GEO）
+ *
+ * 若服务端 Redis 版本 < 3.2（不支持 GEO 命令），会自动降级：
+ *  - add/remove 静默跳过
+ *  - findNearby 返回空数组（调用方退化到 DB bounding box 查询）
+ */
+let geoSupportedCache: boolean | null = null;
+
+const isGeoSupported = async (): Promise<boolean> => {
+  if (geoSupportedCache !== null) return geoSupportedCache;
+  try {
+    // 试探一次 GEOADD（dummy member），成功即支持
+    await rawClient.sendCommand([
+      'GEOADD',
+      `${redisConfig.keyPrefix}__geo_check__`,
+      '0',
+      '0',
+      'probe',
+    ]);
+    await rawClient.del(`${redisConfig.keyPrefix}__geo_check__`);
+    geoSupportedCache = true;
+  } catch {
+    geoSupportedCache = false;
+    logger.warn(
+      `[Redis] GEO 命令不可用（需 Redis 3.2+），骑手地理检索降级到 DB bounding box 模式`,
+    );
+  }
+  return geoSupportedCache;
+};
+
+export const riderGeoStore = {
+  key: 'rider:geo',
+
+  async addRider(riderId: number, lng: number, lat: number): Promise<void> {
+    if (!(await isGeoSupported())) return;
+    try {
+      const fullKey = `${redisConfig.keyPrefix}${this.key}`;
+      await rawClient.geoAdd(fullKey, {
+        longitude: lng,
+        latitude: lat,
+        member: String(riderId),
+      });
+    } catch (err) {
+      logger.warn(`[Redis] geoAdd 失败（rider=${riderId}）: ${(err as Error).message}`);
+    }
+  },
+
+  async removeRider(riderId: number): Promise<void> {
+    if (!(await isGeoSupported())) return;
+    try {
+      const fullKey = `${redisConfig.keyPrefix}${this.key}`;
+      await rawClient.zRem(fullKey, String(riderId));
+    } catch {
+      /* ignore */
+    }
+  },
+
+  async findNearby(
+    lng: number,
+    lat: number,
+    radiusMeters: number,
+    count = 50,
+  ): Promise<Array<{ riderId: number; distance: number }>> {
+    if (!(await isGeoSupported())) return [];
+    try {
+      const fullKey = `${redisConfig.keyPrefix}${this.key}`;
+      const result = await rawClient.sendCommand([
+        'GEOSEARCH',
+        fullKey,
+        'FROMLONLAT',
+        String(lng),
+        String(lat),
+        'BYRADIUS',
+        String(radiusMeters),
+        'm',
+        'ASC',
+        'COUNT',
+        String(count),
+        'WITHCOORD',
+        'WITHDIST',
+      ]);
+      if (!Array.isArray(result)) return [];
+      return (result as unknown[]).map((item) => {
+        const arr = item as [string, string, [string, string]];
+        return { riderId: Number(arr[0]), distance: Number(arr[1]) };
+      });
+    } catch (err) {
+      logger.warn(`[Redis] GEOSEARCH 失败: ${(err as Error).message}`);
+      return [];
+    }
+  },
+};
+
 export const redis = new RedisStore();
 
 export { rawClient as redisClient };

@@ -19,6 +19,9 @@ uploads/
 
 # 本地测试产物
 test.jpg
+smoke-*.txt
+srv-*.log
+srv-*.txt
 
 # 编辑器
 .idea/

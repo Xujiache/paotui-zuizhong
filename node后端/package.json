@@ -13,6 +13,7 @@
     "db:init": "ts-node -r tsconfig-paths/register scripts/db-init.ts",
     "db:schema": "ts-node -r tsconfig-paths/register scripts/db-init.ts --schema-only",
     "db:seed": "ts-node -r tsconfig-paths/register scripts/db-init.ts --seed-only --skip-create",
+    "db:migrate": "ts-node -r tsconfig-paths/register scripts/apply-migration.ts",
     "gen:password": "ts-node -r tsconfig-paths/register scripts/generate-password.ts",
     "test:smoke": "ts-node -r tsconfig-paths/register tests/helpers/smoke.ts"
   },
