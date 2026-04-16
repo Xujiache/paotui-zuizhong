@@ -1,0 +1,76 @@
+<template>
+  <view class="container">
+    <view class="logo-area">
+      <text class="logo-text">同城O2O</text>
+      <text class="logo-sub">用户登录</text>
+    </view>
+    <view class="form-area">
+      <input class="input" type="text" placeholder="请输入手机号" v-model="phone" />
+      <input class="input" type="password" placeholder="请输入密码" v-model="password" />
+      <button class="btn-login" @click="handleLogin">登 录</button>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+  export default {
+    data() {
+      return {
+        phone: '',
+        password: ''
+      }
+    },
+    methods: {
+      handleLogin() {
+        if (this.phone == '' || this.password == '') {
+          uni.showToast({ title: '请输入手机号和密码', icon: 'none' })
+          return
+        }
+        uni.showToast({ title: '登录功能待开发（阶段02-03实现）', icon: 'none' })
+      }
+    }
+  }
+</script>
+
+<style lang="scss">
+.container {
+  padding: 60rpx 40rpx;
+  min-height: 100vh;
+  background-color: #fff;
+}
+.logo-area {
+  text-align: center;
+  padding: 80rpx 0 60rpx;
+}
+.logo-text {
+  font-size: 52rpx;
+  font-weight: bold;
+  color: #008AFF;
+}
+.logo-sub {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 28rpx;
+  color: #999;
+}
+.form-area {
+  margin-top: 40rpx;
+}
+.input {
+  height: 90rpx;
+  border: 1px solid #e0e0e0;
+  border-radius: 12rpx;
+  padding: 0 24rpx;
+  margin-bottom: 30rpx;
+  font-size: 30rpx;
+}
+.btn-login {
+  margin-top: 20rpx;
+  height: 90rpx;
+  line-height: 90rpx;
+  background-color: #008AFF;
+  color: #fff;
+  border-radius: 12rpx;
+  font-size: 32rpx;
+}
+</style>

@@ -1,0 +1,49 @@
+import { getToken, setToken, clearToken } from '@/api/request'
+
+export type RiderInfo = {
+  id: number
+  name: string
+  phone: string
+  status: string
+}
+
+export type RiderState = {
+  token: string
+  riderInfo: RiderInfo | null
+  isLogin: boolean
+  isOnline: boolean
+}
+
+export const riderState = reactive({
+  token: '',
+  riderInfo: null,
+  isLogin: false,
+  isOnline: false
+} as RiderState)
+
+export const initRider = () => {
+  const t = getToken()
+  if (t != '') {
+    riderState.token = t
+    riderState.isLogin = true
+  }
+}
+
+export const loginRider = (token: string, info: RiderInfo) => {
+  setToken(token)
+  riderState.token = token
+  riderState.riderInfo = info
+  riderState.isLogin = true
+}
+
+export const logoutRider = () => {
+  clearToken()
+  riderState.token = ''
+  riderState.riderInfo = null
+  riderState.isLogin = false
+  riderState.isOnline = false
+}
+
+export const setOnlineStatus = (online: boolean) => {
+  riderState.isOnline = online
+}

@@ -1,0 +1,42 @@
+import { getToken, setToken, clearToken } from '@/api/request'
+
+export type MerchantInfo = {
+  id: number
+  name: string
+  phone: string
+  storeName: string
+}
+
+export type MerchantState = {
+  token: string
+  merchantInfo: MerchantInfo | null
+  isLogin: boolean
+}
+
+export const merchantState = reactive({
+  token: '',
+  merchantInfo: null,
+  isLogin: false
+} as MerchantState)
+
+export const initMerchant = () => {
+  const t = getToken()
+  if (t != '') {
+    merchantState.token = t
+    merchantState.isLogin = true
+  }
+}
+
+export const loginMerchant = (token: string, info: MerchantInfo) => {
+  setToken(token)
+  merchantState.token = token
+  merchantState.merchantInfo = info
+  merchantState.isLogin = true
+}
+
+export const logoutMerchant = () => {
+  clearToken()
+  merchantState.token = ''
+  merchantState.merchantInfo = null
+  merchantState.isLogin = false
+}

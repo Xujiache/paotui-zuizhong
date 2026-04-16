@@ -1,0 +1,73 @@
+const BASE_URL = 'http://localhost:3000'
+
+type RequestOptions = {
+  url: string
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
+  data?: any | null
+  header?: any | null
+}
+
+type ApiResponse = {
+  code: number
+  message: string
+  data: any | null
+}
+
+let token = ''
+
+export const setToken = (t: string) => {
+  token = t
+  uni.setStorageSync('token', t)
+}
+
+export const getToken = (): string => {
+  if (token == '') {
+    token = uni.getStorageSync('token') as string
+  }
+  return token
+}
+
+export const clearToken = () => {
+  token = ''
+  uni.removeStorageSync('token')
+}
+
+export const request = (options: RequestOptions): Promise<ApiResponse> => {
+  return new Promise((resolve, reject) => {
+    const header: any = {
+      'Content-Type': 'application/json',
+      'X-Client-Type': 'merchant-app'
+    }
+    const t = getToken()
+    if (t != '') {
+      header['Authorization'] = 'Bearer ' + t
+    }
+
+    uni.request({
+      url: BASE_URL + options.url,
+      method: options.method ?? 'GET',
+      data: options.data,
+      header: header,
+      success: (res) => {
+        if (res.statusCode == 401) {
+          clearToken()
+          uni.navigateTo({ url: '/pages/login/login' })
+          reject(new Error('未登录或登录已过期'))
+          return
+        }
+        resolve(res.data as ApiResponse)
+      },
+      fail: (err) => {
+        reject(new Error(err.errMsg))
+      }
+    })
+  })
+}
+
+export const get = (url: string, data?: any | null): Promise<ApiResponse> => {
+  return request({ url: url, method: 'GET', data: data })
+}
+
+export const post = (url: string, data?: any | null): Promise<ApiResponse> => {
+  return request({ url: url, method: 'POST', data: data })
+}

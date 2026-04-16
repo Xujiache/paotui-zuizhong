@@ -14,10 +14,12 @@ import tseslint from 'typescript-eslint'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-// 读取 .auto-import.json 文件的内容，并将其解析为 JSON 对象
-const autoImportConfig = JSON.parse(
-  fs.readFileSync(path.resolve(__dirname, '.auto-import.json'), 'utf-8')
-)
+// 读取 .auto-import.json 文件的内容（首次运行 dev 前可能不存在）
+let autoImportConfig = { globals: {} }
+const autoImportPath = path.resolve(__dirname, '.auto-import.json')
+if (fs.existsSync(autoImportPath)) {
+  autoImportConfig = JSON.parse(fs.readFileSync(autoImportPath, 'utf-8'))
+}
 
 export default [
   // 指定文件匹配规则

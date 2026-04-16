@@ -1,0 +1,95 @@
+<template>
+  <view class="container">
+    <view class="user-card">
+      <view class="avatar-wrap">
+        <text class="avatar-text">U</text>
+      </view>
+      <view class="user-info">
+        <text class="username">未登录</text>
+        <text class="tip">点击登录享受更多服务</text>
+      </view>
+    </view>
+    <view class="menu-list">
+      <text class="menu-item">我的订单</text>
+      <text class="menu-item">收货地址</text>
+      <text class="menu-item">我的收藏</text>
+      <text class="menu-item">设置</text>
+    </view>
+    <view class="footer">
+      <text class="footer-text">个人中心页面待开发（阶段04实现）</text>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+  export default {
+    data() {
+      return {}
+    },
+    onLoad() {},
+    methods: {}
+  }
+</script>
+
+<style lang="scss">
+.container {
+  min-height: 100vh;
+  background-color: #f5f6f8;
+}
+.user-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 40rpx 30rpx;
+  background-color: #008AFF;
+}
+.avatar-wrap {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 50rpx;
+  background-color: rgba(255,255,255,0.3);
+  justify-content: center;
+  align-items: center;
+  display: flex;
+}
+.avatar-text {
+  font-size: 40rpx;
+  color: #fff;
+  font-weight: bold;
+}
+.user-info {
+  margin-left: 24rpx;
+}
+.username {
+  font-size: 34rpx;
+  color: #fff;
+  font-weight: bold;
+}
+.tip {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: rgba(255,255,255,0.7);
+}
+.menu-list {
+  margin: 20rpx 30rpx;
+  background-color: #fff;
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+.menu-item {
+  display: block;
+  padding: 30rpx 24rpx;
+  font-size: 30rpx;
+  color: #333;
+  border-bottom: 1px solid #f0f0f0;
+}
+.footer {
+  margin-top: 40rpx;
+  text-align: center;
+}
+.footer-text {
+  font-size: 24rpx;
+  color: #ccc;
+}
+</style>
