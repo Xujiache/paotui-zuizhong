@@ -1,0 +1,817 @@
+<template>
+  <view class="container">
+    <view class="top-bar">
+      <view class="search-row">
+        <input class="search-input" placeholder="搜索商品" v-model="keyword" @confirm="onSearch" />
+        <text class="search-btn" @click="onSearch">搜索</text>
+      </view>
+      <scroll-view class="filter-scroll" scroll-x="true" show-scrollbar="false">
+        <view class="filter-row">
+          <view :class="'filter-item ' + (statusFilter == '' ? 'active' : '')" @click="setStatus('')">全部</view>
+          <view :class="'filter-item ' + (statusFilter == 'ON_SHELF' ? 'active' : '')" @click="setStatus('ON_SHELF')">上架</view>
+          <view :class="'filter-item ' + (statusFilter == 'OFF_SHELF' ? 'active' : '')" @click="setStatus('OFF_SHELF')">下架</view>
+          <text class="filter-sep">|</text>
+          <view class="filter-item cat-picker" @click="goCategory">
+            <text class="cat-text">分类管理</text>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <scroll-view class="body" scroll-y="true" :refresher-enabled="true"
+      :refresher-triggered="refreshing" @refresherrefresh="onRefresh"
+      @scrolltolower="onLoadMore">
+
+      <view v-if="loading && list.length == 0" class="loading">
+        <text class="loading-text">加载中...</text>
+      </view>
+
+      <view v-else-if="list.length == 0" class="empty">
+        <text class="empty-text">暂无商品</text>
+      </view>
+
+      <view v-else class="list">
+        <view v-for="item in list" :key="getId(item)" class="prod-card">
+          <view class="img-wrap">
+            <image v-if="firstImg(item) != ''" class="prod-img" :src="firstImg(item)" mode="aspectFill" />
+            <view v-else class="img-placeholder">
+              <text class="no-img">无图</text>
+            </view>
+          </view>
+          <view class="prod-info">
+            <text class="prod-name">{{ getString(item, 'name') }}</text>
+            <view class="prod-meta">
+              <text class="meta-text">库存 {{ getNumber(item, 'stock') }}</text>
+              <text class="meta-text">销量 {{ getNumber(item, 'salesCount') }}</text>
+            </view>
+            <view class="prod-footer">
+              <text class="prod-price">¥{{ yuanText(getNumber(item, 'basePriceFen')) }}</text>
+              <view class="switch-wrap">
+                <switch :checked="isOn(item)" color="#FF6B00" :data-id="getId(item)" @change="toggleStatus" />
+              </view>
+            </view>
+          </view>
+          <view class="card-actions">
+            <text class="act-text" @click="onEdit(item)">编辑</text>
+            <text class="act-text" @click="onSku(item)">规格</text>
+            <text class="act-text danger" @click="onDelete(item)">删除</text>
+          </view>
+        </view>
+
+        <view class="load-more">
+          <text v-if="hasMore" class="load-text">上拉加载更多</text>
+          <text v-else class="load-text">没有更多了</text>
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="footer">
+      <button class="btn-add" @click="onAdd">+ 新增商品</button>
+    </view>
+
+    <view v-if="showForm" class="form-mask">
+      <view class="form-box">
+        <scroll-view class="form-body" scroll-y="true">
+          <text class="form-title">{{ editing != null ? '编辑商品' : '新增商品' }}</text>
+          <view class="form-row">
+            <text class="label">商品名称 *</text>
+            <input class="input" placeholder="请输入商品名称" v-model="form.name" maxlength="50" />
+          </view>
+          <view class="form-row">
+            <text class="label">分类 *</text>
+            <picker :value="form.categoryIndex" :range="categoryNames" @change="onCatChange">
+              <view class="picker-view">
+                <text v-if="form.categoryIndex >= 0" class="picker-text">{{ categoryNames[form.categoryIndex] }}</text>
+                <text v-else class="picker-placeholder">请选择分类</text>
+              </view>
+            </picker>
+          </view>
+          <view class="form-row">
+            <text class="label">价格（元） *</text>
+            <input class="input" type="digit" placeholder="如：9.90" v-model="form.priceStr" />
+          </view>
+          <view class="form-row">
+            <text class="label">库存</text>
+            <input class="input" type="number" placeholder="如：100" v-model="form.stockStr" />
+          </view>
+          <view class="form-row">
+            <text class="label">打包费（元）</text>
+            <input class="input" type="digit" placeholder="如：1.00" v-model="form.packingFeeStr" />
+          </view>
+          <view class="form-row">
+            <text class="label">商品图片</text>
+            <view class="img-grid">
+              <view v-for="(img, idx) in form.images" :key="idx" class="img-slot">
+                <image class="prev-img" :src="img" mode="aspectFill" />
+                <view class="close-x" @click="removeFormImg(idx)">
+                  <text class="cx">×</text>
+                </view>
+              </view>
+              <view v-if="form.images.length < 5" class="img-add" @click="addFormImg">
+                <text class="plus">+</text>
+              </view>
+            </view>
+          </view>
+          <view class="form-row">
+            <text class="label">描述</text>
+            <textarea class="desc" placeholder="商品描述" v-model="form.description" maxlength="500" />
+          </view>
+        </scroll-view>
+        <view class="form-footer">
+          <button class="btn-cancel" @click="closeForm">取消</button>
+          <button class="btn-confirm" @click="submitForm">保存</button>
+        </view>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+import {
+  listProducts, createProduct, updateProduct, deleteProduct, toggleProductStatus,
+  getCategories
+} from '@/api/product'
+import { uploadImage } from '@/api/common'
+import { fenToYuan, yuanToFen } from '@/utils/format'
+import { getCurrentStoreId } from '@/stores/user'
+
+type ProductForm = {
+  name: string
+  categoryIndex: number
+  categoryId: number
+  priceStr: string
+  stockStr: string
+  packingFeeStr: string
+  images: string[]
+  description: string
+}
+
+type CatItem = {
+  id: number
+  name: string
+}
+
+export default {
+  data() {
+    return {
+      keyword: '',
+      statusFilter: '' as string,
+      list: [] as any[],
+      page: 1,
+      pageSize: 10,
+      hasMore: true,
+      refreshing: false,
+      loading: false,
+      categories: [] as CatItem[],
+      showForm: false,
+      editing: null as UTSJSONObject | null,
+      form: {
+        name: '',
+        categoryIndex: -1,
+        categoryId: 0,
+        priceStr: '',
+        stockStr: '0',
+        packingFeeStr: '0',
+        images: [] as string[],
+        description: ''
+      } as ProductForm
+    }
+  },
+  onLoad() {
+    this.loadCategories()
+    this.loadList(true)
+  },
+  computed: {
+    categoryNames(): string[] {
+      const arr: string[] = []
+      for (let i = 0; i < this.categories.length; i++) {
+        arr.push(this.categories[i].name)
+      }
+      return arr
+    }
+  },
+  methods: {
+    getId(item: any): number {
+      return (item as UTSJSONObject).getNumber('id') ?? 0
+    },
+    getString(item: any, key: string): string {
+      return (item as UTSJSONObject).getString(key) ?? ''
+    },
+    getNumber(item: any, key: string): number {
+      return (item as UTSJSONObject).getNumber(key) ?? 0
+    },
+    async loadCategories() {
+      const storeId = getCurrentStoreId()
+      if (storeId == 0) return
+      try {
+        const resp = await getCategories(storeId, true)
+        if (resp.code == 0 && resp.data != null) {
+          const d = resp.data as UTSJSONObject
+          const list = (d['list'] as any[]) ?? []
+          const arr: CatItem[] = []
+          for (let i = 0; i < list.length; i++) {
+            const c = list[i] as UTSJSONObject
+            arr.push({
+              id: c.getNumber('id') ?? 0,
+              name: c.getString('name') ?? ''
+            } as CatItem)
+          }
+          this.categories = arr
+        }
+      } catch (e) { }
+    },
+    firstImg(p: any): string {
+      const o = p as UTSJSONObject
+      const imgs = o['images']
+      if (imgs == null) return ''
+      const list = imgs as string[]
+      if (list.length == 0) return ''
+      return list[0]
+    },
+    yuanText(fen: number): string {
+      return fenToYuan(fen)
+    },
+    isOn(p: any): boolean {
+      const o = p as UTSJSONObject
+      return (o.getString('status') ?? '') == 'ON_SHELF'
+    },
+    setStatus(s: string) {
+      this.statusFilter = s
+      this.loadList(true)
+    },
+    onSearch() {
+      this.loadList(true)
+    },
+    async loadList(reset: boolean = false) {
+      if (reset) {
+        this.page = 1
+        this.hasMore = true
+        this.list = []
+      }
+      if (!this.hasMore) return
+      this.loading = true
+      const storeId = getCurrentStoreId()
+      if (storeId == 0) {
+        this.loading = false
+        return
+      }
+      try {
+        const params: UTSJSONObject = {
+          storeId: storeId,
+          page: this.page,
+          pageSize: this.pageSize
+        }
+        if (this.keyword != '') params['keyword'] = this.keyword
+        if (this.statusFilter != '') params['status'] = this.statusFilter
+        const resp = await listProducts(params)
+        if (resp.code == 0 && resp.data != null) {
+          const d = resp.data as UTSJSONObject
+          const list = (d['list'] as any[]) ?? []
+          if (reset) {
+            this.list = list
+          } else {
+            for (let i = 0; i < list.length; i++) this.list.push(list[i])
+          }
+          const pagination = d['pagination'] as UTSJSONObject
+          if (pagination != null) {
+            const total = pagination.getNumber('total') ?? 0
+            this.hasMore = this.list.length < total
+          } else {
+            this.hasMore = false
+          }
+          this.page++
+        }
+      } catch (e) { }
+      finally {
+        this.loading = false
+      }
+    },
+    onRefresh() {
+      this.refreshing = true
+      this.loadList(true)
+      this.refreshing = false
+    },
+    onLoadMore() {
+      if (this.hasMore && !this.loading) this.loadList(false)
+    },
+    goCategory() {
+      uni.navigateTo({ url: '/pages/product/category' })
+    },
+    onAdd() {
+      this.editing = null
+      this.form = {
+        name: '',
+        categoryIndex: -1,
+        categoryId: 0,
+        priceStr: '',
+        stockStr: '0',
+        packingFeeStr: '0',
+        images: [] as string[],
+        description: ''
+      } as ProductForm
+      this.showForm = true
+    },
+    onEdit(item: any) {
+      const p = item as UTSJSONObject
+      this.editing = p
+      const catId = p.getNumber('categoryId') ?? 0
+      let idx = -1
+      for (let i = 0; i < this.categories.length; i++) {
+        if (this.categories[i].id == catId) { idx = i; break }
+      }
+      const imgs = (p['images'] as string[]) ?? []
+      this.form = {
+        name: p.getString('name') ?? '',
+        categoryIndex: idx,
+        categoryId: catId,
+        priceStr: fenToYuan(p.getNumber('basePriceFen') ?? 0),
+        stockStr: '' + (p.getNumber('stock') ?? 0),
+        packingFeeStr: fenToYuan(p.getNumber('packingFeeFen') ?? 0),
+        images: imgs.slice(0),
+        description: p.getString('description') ?? ''
+      } as ProductForm
+      this.showForm = true
+    },
+    onSku(item: any) {
+      const p = item as UTSJSONObject
+      const id = p.getNumber('id') ?? 0
+      uni.navigateTo({ url: `/pages/product/sku?id=${id}` })
+    },
+    closeForm() {
+      this.showForm = false
+      this.editing = null
+    },
+    onCatChange(e: any) {
+      const d = e.detail as UTSJSONObject
+      const idx = d.getNumber('value') ?? 0
+      this.form.categoryIndex = idx
+      this.form.categoryId = this.categories[idx].id
+    },
+    addFormImg() {
+      const self = this
+      uni.chooseImage({
+        count: 5 - this.form.images.length,
+        sizeType: ['compressed'],
+        sourceType: ['camera', 'album'],
+        success: async (res) => {
+          uni.showLoading({ title: '上传中...' })
+          for (let i = 0; i < res.tempFilePaths.length; i++) {
+            try {
+              const url = await uploadImage(res.tempFilePaths[i])
+              self.form.images.push(url)
+            } catch (e) { }
+          }
+          uni.hideLoading()
+        }
+      } as ChooseImageOptions)
+    },
+    removeFormImg(idx: number) {
+      this.form.images.splice(idx, 1)
+    },
+    async submitForm() {
+      if (this.form.name == '') {
+        uni.showToast({ title: '请输入商品名称', icon: 'none' })
+        return
+      }
+      if (this.form.categoryId == 0) {
+        uni.showToast({ title: '请选择分类', icon: 'none' })
+        return
+      }
+      const priceYuan = parseFloat(this.form.priceStr)
+      if (isNaN(priceYuan) || priceYuan < 0) {
+        uni.showToast({ title: '请输入正确的价格', icon: 'none' })
+        return
+      }
+      const stock = parseInt(this.form.stockStr)
+      const packingFee = parseFloat(this.form.packingFeeStr)
+      const storeId = getCurrentStoreId()
+
+      uni.showLoading({ title: '保存中...' })
+      try {
+        if (this.editing == null) {
+          // 新增：默认单SKU
+          const body: UTSJSONObject = {
+            storeId: storeId,
+            categoryId: this.form.categoryId,
+            name: this.form.name,
+            description: this.form.description,
+            images: this.form.images,
+            basePriceFen: yuanToFen(priceYuan),
+            packingFeeFen: yuanToFen(isNaN(packingFee) ? 0 : packingFee),
+            skus: [
+              {
+                priceFen: yuanToFen(priceYuan),
+                stock: isNaN(stock) ? 0 : stock,
+                specText: ''
+              } as UTSJSONObject
+            ]
+          }
+          const resp = await createProduct(body)
+          uni.hideLoading()
+          if (resp.code == 0) {
+            uni.showToast({ title: '已添加', icon: 'success' })
+            this.closeForm()
+            this.loadList(true)
+          }
+        } else {
+          const id = this.editing!.getNumber('id') ?? 0
+          const body: UTSJSONObject = {
+            categoryId: this.form.categoryId,
+            name: this.form.name,
+            description: this.form.description,
+            images: this.form.images,
+            basePriceFen: yuanToFen(priceYuan),
+            packingFeeFen: yuanToFen(isNaN(packingFee) ? 0 : packingFee)
+          }
+          const resp = await updateProduct(id, body)
+          uni.hideLoading()
+          if (resp.code == 0) {
+            uni.showToast({ title: '已保存', icon: 'success' })
+            this.closeForm()
+            this.loadList(true)
+          }
+        }
+      } catch (e) {
+        uni.hideLoading()
+      }
+    },
+    async toggleStatus(e: any) {
+      const curTarget = e.currentTarget as UTSJSONObject
+      const dataset = curTarget['dataset'] as UTSJSONObject | null
+      const id = dataset != null ? (dataset!.getNumber('id') ?? 0) : 0
+      if (id == 0) return
+      const detail = e.detail as UTSJSONObject
+      const v = detail.getBoolean('value') ?? false
+      const target = v ? 'ON_SHELF' : 'OFF_SHELF'
+      try {
+        const resp = await toggleProductStatus(id, target)
+        if (resp.code == 0) {
+          // 更新本地状态
+          for (let i = 0; i < this.list.length; i++) {
+            const p = this.list[i] as UTSJSONObject
+            if ((p.getNumber('id') ?? 0) == id) {
+              p['status'] = target
+              break
+            }
+          }
+          uni.showToast({ title: '已更新', icon: 'success' })
+        }
+      } catch (e) { }
+    },
+    onDelete(item: any) {
+      const self = this
+      const p = item as UTSJSONObject
+      const id = p.getNumber('id') ?? 0
+      uni.showModal({
+        title: '提示',
+        content: '确定删除该商品？',
+        confirmColor: '#F5222D',
+        success: async (res) => {
+          if (!res.confirm) return
+          try {
+            const resp = await deleteProduct(id)
+            if (resp.code == 0) {
+              uni.showToast({ title: '已删除', icon: 'success' })
+              self.loadList(true)
+            }
+          } catch (e) { }
+        }
+      } as ShowModalOptions)
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.container {
+  min-height: 100vh;
+  background-color: #f5f6f8;
+  display: flex;
+  flex-direction: column;
+}
+.top-bar {
+  background-color: #fff;
+  padding: 16rpx 20rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+.search-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+.search-input {
+  flex: 1;
+  height: 72rpx;
+  padding: 0 20rpx;
+  background-color: #F5F5F5;
+  border-radius: 36rpx;
+  font-size: 26rpx;
+}
+.search-btn {
+  margin-left: 16rpx;
+  padding: 0 20rpx;
+  font-size: 26rpx;
+  color: #FF6B00;
+}
+.filter-scroll {
+  white-space: nowrap;
+}
+.filter-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 8rpx 0;
+}
+.filter-item {
+  padding: 8rpx 24rpx;
+  border-radius: 24rpx;
+  margin-right: 16rpx;
+  font-size: 24rpx;
+  color: #666;
+  background-color: #F5F5F5;
+}
+.filter-item.active {
+  background-color: #FFF5EC;
+  color: #FF6B00;
+}
+.filter-sep {
+  margin-right: 16rpx;
+  color: #e0e0e0;
+}
+.cat-picker {
+  background-color: #fff;
+  border: 1rpx solid #FF6B00;
+  color: #FF6B00;
+}
+.cat-text {
+  font-size: 24rpx;
+  color: #FF6B00;
+}
+.body {
+  flex: 1;
+  padding: 20rpx;
+}
+.loading, .empty {
+  padding: 120rpx 0;
+  text-align: center;
+}
+.loading-text, .empty-text {
+  font-size: 28rpx;
+  color: #bbb;
+}
+.list {
+  padding-bottom: 40rpx;
+}
+.prod-card {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 20rpx;
+  margin-bottom: 20rpx;
+  display: flex;
+  flex-direction: column;
+}
+.img-wrap {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+}
+.prod-img {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 12rpx;
+  background-color: #f5f5f5;
+}
+.img-placeholder {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 12rpx;
+  background-color: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.no-img {
+  color: #bbb;
+  font-size: 22rpx;
+}
+.prod-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-left: 20rpx;
+}
+.prod-name {
+  font-size: 28rpx;
+  color: #333;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.prod-meta {
+  display: flex;
+  flex-direction: row;
+  margin-top: 10rpx;
+}
+.meta-text {
+  font-size: 22rpx;
+  color: #999;
+  margin-right: 20rpx;
+}
+.prod-footer {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+}
+.prod-price {
+  font-size: 30rpx;
+  color: #FF6B00;
+  font-weight: bold;
+}
+.switch-wrap {
+  transform: scale(0.7);
+}
+.card-actions {
+  display: flex;
+  flex-direction: row;
+  padding-top: 16rpx;
+  border-top: 1rpx solid #f5f5f5;
+  margin-top: 16rpx;
+  justify-content: flex-end;
+}
+.act-text {
+  padding: 6rpx 20rpx;
+  font-size: 24rpx;
+  color: #1677FF;
+  margin-left: 20rpx;
+}
+.act-text.danger {
+  color: #F5222D;
+}
+.load-more {
+  text-align: center;
+  padding: 20rpx;
+}
+.load-text {
+  font-size: 22rpx;
+  color: #bbb;
+}
+.footer {
+  padding: 20rpx;
+  background-color: #fff;
+  border-top: 1rpx solid #f0f0f0;
+}
+.btn-add {
+  height: 88rpx;
+  line-height: 88rpx;
+  background-color: #FF6B00;
+  color: #fff;
+  font-size: 30rpx;
+  border-radius: 44rpx;
+}
+.form-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  z-index: 9999;
+}
+.form-box {
+  background-color: #fff;
+  border-top-left-radius: 24rpx;
+  border-top-right-radius: 24rpx;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+.form-body {
+  padding: 30rpx;
+  max-height: 70vh;
+}
+.form-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  text-align: center;
+  color: #333;
+  margin-bottom: 20rpx;
+  display: block;
+}
+.form-row {
+  margin-bottom: 24rpx;
+}
+.label {
+  font-size: 26rpx;
+  color: #666;
+  display: block;
+  margin-bottom: 10rpx;
+}
+.input {
+  height: 80rpx;
+  padding: 0 20rpx;
+  background-color: #fafafa;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+  color: #333;
+}
+.picker-view {
+  height: 80rpx;
+  padding: 0 20rpx;
+  line-height: 80rpx;
+  background-color: #fafafa;
+  border-radius: 8rpx;
+}
+.picker-text {
+  font-size: 28rpx;
+  color: #333;
+}
+.picker-placeholder {
+  font-size: 28rpx;
+  color: #bbb;
+}
+.img-grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.img-slot {
+  width: 160rpx;
+  height: 160rpx;
+  margin-right: 16rpx;
+  margin-bottom: 16rpx;
+  position: relative;
+}
+.prev-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 12rpx;
+}
+.close-x {
+  position: absolute;
+  top: -10rpx;
+  right: -10rpx;
+  width: 36rpx;
+  height: 36rpx;
+  background-color: rgba(0,0,0,0.5);
+  border-radius: 18rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cx {
+  color: #fff;
+  font-size: 22rpx;
+  line-height: 1;
+}
+.img-add {
+  width: 160rpx;
+  height: 160rpx;
+  background-color: #fafafa;
+  border: 2rpx dashed #ddd;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.plus {
+  font-size: 60rpx;
+  color: #bbb;
+}
+.desc {
+  width: 100%;
+  height: 180rpx;
+  padding: 16rpx;
+  background-color: #fafafa;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  color: #333;
+}
+.form-footer {
+  padding: 20rpx 30rpx;
+  display: flex;
+  flex-direction: row;
+  border-top: 1rpx solid #f0f0f0;
+}
+.btn-cancel, .btn-confirm {
+  flex: 1;
+  margin: 0 10rpx;
+  height: 80rpx;
+  line-height: 80rpx;
+  border-radius: 40rpx;
+  font-size: 28rpx;
+}
+.btn-cancel {
+  background-color: #fff;
+  color: #666;
+  border: 1rpx solid #e0e0e0;
+}
+.btn-confirm {
+  background-color: #FF6B00;
+  color: #fff;
+}
+</style>

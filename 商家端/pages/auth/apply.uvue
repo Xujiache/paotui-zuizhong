@@ -1,0 +1,673 @@
+<template>
+  <view class="container">
+    <view class="step-bar">
+      <view v-for="(s, idx) in steps" :key="idx" class="step-item">
+        <view :class="'step-dot ' + (idx + 1 <= currentStep ? 'active' : '')">
+          <text class="step-num">{{ idx + 1 }}</text>
+        </view>
+        <text :class="'step-label ' + (idx + 1 <= currentStep ? 'active' : '')">{{ s }}</text>
+      </view>
+    </view>
+
+    <scroll-view class="body" scroll-y="true">
+      <view v-if="currentStep == 1" class="form-section">
+        <view class="form-item">
+          <text class="label">店铺名称</text>
+          <input class="input" placeholder="请输入店铺名称" v-model="form.name" maxlength="30" />
+        </view>
+        <view class="form-item">
+          <text class="label">经营类目</text>
+          <picker :value="categoryIndex" :range="categoryOptions" @change="onCategoryChange">
+            <view class="picker-view">
+              <text :class="categoryIndex >= 0 ? 'picker-text' : 'picker-placeholder'">
+                {{ categoryIndex >= 0 ? categoryOptions[categoryIndex] : '请选择经营类目' }}
+              </text>
+              <text class="picker-arrow">›</text>
+            </view>
+          </picker>
+        </view>
+        <view class="form-item">
+          <text class="label">联系人</text>
+          <input class="input" placeholder="联系人姓名" v-model="form.contactName" />
+        </view>
+        <view class="form-item">
+          <text class="label">联系电话</text>
+          <input class="input" type="number" placeholder="联系电话" v-model="form.contactPhone" maxlength="11" />
+        </view>
+      </view>
+
+      <view v-if="currentStep == 2" class="form-section">
+        <view class="form-item">
+          <text class="label">营业执照</text>
+          <view class="upload-box" @click="uploadLicense">
+            <image v-if="form.licenseImage != ''" class="upload-img" :src="form.licenseImage" mode="aspectFill" />
+            <view v-else class="upload-placeholder">
+              <text class="upload-plus">+</text>
+              <text class="upload-hint">上传营业执照</text>
+            </view>
+          </view>
+        </view>
+        <view class="form-item">
+          <text class="label">营业执照编号</text>
+          <input class="input" placeholder="统一社会信用代码" v-model="form.licenseNo" />
+        </view>
+        <view class="form-item">
+          <text class="label">法人姓名</text>
+          <input class="input" placeholder="法人姓名" v-model="form.legalName" />
+        </view>
+        <view class="form-item">
+          <text class="label">身份证号</text>
+          <input class="input" placeholder="18位身份证号" v-model="form.idCardNo" maxlength="18" />
+        </view>
+        <view class="form-item-row">
+          <view class="id-upload" @click="uploadIdFront">
+            <image v-if="form.idCardFront != ''" class="id-img" :src="form.idCardFront" mode="aspectFill" />
+            <view v-else class="id-placeholder">
+              <text class="upload-plus">+</text>
+              <text class="id-label">正面</text>
+            </view>
+          </view>
+          <view class="id-upload" @click="uploadIdBack">
+            <image v-if="form.idCardBack != ''" class="id-img" :src="form.idCardBack" mode="aspectFill" />
+            <view v-else class="id-placeholder">
+              <text class="upload-plus">+</text>
+              <text class="id-label">反面</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view v-if="currentStep == 3" class="form-section">
+        <view class="form-item">
+          <text class="label">门店地址</text>
+          <view class="addr-item" @click="chooseLocation">
+            <text :class="form.address != '' ? 'addr-text' : 'addr-placeholder'">
+              {{ form.address != '' ? form.address : '点击选择门店位置' }}
+            </text>
+            <text class="addr-arrow">›</text>
+          </view>
+          <text v-if="form.lat != 0" class="coords">经纬度：{{ form.lat.toFixed(6) }}, {{ form.lng.toFixed(6) }}</text>
+        </view>
+        <view class="form-item">
+          <text class="label">详细地址</text>
+          <input class="input" placeholder="门牌号/楼层等" v-model="form.addressDetail" />
+        </view>
+        <view class="form-item">
+          <text class="label">门店照片（至少1张）</text>
+          <view class="shop-photos">
+            <view v-for="(photo, idx) in form.shopPhotos" :key="idx" class="shop-photo-box">
+              <image class="shop-photo" :src="photo" mode="aspectFill" />
+              <view class="photo-delete" @click="removePhoto(idx)">
+                <text class="delete-x">×</text>
+              </view>
+            </view>
+            <view v-if="form.shopPhotos.length < 5" class="shop-photo-add" @click="uploadShopPhoto">
+              <text class="upload-plus">+</text>
+            </view>
+          </view>
+        </view>
+        <view class="form-item">
+          <text class="label">营业时间</text>
+          <view class="hours-row">
+            <picker mode="time" :value="form.startTime" @change="onStartTimeChange">
+              <view class="time-picker">{{ form.startTime }}</view>
+            </picker>
+            <text class="hours-sep">至</text>
+            <picker mode="time" :value="form.endTime" @change="onEndTimeChange">
+              <view class="time-picker">{{ form.endTime }}</view>
+            </picker>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="footer">
+      <button v-if="currentStep > 1" class="btn-prev" @click="prevStep">上一步</button>
+      <button v-if="currentStep < 3" class="btn-next" @click="nextStep">下一步</button>
+      <button v-else class="btn-submit" @click="submit">提交入驻</button>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+import { submitApply, createStore } from '@/api/merchant'
+import { uploadImage } from '@/api/common'
+import { isValidPhone, isValidIdCard } from '@/utils/format'
+
+type ApplyForm = {
+  name: string
+  categoryId: number
+  category: string
+  contactName: string
+  contactPhone: string
+  licenseImage: string
+  licenseNo: string
+  legalName: string
+  idCardNo: string
+  idCardFront: string
+  idCardBack: string
+  lat: number
+  lng: number
+  address: string
+  addressDetail: string
+  province: string
+  city: string
+  district: string
+  shopPhotos: string[]
+  startTime: string
+  endTime: string
+}
+
+export default {
+  data() {
+    return {
+      currentStep: 1,
+      steps: ['基本信息', '证件资料', '门店信息'] as string[],
+      categoryIndex: -1,
+      categoryOptions: [
+        '餐饮美食',
+        '鲜花蛋糕',
+        '生鲜果蔬',
+        '商超便利',
+        '医药健康',
+        '跑腿代购',
+        '洗衣维修',
+        '其他'
+      ] as string[],
+      form: {
+        name: '',
+        categoryId: 0,
+        category: '',
+        contactName: '',
+        contactPhone: '',
+        licenseImage: '',
+        licenseNo: '',
+        legalName: '',
+        idCardNo: '',
+        idCardFront: '',
+        idCardBack: '',
+        lat: 0,
+        lng: 0,
+        address: '',
+        addressDetail: '',
+        province: '',
+        city: '',
+        district: '',
+        shopPhotos: [] as string[],
+        startTime: '09:00',
+        endTime: '22:00'
+      } as ApplyForm
+    }
+  },
+  methods: {
+    onCategoryChange(e: any) {
+      const d = e.detail as UTSJSONObject
+      const idx = d.getNumber('value') ?? 0
+      this.categoryIndex = idx
+      this.form.category = this.categoryOptions[idx]
+    },
+    onStartTimeChange(e: any) {
+      const d = e.detail as UTSJSONObject
+      this.form.startTime = d.getString('value') ?? '09:00'
+    },
+    onEndTimeChange(e: any) {
+      const d = e.detail as UTSJSONObject
+      this.form.endTime = d.getString('value') ?? '22:00'
+    },
+    nextStep() {
+      if (!this.validateStep(this.currentStep)) return
+      this.currentStep++
+    },
+    prevStep() {
+      if (this.currentStep > 1) this.currentStep--
+    },
+    validateStep(step: number): boolean {
+      if (step == 1) {
+        if (this.form.name.length < 2) {
+          uni.showToast({ title: '店铺名称至少2字', icon: 'none' })
+          return false
+        }
+        if (this.form.category == '') {
+          uni.showToast({ title: '请选择经营类目', icon: 'none' })
+          return false
+        }
+        if (this.form.contactName == '') {
+          uni.showToast({ title: '请输入联系人', icon: 'none' })
+          return false
+        }
+        if (!isValidPhone(this.form.contactPhone)) {
+          uni.showToast({ title: '请输入正确的手机号', icon: 'none' })
+          return false
+        }
+      }
+      if (step == 2) {
+        if (this.form.licenseImage == '') {
+          uni.showToast({ title: '请上传营业执照', icon: 'none' })
+          return false
+        }
+        if (this.form.licenseNo == '') {
+          uni.showToast({ title: '请输入营业执照编号', icon: 'none' })
+          return false
+        }
+        if (this.form.legalName == '') {
+          uni.showToast({ title: '请输入法人姓名', icon: 'none' })
+          return false
+        }
+        if (!isValidIdCard(this.form.idCardNo)) {
+          uni.showToast({ title: '请输入正确的身份证号', icon: 'none' })
+          return false
+        }
+        if (this.form.idCardFront == '' || this.form.idCardBack == '') {
+          uni.showToast({ title: '请上传身份证正反面', icon: 'none' })
+          return false
+        }
+      }
+      return true
+    },
+    async chooseImage(count: number): Promise<string[]> {
+      return new Promise<string[]>((resolve) => {
+        uni.chooseImage({
+          count: count,
+          sizeType: ['compressed'],
+          sourceType: ['camera', 'album'],
+          success: (res) => {
+            resolve(res.tempFilePaths)
+          },
+          fail: () => resolve([] as string[])
+        })
+      })
+    },
+    async uploadLicense() {
+      const files = await this.chooseImage(1)
+      if (files.length == 0) return
+      uni.showLoading({ title: '上传中...' })
+      try {
+        const url = await uploadImage(files[0])
+        this.form.licenseImage = url
+        uni.hideLoading()
+      } catch (e) {
+        uni.hideLoading()
+        uni.showToast({ title: '上传失败', icon: 'none' })
+      }
+    },
+    async uploadIdFront() {
+      const files = await this.chooseImage(1)
+      if (files.length == 0) return
+      uni.showLoading({ title: '上传中...' })
+      try {
+        const url = await uploadImage(files[0])
+        this.form.idCardFront = url
+        uni.hideLoading()
+      } catch (e) {
+        uni.hideLoading()
+        uni.showToast({ title: '上传失败', icon: 'none' })
+      }
+    },
+    async uploadIdBack() {
+      const files = await this.chooseImage(1)
+      if (files.length == 0) return
+      uni.showLoading({ title: '上传中...' })
+      try {
+        const url = await uploadImage(files[0])
+        this.form.idCardBack = url
+        uni.hideLoading()
+      } catch (e) {
+        uni.hideLoading()
+        uni.showToast({ title: '上传失败', icon: 'none' })
+      }
+    },
+    async uploadShopPhoto() {
+      const files = await this.chooseImage(5 - this.form.shopPhotos.length)
+      if (files.length == 0) return
+      uni.showLoading({ title: '上传中...' })
+      for (let i = 0; i < files.length; i++) {
+        try {
+          const url = await uploadImage(files[i])
+          this.form.shopPhotos.push(url)
+        } catch (e) {
+          // 单张失败继续
+        }
+      }
+      uni.hideLoading()
+    },
+    removePhoto(idx: number) {
+      this.form.shopPhotos.splice(idx, 1)
+    },
+    chooseLocation() {
+      uni.chooseLocation({
+        success: (res) => {
+          this.form.lat = res.latitude
+          this.form.lng = res.longitude
+          this.form.address = res.address + (res.name != '' ? (' · ' + res.name) : '')
+          // uni.chooseLocation 不返回省市区，使用地址字符串兜底
+          this.form.province = ''
+          this.form.city = ''
+          this.form.district = ''
+        },
+        fail: () => {
+          uni.showToast({ title: '未获取到位置', icon: 'none' })
+        }
+      } as ChooseLocationOptions)
+    },
+    async submit() {
+      if (this.form.lat == 0 || this.form.lng == 0) {
+        uni.showToast({ title: '请选择门店位置', icon: 'none' })
+        return
+      }
+      if (this.form.shopPhotos.length == 0) {
+        uni.showToast({ title: '请至少上传1张门店照片', icon: 'none' })
+        return
+      }
+
+      uni.showLoading({ title: '提交中...' })
+
+      try {
+        // 1) 提交入驻申请
+        const applyResp = await submitApply({
+          name: this.form.name,
+          contactName: this.form.contactName,
+          licenseNo: this.form.licenseNo,
+          licenseImage: this.form.licenseImage,
+          idCardFront: this.form.idCardFront,
+          idCardBack: this.form.idCardBack,
+          category: this.form.category,
+        } as UTSJSONObject)
+
+        if (applyResp.code != 0) {
+          uni.hideLoading()
+          return
+        }
+
+        // 2) 创建门店（审核通过后商家端看到的）
+        const province = this.form.province != '' ? this.form.province : '待补充'
+        const city = this.form.city != '' ? this.form.city : '待补充'
+        const district = this.form.district != '' ? this.form.district : '待补充'
+        await createStore({
+          name: this.form.name,
+          phone: this.form.contactPhone,
+          province: province,
+          city: city,
+          district: district,
+          address: this.form.address + (this.form.addressDetail != '' ? (' ' + this.form.addressDetail) : ''),
+          lat: this.form.lat,
+          lng: this.form.lng,
+          logo: this.form.shopPhotos.length > 0 ? this.form.shopPhotos[0] : ''
+        } as UTSJSONObject)
+
+        uni.hideLoading()
+        uni.showToast({ title: '已提交审核', icon: 'success' })
+        setTimeout(() => {
+          uni.reLaunch({ url: '/pages/auth/review' })
+        }, 1200)
+      } catch (e) {
+        uni.hideLoading()
+        // 错误已由 request 统一 toast
+      }
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.container {
+  min-height: 100vh;
+  background-color: #f5f6f8;
+  display: flex;
+  flex-direction: column;
+}
+.step-bar {
+  background-color: #fff;
+  padding: 30rpx;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+  align-items: center;
+}
+.step-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.step-dot {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 30rpx;
+  background-color: #e5e5e5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10rpx;
+}
+.step-dot.active {
+  background-color: #FF6B00;
+}
+.step-num {
+  color: #fff;
+  font-size: 26rpx;
+  font-weight: bold;
+}
+.step-label {
+  font-size: 24rpx;
+  color: #999;
+}
+.step-label.active {
+  color: #FF6B00;
+  font-weight: bold;
+}
+.body {
+  flex: 1;
+  padding: 20rpx;
+}
+.form-section {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 20rpx 30rpx;
+}
+.form-item {
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+.form-item-row {
+  display: flex;
+  flex-direction: row;
+  padding: 20rpx 0;
+}
+.label {
+  font-size: 26rpx;
+  color: #333;
+  display: block;
+  margin-bottom: 16rpx;
+}
+.input {
+  height: 80rpx;
+  font-size: 28rpx;
+  color: #333;
+}
+.picker-view {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  height: 80rpx;
+}
+.picker-text {
+  font-size: 28rpx;
+  color: #333;
+}
+.picker-placeholder {
+  font-size: 28rpx;
+  color: #bbb;
+}
+.picker-arrow {
+  font-size: 32rpx;
+  color: #ccc;
+}
+.upload-box {
+  width: 100%;
+  height: 300rpx;
+  background-color: #fafafa;
+  border: 2rpx dashed #ddd;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.upload-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 12rpx;
+}
+.upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.upload-plus {
+  font-size: 60rpx;
+  color: #bbb;
+  margin-bottom: 10rpx;
+}
+.upload-hint {
+  font-size: 24rpx;
+  color: #999;
+}
+.id-upload {
+  flex: 1;
+  height: 220rpx;
+  margin: 0 10rpx;
+  background-color: #fafafa;
+  border: 2rpx dashed #ddd;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.id-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 12rpx;
+}
+.id-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.id-label {
+  font-size: 24rpx;
+  color: #999;
+}
+.addr-item {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  height: 80rpx;
+}
+.addr-text {
+  flex: 1;
+  font-size: 28rpx;
+  color: #333;
+}
+.addr-placeholder {
+  flex: 1;
+  font-size: 28rpx;
+  color: #bbb;
+}
+.addr-arrow {
+  font-size: 32rpx;
+  color: #ccc;
+}
+.coords {
+  display: block;
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 10rpx;
+}
+.shop-photos {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.shop-photo-box {
+  width: 180rpx;
+  height: 180rpx;
+  margin-right: 16rpx;
+  margin-bottom: 16rpx;
+  position: relative;
+}
+.shop-photo {
+  width: 100%;
+  height: 100%;
+  border-radius: 12rpx;
+}
+.photo-delete {
+  position: absolute;
+  top: -10rpx;
+  right: -10rpx;
+  width: 36rpx;
+  height: 36rpx;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 18rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.delete-x {
+  color: #fff;
+  font-size: 22rpx;
+  line-height: 1;
+}
+.shop-photo-add {
+  width: 180rpx;
+  height: 180rpx;
+  background-color: #fafafa;
+  border: 2rpx dashed #ddd;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.hours-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.time-picker {
+  padding: 16rpx 30rpx;
+  background-color: #F5F5F5;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+  color: #333;
+}
+.hours-sep {
+  margin: 0 30rpx;
+  color: #999;
+}
+.footer {
+  padding: 30rpx;
+  background-color: #fff;
+  display: flex;
+  flex-direction: row;
+  border-top: 1rpx solid #f0f0f0;
+}
+.btn-prev {
+  flex: 1;
+  margin-right: 20rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  background-color: #fff;
+  color: #666;
+  font-size: 30rpx;
+  border-radius: 44rpx;
+  border: 1rpx solid #e0e0e0;
+}
+.btn-next, .btn-submit {
+  flex: 1;
+  height: 88rpx;
+  line-height: 88rpx;
+  background-color: #FF6B00;
+  color: #fff;
+  font-size: 30rpx;
+  border-radius: 44rpx;
+}
+</style>

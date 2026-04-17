@@ -1,0 +1,99 @@
+/**
+ * 后台保活服务
+ *
+ * 设计说明：
+ *  - 安卓：通过前台 Service + 常驻通知保活；WorkManager 定时唤醒（由原生插件实现）
+ *  - iOS：已在 manifest.json 的 UIBackgroundModes 中声明 remote-notification / audio / fetch
+ *           结合 APNs 静默推送 + Background Fetch 实现准实时唤醒
+ *
+ * 工程接入方式：
+ *  - 安卓需要配套 nativeplugins/keep-alive 原生插件（HBuilderX 插件市场）
+ *    插件名约定为 'Keep-Alive'，暴露 startForegroundService / stopForegroundService 方法
+ *  - 若运行环境未提供该插件，本服务以降级方式运行（不影响前台业务）
+ *
+ * 首次启动时，按厂商引导用户打开自启动权限
+ */
+
+const GUIDE_SHOWN_KEY = 'mct_keep_alive_guide_shown'
+
+let _started: boolean = false
+
+/**
+ * 启动后台保活
+ * - 安卓：启动前台 Service，通知栏展示"商家版正在运行中"
+ * - iOS：依赖 APNs 静默推送，无需代码主动操作
+ */
+export const start = () => {
+  if (_started) return
+  _started = true
+
+  // #ifdef APP-ANDROID
+  try {
+    const plugin = uni.requireNativePlugin('Keep-Alive')
+    if (plugin != null) {
+      plugin.callMethod('startForegroundService', {
+        title: '同城O2O商家版',
+        content: '正在运行中，保证订单及时接收',
+        icon: 'notification_icon'
+      } as UTSJSONObject)
+    }
+  } catch (e) {
+    // 无插件时静默降级
+  }
+  // #endif
+}
+
+/**
+ * 停止后台保活（用户登出时调用）
+ */
+export const stop = () => {
+  if (!_started) return
+  _started = false
+
+  // #ifdef APP-ANDROID
+  try {
+    const plugin = uni.requireNativePlugin('Keep-Alive')
+    if (plugin != null) {
+      plugin.callMethod('stopForegroundService', {} as UTSJSONObject)
+    }
+  } catch (e) { }
+  // #endif
+}
+
+/**
+ * 在首次启动时引导用户授予厂商自启动权限
+ * 参考 PRD 第 4.5 节：华为/小米/OPPO/vivo/三星
+ */
+export const showAutoStartGuideIfNeeded = () => {
+  const shown = uni.getStorageSync(GUIDE_SHOWN_KEY)
+  if (shown == true) return
+
+  // #ifdef APP-ANDROID
+  uni.showModal({
+    title: '保持后台运行',
+    content: '为保证及时收到新订单推送，建议开启以下设置：\n1. 允许应用自启动\n2. 允许后台运行（电池优化白名单）\n3. 允许在锁屏和通知栏显示',
+    confirmText: '去设置',
+    cancelText: '稍后',
+    success: (res) => {
+      uni.setStorageSync(GUIDE_SHOWN_KEY, true)
+      if (res.confirm) {
+        try {
+          const plugin = uni.requireNativePlugin('Keep-Alive')
+          if (plugin != null) {
+            plugin.callMethod('openAutoStartSetting', {} as UTSJSONObject)
+          }
+        } catch (e) { }
+      }
+    }
+  } as ShowModalOptions)
+  // #endif
+
+  // #ifdef APP-IOS
+  // iOS 无需特殊引导，APNs 推送由系统调度
+  uni.setStorageSync(GUIDE_SHOWN_KEY, true)
+  // #endif
+}
+
+export const isStarted = (): boolean => {
+  return _started
+}

@@ -1,0 +1,327 @@
+<template>
+  <view class="container">
+    <OrderAlert />
+
+    <scroll-view class="tab-scroll" scroll-x="true" show-scrollbar="false">
+      <view class="tab-row">
+        <view v-for="(t, idx) in tabs" :key="idx"
+          :class="'tab-item ' + (activeTab == t.value ? 'active' : '')"
+          @click="switchTab(t.value)">
+          <text class="tab-text">{{ t.label }}</text>
+        </view>
+      </view>
+    </scroll-view>
+
+    <scroll-view class="body" scroll-y="true" :refresher-enabled="true"
+      :refresher-triggered="refreshing" @refresherrefresh="onRefresh"
+      @scrolltolower="onLoadMore">
+
+      <view v-if="loading && orderList.length == 0" class="loading">
+        <text class="loading-text">加载中...</text>
+      </view>
+
+      <view v-else-if="orderList.length == 0" class="empty">
+        <text class="empty-text">暂无订单</text>
+      </view>
+
+      <view v-else class="list-wrap">
+        <OrderCard
+          v-for="order in orderList"
+          :key="orderKey(order)"
+          :order="order"
+          :show-actions="true"
+          @click="onOrderClick"
+          @action="onOrderAction"
+        />
+
+        <view v-if="hasMore" class="load-more-text">加载中...</view>
+        <view v-else class="load-more-text">没有更多了</view>
+      </view>
+    </scroll-view>
+  </view>
+</template>
+
+<script lang="uts">
+import OrderAlert from '@/components/OrderAlert.uvue'
+import OrderCard from '@/components/OrderCard.uvue'
+import { listMerchantOrders, merchantAccept, merchantReject } from '@/api/order'
+import { printOrder, PrintOrder, PrintItem, loadPrinterConfig } from '@/services/printerService'
+import { fenToYuan, formatDateTime } from '@/utils/format'
+
+type TabItem = {
+  label: string
+  value: string
+}
+
+export default {
+  components: { OrderAlert, OrderCard },
+  data() {
+    return {
+      tabs: [
+        { label: '待接单', value: 'PENDING_MERCHANT' } as TabItem,
+        { label: '待备货', value: 'PENDING_RIDER' } as TabItem,
+        { label: '待取货', value: 'PENDING_PICKUP' } as TabItem,
+        { label: '配送中', value: 'DELIVERING' } as TabItem,
+        { label: '已完成', value: 'COMPLETED' } as TabItem,
+        { label: '售后中', value: 'AFTERSALE' } as TabItem,
+      ] as TabItem[],
+      activeTab: 'PENDING_MERCHANT' as string,
+      orderList: [] as any[],
+      page: 1,
+      pageSize: 10,
+      hasMore: true,
+      refreshing: false,
+      loading: false,
+    }
+  },
+  onLoad(options: any) {
+    // 支持从工作台跳转携带状态
+    const opts = options as UTSJSONObject
+    if (opts != null) {
+      const s = opts.getString('status') ?? ''
+      if (s != '') this.activeTab = s
+    }
+    uni.$on('setOrderTab', (e: UTSJSONObject) => {
+      const s = e.getString('status') ?? ''
+      if (s != '') this.switchTab(s)
+    })
+    this.loadList(true)
+  },
+  onShow() {
+    this.loadList(true)
+  },
+  onUnload() {
+    uni.$off('setOrderTab')
+  },
+  methods: {
+    orderKey(o: any): number {
+      return (o as UTSJSONObject).getNumber('id') ?? 0
+    },
+    switchTab(value: string) {
+      if (this.activeTab == value) return
+      this.activeTab = value
+      this.loadList(true)
+    },
+    async loadList(reset: boolean = false) {
+      if (reset) {
+        this.page = 1
+        this.hasMore = true
+        this.orderList = []
+      }
+      if (!this.hasMore) return
+      this.loading = true
+      try {
+        const resp = await listMerchantOrders({
+          status: this.activeTab,
+          page: this.page,
+          pageSize: this.pageSize
+        } as UTSJSONObject)
+        if (resp.code == 0 && resp.data != null) {
+          const data = resp.data as UTSJSONObject
+          const list = (data['list'] as any[]) ?? []
+          if (reset) {
+            this.orderList = list
+          } else {
+            for (let i = 0; i < list.length; i++) this.orderList.push(list[i])
+          }
+          const pagination = data['pagination'] as UTSJSONObject
+          if (pagination != null) {
+            const total = pagination.getNumber('total') ?? 0
+            this.hasMore = this.orderList.length < total
+          } else {
+            this.hasMore = false
+          }
+          this.page++
+        }
+      } catch (e) {
+        // 静默
+      } finally {
+        this.loading = false
+      }
+    },
+    async onRefresh() {
+      this.refreshing = true
+      await this.loadList(true)
+      this.refreshing = false
+    },
+    onLoadMore() {
+      if (this.hasMore && !this.loading) {
+        this.loadList(false)
+      }
+    },
+    onOrderClick(order: any) {
+      const o = order as UTSJSONObject
+      const id = o.getNumber('id') ?? 0
+      uni.navigateTo({ url: `/pages/order/detail?id=${id}` })
+    },
+    async onOrderAction(e: any) {
+      const ev = e as UTSJSONObject
+      const key = ev.getString('key') ?? ''
+      const order = ev['order'] as UTSJSONObject
+      const orderId = order.getNumber('id') ?? 0
+      if (key == 'accept') {
+        this.handleAccept(orderId, order)
+      } else if (key == 'reject') {
+        this.handleReject(orderId)
+      } else if (key == 'print') {
+        this.handlePrint(order)
+      }
+    },
+    handleAccept(orderId: number, order: UTSJSONObject) {
+      const self = this
+      uni.showModal({
+        title: '确认接单',
+        content: '确认接受此订单？',
+        success: async (res) => {
+          if (!res.confirm) return
+          uni.showLoading({ title: '接单中...' })
+          try {
+            const resp = await merchantAccept(orderId)
+            uni.hideLoading()
+            if (resp.code == 0) {
+              uni.showToast({ title: '接单成功', icon: 'success' })
+              self.loadList(true)
+              // 如果配置了自动打印，则打印小票
+              const cfg = loadPrinterConfig()
+              const autoPrint = uni.getStorageSync('mct_auto_print')
+              if (cfg != null && autoPrint == true) {
+                self.handlePrint(order)
+              }
+            }
+          } catch (e) {
+            uni.hideLoading()
+          }
+        }
+      } as ShowModalOptions)
+    },
+    handleReject(orderId: number) {
+      const self = this
+      uni.showActionSheet({
+        itemList: ['门店已关闭', '商品已售罄', '配送范围外', '其他原因'],
+        success: async (res) => {
+          const reasons = ['门店已关闭', '商品已售罄', '配送范围外', '其他原因']
+          const reason = reasons[res.tapIndex]
+          uni.showModal({
+            title: '确认拒单',
+            content: `原因：${reason}，确定拒单？`,
+            success: async (r) => {
+              if (!r.confirm) return
+              try {
+                const resp = await merchantReject(orderId, reason)
+                if (resp.code == 0) {
+                  uni.showToast({ title: '已拒单', icon: 'success' })
+                  self.loadList(true)
+                }
+              } catch (e) { }
+            }
+          } as ShowModalOptions)
+        }
+      } as ShowActionSheetOptions)
+    },
+    async handlePrint(order: UTSJSONObject) {
+      const cfg = loadPrinterConfig()
+      if (cfg == null) {
+        uni.showToast({ title: '请先配置打印机', icon: 'none' })
+        return
+      }
+      uni.showLoading({ title: '打印中...' })
+      try {
+        const items: PrintItem[] = []
+        const rawItems = (order['items'] as any[]) ?? []
+        for (let i = 0; i < rawItems.length; i++) {
+          const it = rawItems[i] as UTSJSONObject
+          items.push({
+            name: it.getString('productName') ?? '',
+            quantity: it.getNumber('quantity') ?? 1,
+            price: it.getNumber('price') ?? 0,
+            specText: it.getString('skuText') ?? ''
+          } as PrintItem)
+        }
+        const user = (order['user'] as UTSJSONObject) ?? {} as UTSJSONObject
+        const printData: PrintOrder = {
+          shopName: order.getString('storeName') ?? '',
+          orderNo: order.getString('orderNo') ?? '',
+          orderTime: formatDateTime(order['createdAt']),
+          items: items,
+          totalAmount: order.getNumber('totalAmount') ?? 0,
+          packingFee: order.getNumber('packingFee') ?? 0,
+          deliveryFee: order.getNumber('deliveryFee') ?? 0,
+          payAmount: order.getNumber('paidAmount') ?? order.getNumber('totalAmount') ?? 0,
+          remark: order.getString('remark') ?? '',
+          userName: user.getString('contactName') ?? '',
+          userPhone: user.getString('contactPhone') ?? '',
+          userAddress: user.getString('address') ?? ''
+        }
+        const ok = await printOrder(printData)
+        uni.hideLoading()
+        uni.showToast({ title: ok ? '已发送到打印机' : '打印失败', icon: ok ? 'success' : 'none' })
+      } catch (e) {
+        uni.hideLoading()
+        uni.showToast({ title: '打印异常', icon: 'none' })
+      }
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.container {
+  min-height: 100vh;
+  background-color: #f5f6f8;
+  display: flex;
+  flex-direction: column;
+}
+.tab-scroll {
+  background-color: #fff;
+  white-space: nowrap;
+}
+.tab-row {
+  display: flex;
+  flex-direction: row;
+  padding: 0 10rpx;
+}
+.tab-item {
+  padding: 24rpx 30rpx;
+  position: relative;
+}
+.tab-text {
+  font-size: 28rpx;
+  color: #666;
+}
+.tab-item.active .tab-text {
+  color: #FF6B00;
+  font-weight: bold;
+}
+.tab-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40rpx;
+  height: 4rpx;
+  background-color: #FF6B00;
+  border-radius: 2rpx;
+}
+.body {
+  flex: 1;
+  padding: 20rpx;
+}
+.loading, .empty {
+  padding: 120rpx 0;
+  text-align: center;
+}
+.loading-text, .empty-text {
+  font-size: 28rpx;
+  color: #bbb;
+}
+.list-wrap {
+  padding-bottom: 40rpx;
+}
+.load-more-text {
+  text-align: center;
+  font-size: 24rpx;
+  color: #bbb;
+  padding: 20rpx;
+}
+</style>

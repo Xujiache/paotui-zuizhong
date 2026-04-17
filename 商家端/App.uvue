@@ -1,41 +1,82 @@
 <script lang="uts">
 let firstBackTime = 0;
-import {LoadFontCommon, LoadFontForWX} from "@/uni_modules/unix-ui/fonts/loadFont.uts"
-export default {
-	onLaunch: function () {
-		console.log('App Launch')
-		// 加载字体
-		// 说明 : 鸿蒙在onLaunch内加载字体会报错 page not ready
-		// 所以，在 index.uvue 中加载字体（全局）
-		// #ifndef MP-WEIXIN 
-		// #ifndef APP-HARMONY
-		LoadFontCommon()
-		// #endif
-		// #endif
-		// #ifdef MP-WEIXIN
-		LoadFontForWX()
-		// #endif
-		// 加载字体
-	},
-	onShow: function () {},
-	onHide: function () {},
-	onLastPageBackPress: function () {
-		if (firstBackTime == 0) {
-			uni.showToast({
-			  title: '再按一次退出应用',
-			  position: 'bottom',
-			})
-			firstBackTime = Date.now();
-			setTimeout(() => {
-			  firstBackTime = 0
-			}, 2000);
-		} else if (Date.now() - firstBackTime < 2000) {
-			firstBackTime = Date.now();
-			uni.exit();
-		}
+import { LoadFontCommon, LoadFontForWX } from "@/uni_modules/unix-ui/fonts/loadFont.uts"
+import { initMerchant, merchantState } from '@/stores/user'
+import { loadVoiceSetting } from '@/stores/orderAlert'
+import { init as initVoice } from '@/services/voiceService'
+import { init as initOffline } from '@/services/offlineService'
+import { startPolling, stopPolling } from '@/services/pushService'
+import { init as initJPush } from '@/services/jpushService'
+import { start as startKeepAlive, showAutoStartGuideIfNeeded } from '@/services/keepAliveService'
 
-	},
-	onExit() {},
+export default {
+  onLaunch: function () {
+    console.log('商家端 App Launch')
+    // 加载字体
+    // #ifndef MP-WEIXIN 
+    // #ifndef APP-HARMONY
+    LoadFontCommon()
+    // #endif
+    // #endif
+    // #ifdef MP-WEIXIN
+    LoadFontForWX()
+    // #endif
+
+    // 初始化状态
+    initMerchant()
+    loadVoiceSetting()
+    initVoice()
+    initOffline()
+
+    // 未登录时跳转登录页
+    if (!merchantState.isLogin) {
+      uni.reLaunch({ url: '/pages/auth/login' })
+      return
+    }
+
+    // 根据审核状态决定跳转
+    const info = merchantState.merchantInfo
+    if (info != null) {
+      if (info.auditStatus == 'APPROVED') {
+        uni.switchTab({ url: '/pages/workbench/index' })
+        // 审核通过后开启所有服务：极光推送+后台保活+前台轮询
+        initJPush()
+        startKeepAlive()
+        startPolling(15000)
+        showAutoStartGuideIfNeeded()
+      } else if (info.auditStatus == 'PENDING' || info.auditStatus == 'REJECTED') {
+        uni.reLaunch({ url: '/pages/auth/review' })
+      } else {
+        uni.reLaunch({ url: '/pages/auth/apply' })
+      }
+    }
+  },
+  onShow: function () {
+    if (merchantState.isLogin) {
+      // APP 从后台回到前台：恢复轮询
+      startPolling(15000)
+    }
+  },
+  onHide: function () {
+    // APP 进入后台：停止轮询，依赖 APNs/极光推送通道收消息
+    stopPolling()
+  },
+  onLastPageBackPress: function () {
+    if (firstBackTime == 0) {
+      uni.showToast({
+        title: '再按一次退出应用',
+        position: 'bottom',
+      })
+      firstBackTime = Date.now();
+      setTimeout(() => {
+        firstBackTime = 0
+      }, 2000);
+    } else if (Date.now() - firstBackTime < 2000) {
+      firstBackTime = Date.now();
+      uni.exit();
+    }
+  },
+  onExit() { },
 }
 </script>
 <style lang="scss">

@@ -1,0 +1,388 @@
+<template>
+  <view class="container">
+    <scroll-view class="tab-scroll" scroll-x="true" show-scrollbar="false">
+      <view class="tab-row">
+        <view v-for="t in tabs" :key="t.key"
+          :class="'tab-item ' + (activeType == t.key ? 'active' : '')"
+          @click="switchType(t.key)">
+          <text class="tab-text">{{ t.label }}</text>
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="header">
+      <text class="all-read-btn" @click="markAll">全部已读</text>
+    </view>
+
+    <scroll-view class="body" scroll-y="true" :refresher-enabled="true"
+      :refresher-triggered="refreshing" @refresherrefresh="onRefresh"
+      @scrolltolower="onLoadMore">
+
+      <view v-if="loading && list.length == 0" class="loading">
+        <text class="loading-text">加载中...</text>
+      </view>
+
+      <view v-else-if="list.length == 0" class="empty">
+        <text class="empty-text">暂无消息</text>
+      </view>
+
+      <view v-else>
+        <view v-for="item in list" :key="getId(item)" class="msg-item"
+          @click="onMsgClick(item)">
+          <view :class="'msg-icon ' + typeClass(getString(item, 'type'))">
+            <text class="icon-emoji">{{ typeIcon(getString(item, 'type')) }}</text>
+            <view v-if="!isRead(item)" class="unread-dot"></view>
+          </view>
+          <view class="msg-info">
+            <view class="msg-header">
+              <text class="msg-title">{{ getString(item, 'title') }}</text>
+              <text class="msg-time">{{ timeText(item) }}</text>
+            </view>
+            <text class="msg-content">{{ contentOf(item) }}</text>
+          </view>
+          <view class="msg-delete" @click.stop="onDelete(item)">
+            <text class="del-x">×</text>
+          </view>
+        </view>
+
+        <view class="load-more">
+          <text v-if="hasMore" class="load-text">上拉加载更多</text>
+          <text v-else class="load-text">没有更多了</text>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+</template>
+
+<script lang="uts">
+import { listMessages, markRead, markAllRead, deleteMessage } from '@/api/message'
+import { relativeTime } from '@/utils/format'
+
+type TabItem = {
+  key: string
+  label: string
+}
+
+export default {
+  data() {
+    return {
+      activeType: '' as string,
+      tabs: [
+        { key: '', label: '全部' } as TabItem,
+        { key: 'ORDER', label: '订单' } as TabItem,
+        { key: 'AFTERSALE', label: '售后' } as TabItem,
+        { key: 'SYSTEM', label: '系统' } as TabItem,
+        { key: 'ANNOUNCEMENT', label: '公告' } as TabItem,
+      ] as TabItem[],
+      list: [] as any[],
+      page: 1,
+      pageSize: 15,
+      hasMore: true,
+      refreshing: false,
+      loading: false
+    }
+  },
+  onLoad() {
+    this.loadList(true)
+  },
+  onShow() {
+    this.loadList(true)
+  },
+  methods: {
+    getId(item: any): number {
+      return (item as UTSJSONObject).getNumber('id') ?? 0
+    },
+    getString(item: any, key: string): string {
+      return (item as UTSJSONObject).getString(key) ?? ''
+    },
+    typeIcon(t: string): string {
+      if (t == 'ORDER') return '📦'
+      if (t == 'AFTERSALE') return '↩️'
+      if (t == 'ANNOUNCEMENT') return '📣'
+      if (t == 'PAYMENT') return '💰'
+      return '🔔'
+    },
+    typeClass(t: string): string {
+      if (t == 'ORDER') return 'orange'
+      if (t == 'AFTERSALE') return 'red'
+      if (t == 'ANNOUNCEMENT') return 'blue'
+      if (t == 'PAYMENT') return 'green'
+      return 'grey'
+    },
+    isRead(m: any): boolean {
+      const o = m as UTSJSONObject
+      const isRead = o['isRead']
+      if (typeof isRead == 'boolean') return isRead as boolean
+      const r = o.getNumber('isRead')
+      return r != null && r == 1
+    },
+    timeText(item: any): string {
+      const m = item as UTSJSONObject
+      return relativeTime(m['createdAt'])
+    },
+    contentOf(item: any): string {
+      const m = item as UTSJSONObject
+      const c = m.getString('content') ?? ''
+      if (c.length > 80) return c.substring(0, 80) + '...'
+      return c
+    },
+    switchType(t: string) {
+      if (this.activeType == t) return
+      this.activeType = t
+      this.loadList(true)
+    },
+    async loadList(reset: boolean = false) {
+      if (reset) {
+        this.page = 1
+        this.hasMore = true
+        this.list = []
+      }
+      if (!this.hasMore) return
+      this.loading = true
+      try {
+        const params: UTSJSONObject = {
+          page: this.page,
+          pageSize: this.pageSize
+        }
+        if (this.activeType != '') params['type'] = this.activeType
+        const resp = await listMessages(params)
+        if (resp.code == 0 && resp.data != null) {
+          const d = resp.data as UTSJSONObject
+          const list = (d['list'] as any[]) ?? []
+          if (reset) {
+            this.list = list
+          } else {
+            for (let i = 0; i < list.length; i++) this.list.push(list[i])
+          }
+          const pagination = d['pagination'] as UTSJSONObject
+          if (pagination != null) {
+            const total = pagination.getNumber('total') ?? 0
+            this.hasMore = this.list.length < total
+          } else {
+            this.hasMore = false
+          }
+          this.page++
+        }
+      } catch (e) { }
+      finally {
+        this.loading = false
+      }
+    },
+    onRefresh() {
+      this.refreshing = true
+      this.loadList(true)
+      this.refreshing = false
+    },
+    onLoadMore() {
+      if (this.hasMore) this.loadList(false)
+    },
+    async onMsgClick(item: any) {
+      const m = item as UTSJSONObject
+      const id = m.getNumber('id') ?? 0
+      if (!this.isRead(item)) {
+        try {
+          await markRead(id)
+          m['isRead'] = true
+        } catch (e) { }
+      }
+      const t = m.getString('type') ?? ''
+      const extra = m['extra'] as UTSJSONObject | null
+      if (t == 'ORDER' && extra != null) {
+        const orderId = extra!.getNumber('orderId')
+        if (orderId != null && orderId > 0) {
+          uni.navigateTo({ url: `/pages/order/detail?id=${orderId}` })
+          return
+        }
+      }
+      if (t == 'AFTERSALE') {
+        uni.navigateTo({ url: '/pages/order/aftersale' })
+        return
+      }
+    },
+    async onDelete(item: any) {
+      const self = this
+      const m = item as UTSJSONObject
+      const id = m.getNumber('id') ?? 0
+      uni.showModal({
+        title: '提示',
+        content: '确定删除该消息？',
+        success: async (res) => {
+          if (!res.confirm) return
+          try {
+            const resp = await deleteMessage(id)
+            if (resp.code == 0) {
+              self.loadList(true)
+            }
+          } catch (e) { }
+        }
+      } as ShowModalOptions)
+    },
+    async markAll() {
+      const self = this
+      uni.showModal({
+        title: '提示',
+        content: '全部标记为已读？',
+        success: async (res) => {
+          if (!res.confirm) return
+          try {
+            const resp = await markAllRead()
+            if (resp.code == 0) {
+              uni.showToast({ title: '已全部标记', icon: 'success' })
+              self.loadList(true)
+            }
+          } catch (e) { }
+        }
+      } as ShowModalOptions)
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.container {
+  min-height: 100vh;
+  background-color: #f5f6f8;
+  display: flex;
+  flex-direction: column;
+}
+.tab-scroll {
+  background-color: #fff;
+  white-space: nowrap;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+.tab-row {
+  display: flex;
+  flex-direction: row;
+  padding: 0 10rpx;
+}
+.tab-item {
+  padding: 24rpx 30rpx;
+  position: relative;
+}
+.tab-text {
+  font-size: 26rpx;
+  color: #666;
+}
+.tab-item.active .tab-text {
+  color: #FF6B00;
+  font-weight: bold;
+}
+.tab-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40rpx;
+  height: 4rpx;
+  background-color: #FF6B00;
+  border-radius: 2rpx;
+}
+.header {
+  background-color: #fff;
+  padding: 16rpx 30rpx;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+.all-read-btn {
+  font-size: 24rpx;
+  color: #1677FF;
+  padding: 6rpx 20rpx;
+}
+.body {
+  flex: 1;
+  padding: 20rpx;
+}
+.loading, .empty {
+  padding: 120rpx 0;
+  text-align: center;
+}
+.loading-text, .empty-text {
+  font-size: 28rpx;
+  color: #bbb;
+}
+.msg-item {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+  display: flex;
+  flex-direction: row;
+}
+.msg-icon {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 20rpx;
+  position: relative;
+}
+.msg-icon.orange { background-color: #FFF5EC; }
+.msg-icon.red { background-color: #FFF1F0; }
+.msg-icon.blue { background-color: #E6F7FF; }
+.msg-icon.green { background-color: #F6FFED; }
+.msg-icon.grey { background-color: #F5F5F5; }
+.icon-emoji {
+  font-size: 36rpx;
+}
+.unread-dot {
+  position: absolute;
+  top: 4rpx;
+  right: 4rpx;
+  width: 16rpx;
+  height: 16rpx;
+  background-color: #F5222D;
+  border-radius: 8rpx;
+}
+.msg-info {
+  flex: 1;
+}
+.msg-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+.msg-title {
+  flex: 1;
+  font-size: 28rpx;
+  color: #333;
+  font-weight: 500;
+}
+.msg-time {
+  font-size: 22rpx;
+  color: #999;
+  margin-left: 16rpx;
+}
+.msg-content {
+  font-size: 24rpx;
+  color: #666;
+  line-height: 1.6;
+}
+.msg-delete {
+  width: 40rpx;
+  height: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 10rpx;
+}
+.del-x {
+  font-size: 36rpx;
+  color: #ccc;
+  line-height: 1;
+}
+.load-more {
+  padding: 30rpx;
+  text-align: center;
+}
+.load-text {
+  font-size: 22rpx;
+  color: #bbb;
+}
+</style>

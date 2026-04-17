@@ -1,64 +1,89 @@
 {
-	"name": "同城O2O配送-商家端",
-	"appid": "",
-	"description": "",
-	"versionName": "1.1.0",
-	"versionCode": 2003110,
-	"uni-app-x": {
-		"singleThread": true
-	},
-	/* 小程序特有相关 */
-	"mp-weixin": {
-		"appid": "",
-		"setting": {
-			"urlCheck": false
-		},
-		"usingComponents": true
-	},
-	"mp-alipay": {
-		"usingComponents": true
-	},
-	"mp-baidu": {
-		"usingComponents": true
-	},
-	"mp-toutiao": {
-		"usingComponents": true
-	},
-	"uniStatistics": {
-		"enable": false
-	},
-	"vueVersion": "3",
-	"app": {
-		"distribute": {
-			"icons": {
-				"android": {
-					"hdpi": "unpackage/res/icons/72x72.png",
-					"xhdpi": "unpackage/res/icons/96x96.png",
-					"xxhdpi": "unpackage/res/icons/144x144.png",
-					"xxxhdpi": "unpackage/res/icons/192x192.png"
-				}
-			}
-		}
-	},
-	"app-android": {
-		"distribute": {
-			"modules": {},
-			"icons": {
-				"hdpi": "unpackage/res/icons/72x72.png",
-				"xhdpi": "unpackage/res/icons/96x96.png",
-				"xxhdpi": "unpackage/res/icons/144x144.png",
-				"xxxhdpi": "unpackage/res/icons/192x192.png"
-			},
-			"splashScreens": {
-				"default": {}
-			}
-		}
-	},
-	"app-ios": {
-		"distribute": {
-			"modules": {},
-			"icons": {},
-			"splashScreens": {}
-		}
-	}
+  "name": "同城O2O配送-商家端",
+  "appid": "",
+  "description": "同城O2O商家工作台，支持接单、商品管理、蓝牙打印、语音播报、离线推送",
+  "versionName": "1.2.0",
+  "versionCode": 2003120,
+  "uni-app-x": {
+    "singleThread": true
+  },
+  "mp-weixin": {
+    "appid": "",
+    "setting": {
+      "urlCheck": false
+    },
+    "usingComponents": true
+  },
+  "uniStatistics": {
+    "enable": false
+  },
+  "vueVersion": "3",
+  "app": {
+    "distribute": {
+      "icons": {
+        "android": {
+          "hdpi": "unpackage/res/icons/72x72.png",
+          "xhdpi": "unpackage/res/icons/96x96.png",
+          "xxhdpi": "unpackage/res/icons/144x144.png",
+          "xxxhdpi": "unpackage/res/icons/192x192.png"
+        }
+      }
+    }
+  },
+  "app-android": {
+    "distribute": {
+      "modules": {},
+      "icons": {
+        "hdpi": "unpackage/res/icons/72x72.png",
+        "xhdpi": "unpackage/res/icons/96x96.png",
+        "xxhdpi": "unpackage/res/icons/144x144.png",
+        "xxxhdpi": "unpackage/res/icons/192x192.png"
+      },
+      "splashScreens": {
+        "default": {}
+      },
+      "permissions": [
+        "<uses-permission android:name=\"android.permission.INTERNET\"/>",
+        "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
+        "<uses-permission android:name=\"android.permission.ACCESS_WIFI_STATE\"/>",
+        "<uses-permission android:name=\"android.permission.CAMERA\"/>",
+        "<uses-permission android:name=\"android.permission.CALL_PHONE\"/>",
+        "<uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\"/>",
+        "<uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\"/>",
+        "<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>",
+        "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>",
+        "<uses-permission android:name=\"android.permission.VIBRATE\"/>",
+        "<uses-permission android:name=\"android.permission.MODIFY_AUDIO_SETTINGS\"/>",
+        "<uses-permission android:name=\"android.permission.BLUETOOTH\"/>",
+        "<uses-permission android:name=\"android.permission.BLUETOOTH_ADMIN\"/>",
+        "<uses-permission android:name=\"android.permission.BLUETOOTH_SCAN\"/>",
+        "<uses-permission android:name=\"android.permission.BLUETOOTH_CONNECT\"/>",
+        "<uses-permission android:name=\"android.permission.BLUETOOTH_ADVERTISE\"/>",
+        "<uses-permission android:name=\"android.permission.RECEIVE_BOOT_COMPLETED\"/>",
+        "<uses-permission android:name=\"android.permission.FOREGROUND_SERVICE\"/>",
+        "<uses-permission android:name=\"android.permission.WAKE_LOCK\"/>",
+        "<uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\"/>"
+      ]
+    }
+  },
+  "app-ios": {
+    "distribute": {
+      "modules": {},
+      "icons": {},
+      "splashScreens": {},
+      "privacyDescription": {
+        "NSBluetoothAlwaysUsageDescription": "用于连接蓝牙打印机打印订单小票",
+        "NSBluetoothPeripheralUsageDescription": "用于连接蓝牙打印机打印订单小票",
+        "NSCameraUsageDescription": "用于拍摄商品图片、证件和店铺照片",
+        "NSPhotoLibraryUsageDescription": "用于从相册选择商品图片",
+        "NSLocationWhenInUseUsageDescription": "用于选取门店位置和地址",
+        "NSMicrophoneUsageDescription": "用于语音播报订单提醒"
+      },
+      "capabilities": {
+        "entitlements": {
+          "UIBackgroundModes": ["remote-notification", "audio", "fetch"]
+        }
+      }
+    }
+  }
 }

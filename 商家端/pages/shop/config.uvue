@@ -1,0 +1,289 @@
+<template>
+  <view class="container">
+    <scroll-view class="body" scroll-y="true">
+      <view v-if="loading" class="loading">
+        <text class="loading-text">加载中...</text>
+      </view>
+
+      <view v-else>
+        <view class="card">
+          <text class="card-title">营业时段</text>
+          <view v-for="(slot, idx) in hoursList" :key="idx" class="slot-row">
+            <picker mode="time" :value="slot.start" :data-idx="idx" data-field="start" @change="onHourChange">
+              <view class="time-view">{{ slot.start }}</view>
+            </picker>
+            <text class="sep">-</text>
+            <picker mode="time" :value="slot.end" :data-idx="idx" data-field="end" @change="onHourChange">
+              <view class="time-view">{{ slot.end }}</view>
+            </picker>
+            <text v-if="hoursList.length > 1" class="del-btn" @click="removeSlot(idx)">删除</text>
+          </view>
+          <button v-if="hoursList.length < 3" class="add-slot-btn" @click="addSlot">
+            + 增加营业时段
+          </button>
+          <button class="btn-save-sub" @click="saveHours">保存营业时间</button>
+        </view>
+
+        <view class="card">
+          <text class="card-title">配送配置</text>
+          <view class="cfg-row">
+            <text class="cfg-label">起送价（元）</text>
+            <input class="cfg-input" type="digit" placeholder="如：10" v-model="deliveryForm.minOrderStr" />
+          </view>
+          <view class="cfg-row">
+            <text class="cfg-label">基础配送费（元）</text>
+            <input class="cfg-input" type="digit" placeholder="如：3" v-model="deliveryForm.deliveryFeeStr" />
+          </view>
+          <view class="cfg-row">
+            <text class="cfg-label">打包费（元）</text>
+            <input class="cfg-input" type="digit" placeholder="如：1" v-model="deliveryForm.packingFeeStr" />
+          </view>
+          <view class="cfg-row">
+            <text class="cfg-label">配送半径（米）</text>
+            <input class="cfg-input" type="number" placeholder="500-20000" v-model="deliveryForm.deliveryRangeStr" />
+          </view>
+          <view class="cfg-row">
+            <text class="cfg-label">配送时间（分钟）</text>
+            <input class="cfg-input" type="number" placeholder="如：30" v-model="deliveryForm.deliveryTimeStr" />
+          </view>
+          <button class="btn-save-sub" @click="saveDelivery">保存配送配置</button>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+</template>
+
+<script lang="uts">
+import { getStoreDetail, updateBusinessHours, updateDeliveryConfig } from '@/api/merchant'
+import { fenToYuan, yuanToFen } from '@/utils/format'
+import { getCurrentStoreId } from '@/stores/user'
+
+type HourSlot = {
+  start: string
+  end: string
+}
+
+type DeliveryForm = {
+  minOrderStr: string
+  deliveryFeeStr: string
+  packingFeeStr: string
+  deliveryRangeStr: string
+  deliveryTimeStr: string
+}
+
+export default {
+  data() {
+    return {
+      storeId: 0 as number,
+      loading: true,
+      hoursList: [] as HourSlot[],
+      deliveryForm: {
+        minOrderStr: '',
+        deliveryFeeStr: '',
+        packingFeeStr: '',
+        deliveryRangeStr: '',
+        deliveryTimeStr: ''
+      } as DeliveryForm
+    }
+  },
+  onLoad() {
+    this.storeId = getCurrentStoreId()
+    if (this.storeId == 0) {
+      uni.showToast({ title: '请先创建门店', icon: 'none' })
+      return
+    }
+    this.load()
+  },
+  methods: {
+    async load() {
+      this.loading = true
+      try {
+        const resp = await getStoreDetail(this.storeId)
+        if (resp.code == 0 && resp.data != null) {
+          const d = resp.data as UTSJSONObject
+          const hours = d['businessHours'] as any[] | null
+          if (hours != null && hours!.length > 0) {
+            const arr: HourSlot[] = []
+            for (let i = 0; i < hours!.length; i++) {
+              const h = hours![i] as UTSJSONObject
+              arr.push({
+                start: h.getString('start') ?? '09:00',
+                end: h.getString('end') ?? '22:00'
+              } as HourSlot)
+            }
+            this.hoursList = arr
+          } else {
+            this.hoursList = [{ start: '09:00', end: '22:00' } as HourSlot]
+          }
+          this.deliveryForm.minOrderStr = fenToYuan(d.getNumber('minOrderAmount') ?? 0)
+          this.deliveryForm.deliveryFeeStr = fenToYuan(d.getNumber('deliveryFee') ?? 0)
+          this.deliveryForm.packingFeeStr = fenToYuan(d.getNumber('packingFee') ?? 0)
+          this.deliveryForm.deliveryRangeStr = '' + (d.getNumber('deliveryRange') ?? 3000)
+          this.deliveryForm.deliveryTimeStr = '' + (d.getNumber('deliveryTime') ?? 30)
+        }
+      } catch (e) { }
+      finally {
+        this.loading = false
+      }
+    },
+    onHourChange(e: any) {
+      const target = e.currentTarget as UTSJSONObject
+      const dataset = target['dataset'] as UTSJSONObject | null
+      if (dataset == null) return
+      const idx = dataset.getNumber('idx') ?? 0
+      const field = dataset.getString('field') ?? ''
+      const detail = e.detail as UTSJSONObject
+      const v = detail.getString('value') ?? ''
+      if (field == 'start') {
+        this.hoursList[idx].start = v
+      } else {
+        this.hoursList[idx].end = v
+      }
+    },
+    addSlot() {
+      this.hoursList.push({ start: '09:00', end: '22:00' } as HourSlot)
+    },
+    removeSlot(idx: number) {
+      this.hoursList.splice(idx, 1)
+    },
+    async saveHours() {
+      const body: any[] = []
+      for (let i = 0; i < this.hoursList.length; i++) {
+        body.push({
+          start: this.hoursList[i].start,
+          end: this.hoursList[i].end
+        } as UTSJSONObject)
+      }
+      uni.showLoading({ title: '保存中...' })
+      try {
+        const resp = await updateBusinessHours(this.storeId, body)
+        uni.hideLoading()
+        if (resp.code == 0) {
+          uni.showToast({ title: '已保存', icon: 'success' })
+        }
+      } catch (e) {
+        uni.hideLoading()
+      }
+    },
+    async saveDelivery() {
+      const body: UTSJSONObject = {}
+      const mo = parseFloat(this.deliveryForm.minOrderStr)
+      if (!isNaN(mo) && mo >= 0) body['minOrderAmount'] = yuanToFen(mo) / 100
+      const df = parseFloat(this.deliveryForm.deliveryFeeStr)
+      if (!isNaN(df) && df >= 0) body['deliveryFee'] = yuanToFen(df) / 100
+      const pf = parseFloat(this.deliveryForm.packingFeeStr)
+      if (!isNaN(pf) && pf >= 0) body['packingFee'] = yuanToFen(pf) / 100
+      const dr = parseInt(this.deliveryForm.deliveryRangeStr)
+      if (!isNaN(dr) && dr >= 500 && dr <= 20000) body['deliveryRange'] = dr
+      const dt = parseInt(this.deliveryForm.deliveryTimeStr)
+      if (!isNaN(dt) && dt > 0) body['deliveryTime'] = dt
+
+      uni.showLoading({ title: '保存中...' })
+      try {
+        const resp = await updateDeliveryConfig(this.storeId, body)
+        uni.hideLoading()
+        if (resp.code == 0) {
+          uni.showToast({ title: '已保存', icon: 'success' })
+        }
+      } catch (e) {
+        uni.hideLoading()
+      }
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.container {
+  min-height: 100vh;
+  background-color: #f5f6f8;
+}
+.body {
+  padding: 20rpx;
+}
+.loading {
+  padding: 120rpx 0;
+  text-align: center;
+}
+.loading-text {
+  font-size: 28rpx;
+  color: #bbb;
+}
+.card {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx 30rpx;
+  margin-bottom: 20rpx;
+}
+.card-title {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 20rpx;
+  display: block;
+}
+.slot-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+.time-view {
+  padding: 12rpx 30rpx;
+  background-color: #F5F5F5;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+  color: #333;
+}
+.sep {
+  margin: 0 20rpx;
+  color: #999;
+}
+.del-btn {
+  margin-left: 20rpx;
+  font-size: 24rpx;
+  color: #F5222D;
+}
+.add-slot-btn {
+  margin-top: 20rpx;
+  height: 68rpx;
+  line-height: 68rpx;
+  background-color: #fff;
+  color: #FF6B00;
+  border: 1rpx dashed #FF6B00;
+  border-radius: 34rpx;
+  font-size: 26rpx;
+}
+.btn-save-sub {
+  margin-top: 20rpx;
+  height: 80rpx;
+  line-height: 80rpx;
+  background-color: #FF6B00;
+  color: #fff;
+  border-radius: 40rpx;
+  font-size: 28rpx;
+}
+.cfg-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+.cfg-row:last-child {
+  border-bottom: none;
+}
+.cfg-label {
+  width: 220rpx;
+  font-size: 26rpx;
+  color: #666;
+}
+.cfg-input {
+  flex: 1;
+  height: 60rpx;
+  font-size: 28rpx;
+  color: #333;
+  text-align: right;
+}
+</style>

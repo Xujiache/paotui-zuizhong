@@ -1,42 +1,110 @@
-import { getToken, setToken, clearToken } from '@/api/request'
+/**
+ * 商家用户状态管理
+ * 基于 reactive 的轻量 store
+ */
+import { setToken, clearToken } from '@/api/request'
+import { STORAGE_KEYS, setStorage, getObject, removeStorage } from '@/utils/storage'
 
 export type MerchantInfo = {
   id: number
   name: string
-  phone: string
-  storeName: string
+  contactName: string
+  contactPhone: string
+  status: string
+  auditStatus: string
+  balance: number
 }
 
 export type MerchantState = {
   token: string
+  refreshToken: string
   merchantInfo: MerchantInfo | null
   isLogin: boolean
+  currentStoreId: number
 }
 
 export const merchantState = reactive({
   token: '',
+  refreshToken: '',
   merchantInfo: null,
-  isLogin: false
+  isLogin: false,
+  currentStoreId: 0,
 } as MerchantState)
 
+/**
+ * APP启动时从本地读取状态
+ */
 export const initMerchant = () => {
-  const t = getToken()
-  if (t != '') {
-    merchantState.token = t
+  const token = uni.getStorageSync(STORAGE_KEYS.TOKEN) as string | null
+  const refreshToken = uni.getStorageSync(STORAGE_KEYS.REFRESH_TOKEN) as string | null
+  if (token != null && token != '') {
+    merchantState.token = token
     merchantState.isLogin = true
+  }
+  if (refreshToken != null && refreshToken != '') {
+    merchantState.refreshToken = refreshToken
+  }
+  const info = getObject(STORAGE_KEYS.MERCHANT_INFO)
+  if (info != null) {
+    merchantState.merchantInfo = info as MerchantInfo
+  }
+  const storeId = uni.getStorageSync(STORAGE_KEYS.CURRENT_STORE)
+  if (storeId != null && typeof storeId == 'number') {
+    merchantState.currentStoreId = storeId as number
   }
 }
 
-export const loginMerchant = (token: string, info: MerchantInfo) => {
-  setToken(token)
-  merchantState.token = token
+/**
+ * 登录成功
+ */
+export const loginMerchant = (
+  accessToken: string,
+  refreshToken: string,
+  info: MerchantInfo,
+) => {
+  setToken(accessToken)
+  setStorage(STORAGE_KEYS.REFRESH_TOKEN, refreshToken)
+  setStorage(STORAGE_KEYS.MERCHANT_INFO, info)
+  merchantState.token = accessToken
+  merchantState.refreshToken = refreshToken
   merchantState.merchantInfo = info
   merchantState.isLogin = true
 }
 
+/**
+ * 退出登录
+ */
 export const logoutMerchant = () => {
   clearToken()
   merchantState.token = ''
+  merchantState.refreshToken = ''
   merchantState.merchantInfo = null
   merchantState.isLogin = false
+  merchantState.currentStoreId = 0
+  removeStorage(STORAGE_KEYS.CURRENT_STORE)
+}
+
+/**
+ * 设置当前门店ID
+ */
+export const setCurrentStoreId = (storeId: number) => {
+  merchantState.currentStoreId = storeId
+  setStorage(STORAGE_KEYS.CURRENT_STORE, storeId)
+}
+
+export const getCurrentStoreId = (): number => {
+  return merchantState.currentStoreId
+}
+
+/**
+ * 是否已通过审核（APPROVED）
+ */
+export const isApproved = (): boolean => {
+  const info = merchantState.merchantInfo
+  if (info == null) return false
+  return info.auditStatus == 'APPROVED'
+}
+
+export const isLoggedIn = (): boolean => {
+  return merchantState.isLogin && merchantState.token != ''
 }

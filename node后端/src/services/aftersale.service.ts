@@ -6,6 +6,7 @@ import {
   createAftersale,
   updateAftersale,
   listAftersales,
+  listMerchantAftersales,
   findComplaintById,
   createComplaint,
   updateComplaint,
@@ -193,6 +194,29 @@ export const adminListAftersales = async (
   pageSize: number,
 ) => {
   const { list, total } = await listAftersales({ status, page, pageSize });
+  return {
+    list: list.map(formatAftersale),
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    },
+  };
+};
+
+export const listMerchantAftersalesPage = async (
+  merchantId: number,
+  status: string | undefined,
+  page: number,
+  pageSize: number,
+) => {
+  const { list, total } = await listMerchantAftersales({
+    merchantId,
+    status,
+    page,
+    pageSize,
+  });
   return {
     list: list.map(formatAftersale),
     pagination: {

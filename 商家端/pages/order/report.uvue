@@ -1,0 +1,288 @@
+<template>
+  <view class="container">
+    <scroll-view class="body" scroll-y="true">
+      <view class="order-box">
+        <text class="order-label">关联订单</text>
+        <text class="order-no">#{{ orderId }}</text>
+      </view>
+
+      <view class="section">
+        <text class="section-title">异常类型</text>
+        <view class="type-grid">
+          <view v-for="(t, idx) in types" :key="idx"
+            :class="'type-item ' + (selectedType == t.key ? 'active' : '')"
+            @click="selectType(t.key)">
+            <text class="type-text">{{ t.label }}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="section">
+        <text class="section-title">详细说明</text>
+        <textarea
+          class="desc-input"
+          placeholder="请详细描述异常情况，以便平台和用户处理"
+          v-model="description"
+          maxlength="500"
+        />
+        <text class="count">{{ description.length }}/500</text>
+      </view>
+
+      <view class="section">
+        <text class="section-title">附件凭证（选填，最多5张）</text>
+        <view class="img-row">
+          <view v-for="(img, idx) in images" :key="idx" class="img-box">
+            <image class="img" :src="img" mode="aspectFill" />
+            <view class="img-close" @click="removeImg(idx)">
+              <text class="x">×</text>
+            </view>
+          </view>
+          <view v-if="images.length < 5" class="img-add" @click="chooseImg">
+            <text class="plus">+</text>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="footer">
+      <button class="btn-submit" @click="submit">提交上报</button>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+import { merchantReportException } from '@/api/aftersale'
+import { uploadImage } from '@/api/common'
+
+type TypeItem = {
+  key: string
+  label: string
+}
+
+export default {
+  data() {
+    return {
+      orderId: 0 as number,
+      selectedType: '' as string,
+      description: '' as string,
+      images: [] as string[],
+      types: [
+        { key: 'OUT_OF_STOCK', label: '缺货' } as TypeItem,
+        { key: 'PRODUCT_ISSUE', label: '商品异常' } as TypeItem,
+        { key: 'SHOP_CLOSED', label: '门店关闭' } as TypeItem,
+        { key: 'DELIVERY_ISSUE', label: '配送问题' } as TypeItem,
+        { key: 'OTHER', label: '其他' } as TypeItem,
+      ] as TypeItem[]
+    }
+  },
+  onLoad(opts: any) {
+    const o = opts as UTSJSONObject
+    this.orderId = o.getNumber('id') ?? 0
+  },
+  methods: {
+    selectType(key: string) {
+      this.selectedType = key
+    },
+    chooseImg() {
+      const self = this
+      uni.chooseImage({
+        count: 5 - this.images.length,
+        sizeType: ['compressed'],
+        sourceType: ['camera', 'album'],
+        success: async (res) => {
+          uni.showLoading({ title: '上传中...' })
+          const paths = res.tempFilePaths
+          for (let i = 0; i < paths.length; i++) {
+            try {
+              const url = await uploadImage(paths[i])
+              self.images.push(url)
+            } catch (e) { }
+          }
+          uni.hideLoading()
+        }
+      } as ChooseImageOptions)
+    },
+    removeImg(idx: number) {
+      this.images.splice(idx, 1)
+    },
+    async submit() {
+      if (this.selectedType == '') {
+        uni.showToast({ title: '请选择异常类型', icon: 'none' })
+        return
+      }
+      if (this.description.length < 5) {
+        uni.showToast({ title: '请填写详细说明（至少5字）', icon: 'none' })
+        return
+      }
+
+      let selectedLabel = ''
+      for (let i = 0; i < this.types.length; i++) {
+        if (this.types[i].key == this.selectedType) {
+          selectedLabel = this.types[i].label
+          break
+        }
+      }
+
+      uni.showLoading({ title: '提交中...' })
+      try {
+        const resp = await merchantReportException(
+          this.orderId,
+          selectedLabel,
+          this.description
+        )
+        uni.hideLoading()
+        if (resp.code == 0) {
+          uni.showToast({ title: '已提交', icon: 'success' })
+          setTimeout(() => uni.navigateBack(), 1000)
+        }
+      } catch (e) {
+        uni.hideLoading()
+      }
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.container {
+  min-height: 100vh;
+  background-color: #f5f6f8;
+  display: flex;
+  flex-direction: column;
+}
+.body {
+  flex: 1;
+  padding: 20rpx;
+}
+.order-box {
+  background-color: #fff;
+  padding: 24rpx 30rpx;
+  border-radius: 16rpx;
+  margin-bottom: 20rpx;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.order-label {
+  font-size: 26rpx;
+  color: #666;
+  margin-right: 20rpx;
+}
+.order-no {
+  font-size: 28rpx;
+  color: #FF6B00;
+  font-weight: bold;
+}
+.section {
+  background-color: #fff;
+  padding: 24rpx 30rpx;
+  border-radius: 16rpx;
+  margin-bottom: 20rpx;
+}
+.section-title {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333;
+  display: block;
+  margin-bottom: 20rpx;
+}
+.type-grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.type-item {
+  padding: 16rpx 30rpx;
+  background-color: #F5F5F5;
+  border-radius: 30rpx;
+  margin-right: 16rpx;
+  margin-bottom: 16rpx;
+}
+.type-item.active {
+  background-color: #FFF5EC;
+  border: 1rpx solid #FF6B00;
+}
+.type-item.active .type-text {
+  color: #FF6B00;
+}
+.type-text {
+  font-size: 26rpx;
+  color: #666;
+}
+.desc-input {
+  width: 100%;
+  height: 200rpx;
+  padding: 16rpx;
+  background-color: #fafafa;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  color: #333;
+}
+.count {
+  display: block;
+  font-size: 22rpx;
+  color: #999;
+  text-align: right;
+  margin-top: 10rpx;
+}
+.img-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.img-box {
+  width: 160rpx;
+  height: 160rpx;
+  margin-right: 16rpx;
+  margin-bottom: 16rpx;
+  position: relative;
+}
+.img {
+  width: 100%;
+  height: 100%;
+  border-radius: 12rpx;
+}
+.img-close {
+  position: absolute;
+  top: -10rpx;
+  right: -10rpx;
+  width: 36rpx;
+  height: 36rpx;
+  background-color: rgba(0,0,0,0.5);
+  border-radius: 18rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.x {
+  color: #fff;
+  font-size: 24rpx;
+}
+.img-add {
+  width: 160rpx;
+  height: 160rpx;
+  background-color: #fafafa;
+  border: 2rpx dashed #ddd;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.plus {
+  font-size: 60rpx;
+  color: #bbb;
+}
+.footer {
+  padding: 20rpx 30rpx;
+  background-color: #fff;
+  border-top: 1rpx solid #f0f0f0;
+}
+.btn-submit {
+  height: 88rpx;
+  line-height: 88rpx;
+  background-color: #FF6B00;
+  color: #fff;
+  font-size: 30rpx;
+  border-radius: 44rpx;
+}
+</style>

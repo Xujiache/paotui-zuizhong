@@ -84,6 +84,32 @@ router.get(
 );
 
 router.get(
+  '/merchant-aftersales',
+  tokenAuth(),
+  merchantOnly,
+  paginate(),
+  validate({
+    query: Joi.object({
+      status: Joi.string().optional(),
+      page: Joi.number().integer().optional(),
+      pageSize: Joi.number().integer().optional(),
+      sortBy: Joi.string().optional(),
+      sortOrder: Joi.string().optional(),
+    }),
+  }),
+  asyncHandler(async (req, res) => {
+    const { page, pageSize } = req.pagination!;
+    const data = await aftersaleService.listMerchantAftersalesPage(
+      req.user!.userId,
+      req.query.status as string | undefined,
+      page,
+      pageSize,
+    );
+    paginated(res, data);
+  }),
+);
+
+router.get(
   '/aftersales/:id',
   tokenAuth(),
   validate({ params: idParam }),

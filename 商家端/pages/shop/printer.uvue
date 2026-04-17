@@ -1,0 +1,335 @@
+<template>
+  <view class="container">
+    <scroll-view class="body" scroll-y="true">
+      <view class="card">
+        <text class="card-title">已连接的打印机</text>
+        <view v-if="currentConfig == null" class="empty-row">
+          <text class="empty-text">暂未连接打印机</text>
+        </view>
+        <view v-else class="connected-row">
+          <view class="connected-info">
+            <text class="dev-name">{{ currentConfig!.name }}</text>
+            <text class="dev-id">{{ currentConfig!.deviceId }}</text>
+          </view>
+          <text class="unlink-btn" @click="onDisconnect">断开</text>
+        </view>
+      </view>
+
+      <view class="card">
+        <view class="card-header">
+          <text class="card-title">附近蓝牙设备</text>
+          <text class="scan-btn" :disabled="scanning" @click="onScan">
+            {{ scanning ? '搜索中...' : '搜索' }}
+          </text>
+        </view>
+        <view v-if="devices.length == 0" class="empty-row">
+          <text class="empty-text">{{ scanned ? '未发现设备' : '点击搜索按钮开始查找' }}</text>
+        </view>
+        <view v-else class="dev-list">
+          <view v-for="d in devices" :key="d.deviceId" class="dev-row" @click="onConnect(d)">
+            <view class="dev-info">
+              <text class="dev-name">{{ d.name }}</text>
+              <text class="dev-rssi">信号：{{ d.RSSI }}dBm</text>
+            </view>
+            <text class="connect-btn">连接</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="card">
+        <text class="card-title">打印设置</text>
+        <view class="setting-row">
+          <text class="setting-label">接单自动打印</text>
+          <switch :checked="autoPrint" color="#FF6B00" @change="onAutoPrintChange" />
+        </view>
+        <view class="setting-row">
+          <text class="setting-label">打印联数</text>
+          <view class="copies-group">
+            <text v-for="n in [1, 2, 3]" :key="n"
+              :class="'copies-btn ' + (copies == n ? 'active' : '')"
+              @click="setCopies(n)">{{ n }}联</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="card">
+        <button class="btn-test" :disabled="currentConfig == null" @click="onTestPrint">
+          测试打印
+        </button>
+      </view>
+
+      <view class="tip-card">
+        <text class="tip-title">温馨提示</text>
+        <text class="tip-text">1. 打印前请确认打印机已开机并装好纸张</text>
+        <text class="tip-text">2. 保持打印机在APP附近（10米内）</text>
+        <text class="tip-text">3. 安卓12+需开启「附近的设备」权限</text>
+      </view>
+    </scroll-view>
+  </view>
+</template>
+
+<script lang="uts">
+import {
+  initBluetooth, discover, connect, discoverService, disconnect, testPrint,
+  loadPrinterConfig, savePrinterConfig, BluetoothDeviceInfo, PrinterConfig
+} from '@/services/printerService'
+import { STORAGE_KEYS } from '@/utils/storage'
+
+export default {
+  data() {
+    return {
+      scanning: false,
+      scanned: false,
+      devices: [] as BluetoothDeviceInfo[],
+      currentConfig: null as PrinterConfig | null,
+      autoPrint: false,
+      copies: 1
+    }
+  },
+  onLoad() {
+    this.currentConfig = loadPrinterConfig()
+    const ap = uni.getStorageSync(STORAGE_KEYS.AUTO_PRINT)
+    if (ap != null && typeof ap == 'boolean') this.autoPrint = ap as boolean
+    const cp = uni.getStorageSync('mct_print_copies')
+    if (cp != null && typeof cp == 'number') this.copies = cp as number
+  },
+  methods: {
+    async onScan() {
+      if (this.scanning) return
+      this.scanning = true
+      const ok = await initBluetooth()
+      if (!ok) {
+        this.scanning = false
+        return
+      }
+      this.devices = []
+      const found = await discover(5000)
+      this.devices = found
+      this.scanning = false
+      this.scanned = true
+      if (found.length == 0) {
+        uni.showToast({ title: '未发现设备', icon: 'none' })
+      }
+    },
+    async onConnect(d: BluetoothDeviceInfo) {
+      uni.showLoading({ title: '连接中...' })
+      const ok = await connect(d.deviceId)
+      if (!ok) {
+        uni.hideLoading()
+        uni.showToast({ title: '连接失败', icon: 'none' })
+        return
+      }
+      const discovered = await discoverService(d.deviceId)
+      uni.hideLoading()
+      if (!discovered) {
+        uni.showToast({ title: '未找到打印服务', icon: 'none' })
+        return
+      }
+      // 保存到本地
+      const cfg: PrinterConfig = {
+        name: d.name,
+        deviceId: d.deviceId,
+        serviceId: '',
+        characteristicId: ''
+      }
+      savePrinterConfig(cfg)
+      this.currentConfig = cfg
+      uni.showToast({ title: '已连接', icon: 'success' })
+    },
+    async onDisconnect() {
+      await disconnect()
+      uni.removeStorageSync(STORAGE_KEYS.PRINTER_CONFIG)
+      this.currentConfig = null
+      uni.showToast({ title: '已断开', icon: 'success' })
+    },
+    onAutoPrintChange(e: any) {
+      const d = e.detail as UTSJSONObject
+      const v = d.getBoolean('value') ?? false
+      this.autoPrint = v
+      uni.setStorageSync(STORAGE_KEYS.AUTO_PRINT, v)
+    },
+    setCopies(n: number) {
+      this.copies = n
+      uni.setStorageSync('mct_print_copies', n)
+    },
+    async onTestPrint() {
+      if (this.currentConfig == null) {
+        uni.showToast({ title: '请先连接打印机', icon: 'none' })
+        return
+      }
+      uni.showLoading({ title: '打印中...' })
+      try {
+        const ok = await testPrint()
+        uni.hideLoading()
+        uni.showToast({
+          title: ok ? '已发送到打印机' : '打印失败',
+          icon: ok ? 'success' : 'none'
+        })
+      } catch (e) {
+        uni.hideLoading()
+      }
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.container {
+  min-height: 100vh;
+  background-color: #f5f6f8;
+}
+.body {
+  padding: 20rpx;
+}
+.card {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx 30rpx;
+  margin-bottom: 20rpx;
+}
+.card-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+.card-title {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333;
+}
+.scan-btn {
+  padding: 10rpx 30rpx;
+  background-color: #FF6B00;
+  color: #fff;
+  border-radius: 30rpx;
+  font-size: 24rpx;
+}
+.scan-btn[disabled] {
+  background-color: #ccc;
+}
+.empty-row {
+  padding: 30rpx;
+  text-align: center;
+}
+.empty-text {
+  font-size: 26rpx;
+  color: #bbb;
+}
+.connected-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10rpx 0;
+}
+.connected-info {
+  flex: 1;
+}
+.dev-name {
+  font-size: 30rpx;
+  color: #333;
+  display: block;
+}
+.dev-id {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 4rpx;
+}
+.unlink-btn {
+  padding: 10rpx 24rpx;
+  font-size: 24rpx;
+  color: #F5222D;
+  border: 1rpx solid #F5222D;
+  border-radius: 30rpx;
+}
+.dev-list {
+  padding-top: 10rpx;
+}
+.dev-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+.dev-row:last-child {
+  border-bottom: none;
+}
+.dev-info {
+  flex: 1;
+}
+.dev-rssi {
+  font-size: 22rpx;
+  color: #999;
+}
+.connect-btn {
+  padding: 10rpx 24rpx;
+  background-color: #FFF5EC;
+  color: #FF6B00;
+  border-radius: 30rpx;
+  font-size: 24rpx;
+}
+.setting-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+.setting-row:last-child {
+  border-bottom: none;
+}
+.setting-label {
+  font-size: 28rpx;
+  color: #333;
+}
+.copies-group {
+  display: flex;
+  flex-direction: row;
+}
+.copies-btn {
+  padding: 10rpx 24rpx;
+  background-color: #F5F5F5;
+  border-radius: 30rpx;
+  margin-left: 10rpx;
+  font-size: 24rpx;
+  color: #666;
+}
+.copies-btn.active {
+  background-color: #FFF5EC;
+  color: #FF6B00;
+}
+.btn-test {
+  height: 80rpx;
+  line-height: 80rpx;
+  background-color: #FF6B00;
+  color: #fff;
+  font-size: 28rpx;
+  border-radius: 40rpx;
+}
+.btn-test[disabled] {
+  background-color: #ccc;
+}
+.tip-card {
+  padding: 24rpx;
+  background-color: #FFF5EC;
+  border-radius: 12rpx;
+}
+.tip-title {
+  font-size: 26rpx;
+  color: #FF6B00;
+  font-weight: bold;
+  display: block;
+  margin-bottom: 10rpx;
+}
+.tip-text {
+  display: block;
+  font-size: 24rpx;
+  color: #FF6B00;
+  line-height: 1.6;
+}
+</style>

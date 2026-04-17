@@ -1,0 +1,143 @@
+/**
+ * 极光推送(JPush) 接入服务
+ *
+ * 依赖：
+ *  - uni-app x 官方插件：JG-JPush（在 manifest.json 的 app-plus.plugins.jpush 中配置 appkey）
+ *  - 需要在极光控制台配置安卓 / iOS 推送证书与厂商通道
+ *
+ * 能力：
+ *  - APP 启动时初始化 JPush、获取 RegistrationID 并本地存储
+ *  - 监听通知点击（APP 被杀/后台收到）→ 按 extras.type 跳转详情
+ *  - 监听透传消息（APP 前台收到）→ 触发 OrderAlert 弹窗
+ *
+ * 降级：
+ *  - 插件不可用（如模拟器 / 无 JPush 包）时静默失败，业务由 pushService 的前台轮询兜底
+ */
+
+import { pushNewOrder, NewOrderItem } from '@/stores/orderAlert'
+import { STORAGE_KEYS } from '@/utils/storage'
+import { fenToYuan } from '@/utils/format'
+
+let _registrationId: string = ''
+let _initialized: boolean = false
+
+/**
+ * 初始化 JPush
+ * 在商家登录成功后调用
+ */
+export const init = () => {
+  if (_initialized) return
+
+  // #ifdef APP-ANDROID || APP-IOS
+  try {
+    const jpush = uni.requireNativePlugin('JG-JPush')
+    if (jpush == null) return
+
+    jpush.callMethod('initJPush', {} as UTSJSONObject)
+
+    // 获取 RegistrationID（平台唯一推送标识）
+    jpush.callMethod('getRegistrationID', {} as UTSJSONObject, (res: UTSJSONObject) => {
+      const regId = res.getString('registerID') ?? ''
+      if (regId != '') {
+        _registrationId = regId
+        uni.setStorageSync(STORAGE_KEYS.PUSH_TOKEN, regId)
+      }
+    })
+
+    // 监听通知点击（后台/锁屏状态下点击通知栏）
+    jpush.callMethod('addNotificationListener', {} as UTSJSONObject, (res: UTSJSONObject) => {
+      handleNotificationClick(res)
+    })
+
+    // 监听透传消息（APP 前台时到达的自定义消息）
+    jpush.callMethod('addCustomMessageListener', {} as UTSJSONObject, (res: UTSJSONObject) => {
+      handleCustomMessage(res)
+    })
+
+    _initialized = true
+  } catch (e) {
+    // 插件不可用时降级，由 pushService 轮询兜底
+  }
+  // #endif
+}
+
+/**
+ * 处理通知栏点击 → 跳转目标页面
+ */
+const handleNotificationClick = (res: UTSJSONObject) => {
+  const extras = res['extras'] as UTSJSONObject | null
+  if (extras == null) {
+    uni.navigateTo({ url: '/pages/message/index' })
+    return
+  }
+  const type = extras!.getString('type') ?? ''
+  const orderId = extras!.getNumber('orderId') ?? 0
+  switch (type) {
+    case 'new_order':
+      if (orderId > 0) {
+        uni.navigateTo({ url: `/pages/order/detail?id=${orderId}` })
+      } else {
+        uni.switchTab({ url: '/pages/order/list' })
+      }
+      break
+    case 'aftersale':
+      uni.navigateTo({ url: '/pages/order/aftersale' })
+      break
+    default:
+      uni.navigateTo({ url: '/pages/message/index' })
+  }
+}
+
+/**
+ * 处理透传消息（前台触发新订单弹窗）
+ */
+const handleCustomMessage = (res: UTSJSONObject) => {
+  const extras = res['extras'] as UTSJSONObject | null
+  if (extras == null) return
+  const type = extras!.getString('type') ?? ''
+  if (type != 'new_order') return
+
+  const orderId = extras!.getNumber('orderId') ?? 0
+  const orderNo = extras!.getString('orderNo') ?? ''
+  const amount = extras!.getNumber('orderAmount') ?? 0
+  const summary = extras!.getString('orderSummary') ?? `¥${fenToYuan(amount)}`
+  if (orderId == 0) return
+
+  pushNewOrder({
+    orderId: orderId,
+    orderNo: orderNo,
+    orderType: extras!.getString('orderType') ?? 'PRODUCT',
+    orderSummary: summary,
+    amount: amount,
+    countdown: 300,
+    createdAt: Date.now(),
+  } as NewOrderItem)
+}
+
+export const getRegistrationId = (): string => {
+  if (_registrationId == '') {
+    const stored = uni.getStorageSync(STORAGE_KEYS.PUSH_TOKEN)
+    if (stored != null && typeof stored == 'string') {
+      _registrationId = stored as string
+    }
+  }
+  return _registrationId
+}
+
+/**
+ * 登出时清除推送绑定
+ */
+export const stop = () => {
+  _initialized = false
+  _registrationId = ''
+  uni.removeStorageSync(STORAGE_KEYS.PUSH_TOKEN)
+
+  // #ifdef APP-ANDROID || APP-IOS
+  try {
+    const jpush = uni.requireNativePlugin('JG-JPush')
+    if (jpush != null) {
+      jpush.callMethod('stopPush', {} as UTSJSONObject)
+    }
+  } catch (e) { }
+  // #endif
+}

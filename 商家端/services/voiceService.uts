@@ -1,0 +1,112 @@
+/**
+ * 语音播报服务（TTS）
+ * 新订单播报 / 催单提醒
+ *
+ * 首期使用 uni.createInnerAudioContext 播放本地音频文件（static/voice/）
+ * 高级版：通过原生插件 'TTS-Engine' 调用系统TTS（安卓TTS / iOS AVSpeechSynthesizer）
+ */
+
+import { STORAGE_KEYS } from '@/utils/storage'
+
+let _enabled: boolean = true
+let _playing: boolean = false
+let _playCount: number = 0
+let _maxPlayCount: number = 3
+let _audioCtx: InnerAudioContext | null = null
+
+/**
+ * 从本地加载设置
+ */
+export const init = () => {
+  const v = uni.getStorageSync(STORAGE_KEYS.VOICE_ENABLED)
+  if (v != null && typeof v == 'boolean') {
+    _enabled = v as boolean
+  }
+}
+
+export const setEnabled = (enabled: boolean) => {
+  _enabled = enabled
+  uni.setStorageSync(STORAGE_KEYS.VOICE_ENABLED, enabled)
+}
+
+export const isEnabled = (): boolean => {
+  return _enabled
+}
+
+/**
+ * 播放新订单提示音（循环3次）
+ * 优先使用音频文件方案；若无文件使用震动+提示代替
+ */
+export const playNewOrder = () => {
+  if (!_enabled) return
+  if (_playing) return
+  _playing = true
+  _playCount = 0
+  playOnce('/static/voice/new_order.mp3')
+}
+
+/**
+ * 播放催单提示音
+ */
+export const playUrge = () => {
+  if (!_enabled) return
+  _playing = true
+  _playCount = 0
+  playOnce('/static/voice/urge_order.mp3')
+}
+
+/**
+ * 即将超时提示
+ */
+export const playTimeoutSoon = () => {
+  if (!_enabled) return
+  _playing = true
+  _playCount = 0
+  playOnce('/static/voice/timeout_soon.mp3')
+}
+
+const playOnce = (url: string) => {
+  if (_audioCtx != null) {
+    _audioCtx!.destroy()
+    _audioCtx = null
+  }
+  _audioCtx = uni.createInnerAudioContext()
+  _audioCtx!.src = url
+  _audioCtx!.autoplay = true
+  _audioCtx!.onEnded(() => {
+    _playCount++
+    if (_playCount < _maxPlayCount && _enabled) {
+      setTimeout(() => {
+        playOnce(url)
+      }, 800)
+    } else {
+      _playing = false
+      if (_audioCtx != null) {
+        _audioCtx!.destroy()
+        _audioCtx = null
+      }
+    }
+  })
+  _audioCtx!.onError(() => {
+    _playing = false
+    // 文件不存在时降级：震动
+    uni.vibrateLong({ success: () => {} } as VibrateLongOptions)
+  })
+
+  // #ifdef APP-ANDROID || APP-IOS
+  uni.vibrateLong({ success: () => {} } as VibrateLongOptions)
+  // #endif
+}
+
+/**
+ * 停止当前播报
+ */
+export const stop = () => {
+  _playing = false
+  _playCount = 0
+  if (_audioCtx != null) {
+    _audioCtx!.stop()
+    _audioCtx!.destroy()
+    _audioCtx = null
+  }
+}

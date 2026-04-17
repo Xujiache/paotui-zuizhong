@@ -1,0 +1,398 @@
+<template>
+  <view class="container">
+    <view class="logo-area">
+      <view class="logo-circle">
+        <text class="logo-letter">O</text>
+      </view>
+      <text class="logo-title">同城O2O</text>
+      <text class="logo-sub">商家版</text>
+    </view>
+
+    <view class="tab-bar">
+      <text :class="'tab-item ' + (loginMode == 'code' ? 'active' : '')" @click="switchMode('code')">
+        验证码登录
+      </text>
+      <text :class="'tab-item ' + (loginMode == 'password' ? 'active' : '')" @click="switchMode('password')">
+        密码登录
+      </text>
+    </view>
+
+    <view class="form-area">
+      <view class="input-group">
+        <text class="input-prefix">+86</text>
+        <input
+          class="input"
+          type="number"
+          placeholder="请输入手机号"
+          v-model="phone"
+          maxlength="11"
+        />
+      </view>
+
+      <view v-if="loginMode == 'code'" class="input-group">
+        <input
+          class="input"
+          type="number"
+          placeholder="请输入6位验证码"
+          v-model="smsCode"
+          maxlength="6"
+        />
+        <button
+          class="btn-code"
+          :disabled="codeCountdown > 0"
+          @click="handleSendCode"
+        >
+          {{ codeCountdown > 0 ? codeCountdown + 's' : '获取验证码' }}
+        </button>
+      </view>
+      <view v-else class="input-group">
+        <input
+          class="input"
+          type="password"
+          placeholder="请输入密码"
+          v-model="password"
+        />
+      </view>
+
+      <view class="agree-row" @click="toggleAgree">
+        <view :class="'checkbox ' + (agreed ? 'checked' : '')">
+          <text v-if="agreed" class="check-icon">✓</text>
+        </view>
+        <text class="agree-text">
+          我已阅读并同意
+          <text class="agree-link">《用户协议》</text>
+          和
+          <text class="agree-link">《隐私政策》</text>
+        </text>
+      </view>
+
+      <button class="btn-login" @click="handleLogin">登 录</button>
+
+      <view v-if="loginMode == 'password'" class="forgot-row">
+        <text class="forgot-text" @click="forgotPassword">忘记密码？</text>
+      </view>
+
+      <view class="register-row">
+        <text>还没有账号？</text>
+        <text class="register-link" @click="goRegister">立即注册</text>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+import { sendSmsCode, loginByCode, loginByPassword } from '@/api/auth'
+import { loginMerchant, MerchantInfo } from '@/stores/user'
+import { isValidPhone } from '@/utils/format'
+import { startPolling } from '@/services/pushService'
+import { init as initJPush } from '@/services/jpushService'
+import { start as startKeepAlive, showAutoStartGuideIfNeeded } from '@/services/keepAliveService'
+
+export default {
+  data() {
+    return {
+      phone: '',
+      password: '',
+      smsCode: '',
+      loginMode: 'code' as string,
+      codeCountdown: 0,
+      codeTimer: 0 as number,
+      agreed: false,
+      registerMode: false,
+      registerName: '',
+      registerContact: '',
+    }
+  },
+  onUnload() {
+    if (this.codeTimer != 0) {
+      clearInterval(this.codeTimer)
+      this.codeTimer = 0
+    }
+  },
+  methods: {
+    switchMode(mode: string) {
+      this.loginMode = mode
+    },
+    toggleAgree() {
+      this.agreed = !this.agreed
+    },
+    async handleSendCode() {
+      if (!isValidPhone(this.phone)) {
+        uni.showToast({ title: '请输入正确的手机号', icon: 'none' })
+        return
+      }
+      try {
+        const resp = await sendSmsCode(this.phone, 'LOGIN')
+        if (resp.code == 0) {
+          uni.showToast({ title: '验证码已发送', icon: 'success' })
+          this.startCountdown()
+        }
+      } catch (e) {
+        // 错误已由 request 统一toast
+      }
+    },
+    startCountdown() {
+      this.codeCountdown = 60
+      if (this.codeTimer != 0) clearInterval(this.codeTimer)
+      this.codeTimer = setInterval(() => {
+        this.codeCountdown--
+        if (this.codeCountdown <= 0) {
+          clearInterval(this.codeTimer)
+          this.codeTimer = 0
+          this.codeCountdown = 0
+        }
+      }, 1000) as number
+    },
+    async handleLogin() {
+      if (!isValidPhone(this.phone)) {
+        uni.showToast({ title: '请输入正确的手机号', icon: 'none' })
+        return
+      }
+      if (this.loginMode == 'code' && this.smsCode.length != 6) {
+        uni.showToast({ title: '请输入6位验证码', icon: 'none' })
+        return
+      }
+      if (this.loginMode == 'password' && this.password == '') {
+        uni.showToast({ title: '请输入密码', icon: 'none' })
+        return
+      }
+      if (!this.agreed) {
+        uni.showToast({ title: '请先同意用户协议', icon: 'none' })
+        return
+      }
+
+      uni.showLoading({ title: '登录中...' })
+      try {
+        let resp: any
+        if (this.loginMode == 'code') {
+          resp = await loginByCode(this.phone, this.smsCode)
+        } else {
+          resp = await loginByPassword(this.phone, this.password)
+        }
+        uni.hideLoading()
+        if (resp.code == 0 && resp.data != null) {
+          const data = resp.data as UTSJSONObject
+          const accessToken = data.getString('accessToken') ?? ''
+          const refreshToken = data.getString('refreshToken') ?? ''
+          const merchantInfoObj = data['merchantInfo'] as UTSJSONObject
+          const info: MerchantInfo = {
+            id: merchantInfoObj.getNumber('id') ?? 0,
+            name: merchantInfoObj.getString('name') ?? '',
+            contactName: merchantInfoObj.getString('contactName') ?? '',
+            contactPhone: merchantInfoObj.getString('contactPhone') ?? '',
+            status: merchantInfoObj.getString('status') ?? '',
+            auditStatus: merchantInfoObj.getString('auditStatus') ?? '',
+            balance: merchantInfoObj.getNumber('balance') ?? 0,
+          }
+          loginMerchant(accessToken, refreshToken, info)
+
+          uni.showToast({ title: '登录成功', icon: 'success' })
+          this.redirectByStatus(info.auditStatus)
+        }
+      } catch (e) {
+        uni.hideLoading()
+        // 错误已由 request 提示；用户端会感知
+        // 提示"账号不存在"时引导注册
+        const msg = (e as Error).message ?? ''
+        if (msg.indexOf('不存在') >= 0) {
+          uni.showModal({
+            title: '提示',
+            content: '该手机号未注册，是否去注册？',
+            confirmText: '去注册',
+            cancelText: '取消',
+            success: (r) => {
+              if (r.confirm) {
+                this.goRegister()
+              }
+            }
+          } as ShowModalOptions)
+        }
+      }
+    },
+    redirectByStatus(auditStatus: string) {
+      setTimeout(() => {
+        if (auditStatus == 'APPROVED') {
+          // 登录成功后启动所有后台能力：极光推送 + 前台保活 + 订单轮询
+          initJPush()
+          startKeepAlive()
+          startPolling(15000)
+          showAutoStartGuideIfNeeded()
+          uni.switchTab({ url: '/pages/workbench/index' })
+        } else if (auditStatus == 'PENDING') {
+          uni.reLaunch({ url: '/pages/auth/review' })
+        } else if (auditStatus == 'REJECTED') {
+          uni.reLaunch({ url: '/pages/auth/review' })
+        } else {
+          uni.reLaunch({ url: '/pages/auth/apply' })
+        }
+      }, 800)
+    },
+    goRegister() {
+      uni.showModal({
+        title: '注册账号',
+        content: '请先输入手机号并获取验证码，再填写基本信息',
+        showCancel: false,
+      } as ShowModalOptions)
+    },
+    forgotPassword() {
+      uni.showToast({ title: '请使用验证码登录', icon: 'none' })
+      this.loginMode = 'code'
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.container {
+  padding: 0 60rpx;
+  min-height: 100vh;
+  background-color: #fff;
+}
+.logo-area {
+  padding: 120rpx 0 60rpx;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.logo-circle {
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 70rpx;
+  background-color: #FF6B00;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24rpx;
+}
+.logo-letter {
+  font-size: 80rpx;
+  color: #fff;
+  font-weight: bold;
+}
+.logo-title {
+  font-size: 48rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 8rpx;
+}
+.logo-sub {
+  font-size: 26rpx;
+  color: #999;
+}
+.tab-bar {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  border-bottom: 1rpx solid #f0f0f0;
+  margin-bottom: 40rpx;
+}
+.tab-item {
+  padding: 24rpx 40rpx;
+  font-size: 30rpx;
+  color: #999;
+  margin: 0 20rpx;
+  position: relative;
+}
+.tab-item.active {
+  color: #FF6B00;
+  font-weight: bold;
+  border-bottom: 4rpx solid #FF6B00;
+}
+.form-area {
+  margin-top: 20rpx;
+}
+.input-group {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 100rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+  margin-bottom: 30rpx;
+}
+.input-prefix {
+  font-size: 30rpx;
+  color: #333;
+  margin-right: 20rpx;
+}
+.input {
+  flex: 1;
+  font-size: 30rpx;
+  color: #333;
+  height: 100rpx;
+  line-height: 100rpx;
+}
+.btn-code {
+  height: 64rpx;
+  line-height: 64rpx;
+  padding: 0 20rpx;
+  font-size: 24rpx;
+  color: #FF6B00;
+  background-color: #FFF5EC;
+  border-radius: 32rpx;
+  margin-left: 20rpx;
+}
+.btn-code[disabled] {
+  color: #999;
+  background-color: #f5f5f5;
+}
+.agree-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin: 30rpx 0;
+}
+.checkbox {
+  width: 32rpx;
+  height: 32rpx;
+  border-radius: 50%;
+  border: 2rpx solid #ccc;
+  margin-right: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.checkbox.checked {
+  background-color: #FF6B00;
+  border-color: #FF6B00;
+}
+.check-icon {
+  color: #fff;
+  font-size: 22rpx;
+}
+.agree-text {
+  font-size: 24rpx;
+  color: #666;
+}
+.agree-link {
+  color: #FF6B00;
+}
+.btn-login {
+  margin-top: 40rpx;
+  height: 96rpx;
+  line-height: 96rpx;
+  background-color: #FF6B00;
+  color: #fff;
+  font-size: 32rpx;
+  border-radius: 48rpx;
+  font-weight: bold;
+}
+.forgot-row {
+  margin-top: 30rpx;
+  text-align: center;
+}
+.forgot-text {
+  font-size: 26rpx;
+  color: #999;
+}
+.register-row {
+  margin-top: 40rpx;
+  text-align: center;
+  font-size: 26rpx;
+  color: #999;
+}
+.register-link {
+  color: #FF6B00;
+  margin-left: 8rpx;
+}
+</style>

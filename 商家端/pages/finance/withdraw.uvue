@@ -1,0 +1,449 @@
+<template>
+  <view class="container">
+    <scroll-view class="body" scroll-y="true" :refresher-enabled="true"
+      :refresher-triggered="refreshing" @refresherrefresh="onRefresh"
+      @scrolltolower="onLoadMore">
+
+      <view class="amount-card">
+        <text class="amount-label">可提现余额</text>
+        <text class="amount-value">¥{{ balanceText }}</text>
+      </view>
+
+      <view class="card">
+        <text class="card-title">提现金额</text>
+        <view class="amount-input-row">
+          <text class="amount-symbol">¥</text>
+          <input class="amount-input" type="digit" placeholder="0.00" v-model="amountStr" />
+          <text class="amount-all" @click="withdrawAll">全部提现</text>
+        </view>
+        <text class="amount-tip">最低提现 ¥1.00，单笔到账 1-3 工作日</text>
+      </view>
+
+      <view class="card">
+        <text class="card-title">提现方式</text>
+        <view :class="'way-item ' + (accountType == 'WECHAT' ? 'active' : '')" @click="setWay('WECHAT')">
+          <text class="way-icon">💚</text>
+          <text class="way-name">微信零钱</text>
+          <view class="way-check">
+            <text v-if="accountType == 'WECHAT'" class="check">✓</text>
+          </view>
+        </view>
+        <view :class="'way-item ' + (accountType == 'BANK' ? 'active' : '')" @click="setWay('BANK')">
+          <text class="way-icon">🏦</text>
+          <text class="way-name">银行卡</text>
+          <view class="way-check">
+            <text v-if="accountType == 'BANK'" class="check">✓</text>
+          </view>
+        </view>
+      </view>
+
+      <view v-if="accountType == 'BANK'" class="card">
+        <text class="card-title">银行账户信息</text>
+        <view class="form-row">
+          <text class="label">开户姓名</text>
+          <input class="input" placeholder="与身份证姓名一致" v-model="accountName" />
+        </view>
+        <view class="form-row">
+          <text class="label">开户银行</text>
+          <input class="input" placeholder="如：工商银行" v-model="bankName" />
+        </view>
+        <view class="form-row">
+          <text class="label">银行卡号</text>
+          <input class="input" type="number" placeholder="银行卡号" v-model="accountNo" />
+        </view>
+      </view>
+
+      <button class="btn-submit" @click="submit">确认提现</button>
+
+      <view class="history-card">
+        <text class="card-title">提现记录</text>
+        <view v-if="history.length == 0" class="empty">
+          <text class="empty-text">暂无提现记录</text>
+        </view>
+        <view v-else>
+          <view v-for="item in history" :key="getId(item)" class="his-item">
+            <view class="his-left">
+              <text class="his-no">单号 {{ getString(item, 'withdrawalNo') }}</text>
+              <text class="his-meta">{{ historyMeta(item) }}</text>
+            </view>
+            <view class="his-right">
+              <text class="his-amount">¥{{ yuanText(getNumber(item, 'amount')) }}</text>
+              <text :class="'his-status ' + withdrawStatusClass(getString(item, 'status'))">
+                {{ withdrawStatusText(getString(item, 'status')) }}
+              </text>
+            </view>
+          </view>
+          <view v-if="hasMore" class="load-more">
+            <text class="load-text">上拉加载更多</text>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+</template>
+
+<script lang="uts">
+import { getBalance, applyWithdraw, listWithdrawals } from '@/api/settlement'
+import { fenToYuan, yuanToFen, formatDateTime, withdrawStatusText as wsText } from '@/utils/format'
+
+export default {
+  data() {
+    return {
+      balance: 0,
+      amountStr: '',
+      accountType: 'WECHAT' as string,
+      accountName: '',
+      bankName: '',
+      accountNo: '',
+      history: [] as any[],
+      page: 1,
+      pageSize: 10,
+      hasMore: true,
+      refreshing: false
+    }
+  },
+  onLoad() {
+    this.loadBalance()
+    this.loadHistory(true)
+  },
+  computed: {
+    balanceText(): string {
+      return fenToYuan(this.balance)
+    }
+  },
+  methods: {
+    getId(item: any): number {
+      return (item as UTSJSONObject).getNumber('id') ?? 0
+    },
+    getString(item: any, key: string): string {
+      return (item as UTSJSONObject).getString(key) ?? ''
+    },
+    getNumber(item: any, key: string): number {
+      return (item as UTSJSONObject).getNumber(key) ?? 0
+    },
+    yuanText(fen: number): string {
+      return fenToYuan(fen)
+    },
+    withdrawStatusText(s: string): string {
+      return wsText(s)
+    },
+    withdrawStatusClass(s: string): string {
+      if (s == 'SUCCESS') return 'success'
+      if (s == 'REJECTED' || s == 'FAILED') return 'danger'
+      if (s == 'PENDING' || s == 'TRANSFERRING') return 'pending'
+      return 'default'
+    },
+    historyMeta(item: any): string {
+      const w = item as UTSJSONObject
+      const type = w.getString('accountType') ?? ''
+      const t = type == 'WECHAT' ? '微信' : '银行卡'
+      const created = w['createdAt']
+      return `${t} · ${formatDateTime(created)}`
+    },
+    setWay(w: string) {
+      this.accountType = w
+    },
+    withdrawAll() {
+      this.amountStr = fenToYuan(this.balance)
+    },
+    async loadBalance() {
+      try {
+        const resp = await getBalance()
+        if (resp.code == 0 && resp.data != null) {
+          const d = resp.data as UTSJSONObject
+          this.balance = d.getNumber('balance') ?? 0
+        }
+      } catch (e) { }
+    },
+    async loadHistory(reset: boolean = false) {
+      if (reset) {
+        this.page = 1
+        this.hasMore = true
+        this.history = []
+      }
+      if (!this.hasMore) return
+      try {
+        const resp = await listWithdrawals({
+          page: this.page,
+          pageSize: this.pageSize
+        } as UTSJSONObject)
+        if (resp.code == 0 && resp.data != null) {
+          const d = resp.data as UTSJSONObject
+          const list = (d['list'] as any[]) ?? []
+          if (reset) {
+            this.history = list
+          } else {
+            for (let i = 0; i < list.length; i++) this.history.push(list[i])
+          }
+          const pagination = d['pagination'] as UTSJSONObject
+          if (pagination != null) {
+            const total = pagination.getNumber('total') ?? 0
+            this.hasMore = this.history.length < total
+          } else {
+            this.hasMore = false
+          }
+          this.page++
+        }
+      } catch (e) { }
+    },
+    onRefresh() {
+      this.refreshing = true
+      this.loadBalance()
+      this.loadHistory(true)
+      this.refreshing = false
+    },
+    onLoadMore() {
+      if (this.hasMore) this.loadHistory(false)
+    },
+    async submit() {
+      const amountYuan = parseFloat(this.amountStr)
+      if (isNaN(amountYuan) || amountYuan < 1) {
+        uni.showToast({ title: '最少提现 1 元', icon: 'none' })
+        return
+      }
+      const amountFen = yuanToFen(amountYuan)
+      if (amountFen > this.balance) {
+        uni.showToast({ title: '超过可提现余额', icon: 'none' })
+        return
+      }
+      if (this.accountType == 'BANK') {
+        if (this.accountName == '' || this.bankName == '' || this.accountNo == '') {
+          uni.showToast({ title: '请完善银行卡信息', icon: 'none' })
+          return
+        }
+      }
+      const self = this
+      uni.showModal({
+        title: '确认提现',
+        content: `提现金额 ¥${self.amountStr}，确认提交？`,
+        success: async (res) => {
+          if (!res.confirm) return
+          uni.showLoading({ title: '提交中...' })
+          try {
+            const body: UTSJSONObject = {
+              amountFen: amountFen,
+              accountType: self.accountType
+            }
+            if (self.accountType == 'BANK') {
+              body['accountName'] = self.accountName
+              body['bankName'] = self.bankName
+              body['accountNo'] = self.accountNo
+            }
+            const resp = await applyWithdraw(body)
+            uni.hideLoading()
+            if (resp.code == 0) {
+              uni.showToast({ title: '提现已提交', icon: 'success' })
+              self.amountStr = ''
+              setTimeout(() => {
+                self.loadBalance()
+                self.loadHistory(true)
+              }, 500)
+            }
+          } catch (e) {
+            uni.hideLoading()
+          }
+        }
+      } as ShowModalOptions)
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.container {
+  min-height: 100vh;
+  background-color: #f5f6f8;
+}
+.body {
+  padding: 20rpx;
+}
+.amount-card {
+  background-color: #FF6B00;
+  border-radius: 16rpx;
+  padding: 40rpx 30rpx;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+.amount-label {
+  font-size: 26rpx;
+  color: #fff;
+  opacity: 0.9;
+}
+.amount-value {
+  font-size: 60rpx;
+  color: #fff;
+  font-weight: bold;
+  margin-top: 10rpx;
+}
+.card {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx 30rpx;
+  margin-bottom: 20rpx;
+}
+.card-title {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 16rpx;
+  display: block;
+}
+.amount-input-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 24rpx 0;
+  border-bottom: 2rpx solid #f0f0f0;
+}
+.amount-symbol {
+  font-size: 40rpx;
+  color: #333;
+  margin-right: 16rpx;
+}
+.amount-input {
+  flex: 1;
+  font-size: 44rpx;
+  color: #333;
+  height: 68rpx;
+}
+.amount-all {
+  font-size: 24rpx;
+  color: #FF6B00;
+  padding: 10rpx 20rpx;
+  border: 1rpx solid #FF6B00;
+  border-radius: 24rpx;
+}
+.amount-tip {
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: #999;
+  display: block;
+}
+.way-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+.way-item:last-child {
+  border-bottom: none;
+}
+.way-icon {
+  font-size: 44rpx;
+  margin-right: 20rpx;
+}
+.way-name {
+  flex: 1;
+  font-size: 30rpx;
+  color: #333;
+}
+.way-check {
+  width: 40rpx;
+  height: 40rpx;
+  border: 2rpx solid #ccc;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.way-item.active .way-check {
+  background-color: #FF6B00;
+  border-color: #FF6B00;
+}
+.check {
+  color: #fff;
+  font-size: 24rpx;
+}
+.form-row {
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+.form-row:last-child {
+  border-bottom: none;
+}
+.label {
+  font-size: 24rpx;
+  color: #999;
+  display: block;
+  margin-bottom: 8rpx;
+}
+.input {
+  height: 60rpx;
+  font-size: 28rpx;
+  color: #333;
+}
+.btn-submit {
+  height: 88rpx;
+  line-height: 88rpx;
+  background-color: #FF6B00;
+  color: #fff;
+  font-size: 30rpx;
+  border-radius: 44rpx;
+  margin: 20rpx 0;
+}
+.history-card {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx 30rpx;
+}
+.empty {
+  padding: 40rpx 0;
+  text-align: center;
+}
+.empty-text {
+  font-size: 26rpx;
+  color: #bbb;
+}
+.his-item {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+.his-item:last-child {
+  border-bottom: none;
+}
+.his-left {
+  flex: 1;
+}
+.his-no {
+  font-size: 24rpx;
+  color: #333;
+  display: block;
+}
+.his-meta {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 6rpx;
+}
+.his-right {
+  text-align: right;
+}
+.his-amount {
+  font-size: 28rpx;
+  color: #333;
+  font-weight: bold;
+  display: block;
+}
+.his-status {
+  font-size: 22rpx;
+  margin-top: 6rpx;
+}
+.his-status.success { color: #52C41A; }
+.his-status.danger { color: #F5222D; }
+.his-status.pending { color: #FA8C16; }
+.his-status.default { color: #999; }
+.load-more {
+  padding: 20rpx;
+  text-align: center;
+}
+.load-text {
+  font-size: 22rpx;
+  color: #bbb;
+}
+</style>

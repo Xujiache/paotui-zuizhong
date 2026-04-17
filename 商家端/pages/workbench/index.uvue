@@ -1,0 +1,575 @@
+<template>
+  <view class="container">
+    <OrderAlert />
+
+    <scroll-view class="body" scroll-y="true" :refresher-enabled="true" :refresher-triggered="refreshing"
+      @refresherrefresh="onRefresh">
+      <view class="shop-bar">
+        <view class="shop-info">
+          <text class="shop-name">{{ shopName }}</text>
+          <text class="shop-subtitle">{{ auditStatusText }}</text>
+        </view>
+        <view class="status-switch">
+          <text class="status-label">{{ businessStatus == 'OPEN' ? '营业中' : '休息中' }}</text>
+          <switch :checked="businessStatus == 'OPEN'" color="#52C41A" @change="onStatusChange" />
+        </view>
+      </view>
+
+      <view class="pending-card">
+        <text class="pending-title">待处理订单</text>
+        <view class="pending-grid">
+          <view class="pending-item danger" @click="goOrderList('PENDING_MERCHANT')">
+            <text class="pending-num">{{ pending.waitAccept }}</text>
+            <text class="pending-label">待接单</text>
+          </view>
+          <view class="pending-item" @click="goOrderList('PENDING_RIDER')">
+            <text class="pending-num">{{ pending.waitPrepare }}</text>
+            <text class="pending-label">待备货</text>
+          </view>
+          <view class="pending-item" @click="goOrderList('PENDING_PICKUP')">
+            <text class="pending-num">{{ pending.waitPickup }}</text>
+            <text class="pending-label">待取货</text>
+          </view>
+          <view class="pending-item" @click="goAftersale">
+            <text class="pending-num">{{ pending.aftersale }}</text>
+            <text class="pending-label">售后中</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="today-card">
+        <text class="today-title">今日经营数据</text>
+        <view class="today-grid">
+          <view class="today-item">
+            <text class="today-num">{{ todayData.orderCount }}</text>
+            <text class="today-label">订单数</text>
+          </view>
+          <view class="today-item">
+            <text class="today-num">¥{{ revenueText }}</text>
+            <text class="today-label">营业额</text>
+          </view>
+          <view class="today-item">
+            <text class="today-num">¥{{ avgPriceText }}</text>
+            <text class="today-label">客单价</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="shortcut-card">
+        <text class="card-title">快捷入口</text>
+        <view class="shortcut-grid">
+          <view class="shortcut-item" @click="goProduct">
+            <view class="shortcut-icon orange">
+              <text class="icon-emoji">📦</text>
+            </view>
+            <text class="shortcut-label">商品管理</text>
+          </view>
+          <view class="shortcut-item" @click="goOrders">
+            <view class="shortcut-icon blue">
+              <text class="icon-emoji">📋</text>
+            </view>
+            <text class="shortcut-label">订单管理</text>
+          </view>
+          <view class="shortcut-item" @click="goFinance">
+            <view class="shortcut-icon green">
+              <text class="icon-emoji">💰</text>
+            </view>
+            <text class="shortcut-label">账单中心</text>
+          </view>
+          <view class="shortcut-item" @click="goShop">
+            <view class="shortcut-icon purple">
+              <text class="icon-emoji">🏪</text>
+            </view>
+            <text class="shortcut-label">店铺设置</text>
+          </view>
+          <view class="shortcut-item" @click="goPrinter">
+            <view class="shortcut-icon grey">
+              <text class="icon-emoji">🖨</text>
+            </view>
+            <text class="shortcut-label">打印配置</text>
+          </view>
+          <view class="shortcut-item" @click="goMessage">
+            <view class="shortcut-icon red">
+              <text class="icon-emoji">🔔</text>
+              <view v-if="unreadCount > 0" class="icon-badge">
+                <text class="badge-num">{{ unreadCount > 99 ? '99+' : unreadCount }}</text>
+              </view>
+            </view>
+            <text class="shortcut-label">消息</text>
+          </view>
+          <view class="shortcut-item" @click="goSettings">
+            <view class="shortcut-icon grey">
+              <text class="icon-emoji">⚙</text>
+            </view>
+            <text class="shortcut-label">账号设置</text>
+          </view>
+          <view class="shortcut-item" @click="goWithdraw">
+            <view class="shortcut-icon orange">
+              <text class="icon-emoji">💳</text>
+            </view>
+            <text class="shortcut-label">提现</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="notice-card">
+        <view class="notice-header">
+          <text class="card-title">公告通知</text>
+        </view>
+        <view v-if="notices.length == 0" class="notice-empty">
+          <text class="empty-text">暂无公告</text>
+        </view>
+        <view v-else>
+          <view v-for="n in notices" :key="n.id" class="notice-item">
+            <text class="notice-title">{{ n.title }}</text>
+            <text class="notice-time">{{ n.createdAt }}</text>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+</template>
+
+<script lang="uts">
+import OrderAlert from '@/components/OrderAlert.uvue'
+import { getDashboard, switchStoreStatus, getStores } from '@/api/merchant'
+import { listMerchantOrders } from '@/api/order'
+import { listMerchantAftersales } from '@/api/aftersale'
+import { listMessages, getUnreadCount } from '@/api/message'
+import { merchantState, setCurrentStoreId } from '@/stores/user'
+import { fenToYuan, relativeTime } from '@/utils/format'
+import { startPolling, onUnreadChange, resetOrderCache } from '@/services/pushService'
+
+type PendingCounts = {
+  waitAccept: number
+  waitPrepare: number
+  waitPickup: number
+  aftersale: number
+}
+
+type TodayData = {
+  orderCount: number
+  revenue: number
+  avgPrice: number
+}
+
+type NoticeItem = {
+  id: number
+  title: string
+  createdAt: string
+}
+
+export default {
+  components: { OrderAlert },
+  data() {
+    return {
+      refreshing: false,
+      shopName: '' as string,
+      businessStatus: 'OPEN' as string,
+      auditStatusText: '' as string,
+      currentStoreId: 0 as number,
+      pending: {
+        waitAccept: 0,
+        waitPrepare: 0,
+        waitPickup: 0,
+        aftersale: 0
+      } as PendingCounts,
+      todayData: {
+        orderCount: 0,
+        revenue: 0,
+        avgPrice: 0
+      } as TodayData,
+      notices: [] as NoticeItem[],
+      unreadCount: 0 as number,
+      autoRefreshTimer: 0 as number,
+    }
+  },
+  onLoad() {
+    // 登录状态校验
+    if (!merchantState.isLogin) {
+      uni.reLaunch({ url: '/pages/auth/login' })
+      return
+    }
+
+    const onUnread = (count: number) => {
+      this.unreadCount = count
+    }
+    onUnreadChange(onUnread)
+    startPolling(15000)
+    this.loadAll()
+
+    // 每30秒自动刷新待处理数
+    this.autoRefreshTimer = setInterval(() => {
+      this.loadPending()
+    }, 30000) as number
+
+    uni.$on('orderAccepted', () => {
+      this.loadPending()
+    })
+    uni.$on('orderStatusChanged', () => {
+      this.loadPending()
+    })
+  },
+  onShow() {
+    this.loadPending()
+  },
+  onUnload() {
+    if (this.autoRefreshTimer != 0) {
+      clearInterval(this.autoRefreshTimer)
+      this.autoRefreshTimer = 0
+    }
+    uni.$off('orderAccepted')
+    uni.$off('orderStatusChanged')
+  },
+  computed: {
+    revenueText(): string {
+      return fenToYuan(this.todayData.revenue)
+    },
+    avgPriceText(): string {
+      return fenToYuan(this.todayData.avgPrice)
+    }
+  },
+  methods: {
+    async onRefresh() {
+      this.refreshing = true
+      resetOrderCache()
+      await this.loadAll()
+      this.refreshing = false
+    },
+    async loadAll() {
+      await Promise.all([
+        this.loadDashboard(),
+        this.loadShop(),
+        this.loadPending(),
+        this.loadNotices(),
+        this.loadUnread()
+      ])
+    },
+    async loadDashboard() {
+      try {
+        const resp = await getDashboard()
+        if (resp.code == 0 && resp.data != null) {
+          const data = resp.data as UTSJSONObject
+          this.todayData.orderCount = data.getNumber('todayOrders') ?? 0
+          this.todayData.revenue = data.getNumber('todayRevenue') ?? 0
+          this.todayData.avgPrice = this.todayData.orderCount > 0
+            ? Math.round(this.todayData.revenue / this.todayData.orderCount)
+            : 0
+          const auditStatus = data.getString('auditStatus') ?? 'PENDING'
+          if (auditStatus == 'APPROVED') {
+            this.auditStatusText = '已认证'
+          } else if (auditStatus == 'PENDING') {
+            this.auditStatusText = '审核中'
+          } else {
+            this.auditStatusText = '未认证'
+          }
+        }
+      } catch (e) { }
+    },
+    async loadShop() {
+      try {
+        const resp = await getStores()
+        if (resp.code == 0 && resp.data != null) {
+          const data = resp.data as UTSJSONObject
+          const list = (data['list'] as any[]) ?? []
+          if (list.length > 0) {
+            const first = list[0] as UTSJSONObject
+            const storeId = first.getNumber('id') ?? 0
+            this.currentStoreId = storeId
+            setCurrentStoreId(storeId)
+            this.shopName = first.getString('name') ?? ''
+            this.businessStatus = first.getString('status') ?? 'OPEN'
+          } else {
+            this.shopName = '未创建门店'
+            this.businessStatus = 'CLOSED'
+          }
+        }
+      } catch (e) { }
+    },
+    async loadPending() {
+      // 使用订单列表接口按状态筛选
+      try {
+        const pAccept = listMerchantOrders({ status: 'PENDING_MERCHANT', page: 1, pageSize: 1 } as UTSJSONObject)
+        const pPrepare = listMerchantOrders({ status: 'PENDING_RIDER', page: 1, pageSize: 1 } as UTSJSONObject)
+        const pPickup = listMerchantOrders({ status: 'PENDING_PICKUP', page: 1, pageSize: 1 } as UTSJSONObject)
+        const pAftersale = listMerchantAftersales({ status: 'PENDING_ACCEPT', page: 1, pageSize: 1 } as UTSJSONObject)
+
+        const [r1, r2, r3, r4] = await Promise.all([pAccept, pPrepare, pPickup, pAftersale])
+        this.pending.waitAccept = this.extractTotal(r1)
+        this.pending.waitPrepare = this.extractTotal(r2)
+        this.pending.waitPickup = this.extractTotal(r3)
+        this.pending.aftersale = this.extractTotal(r4)
+      } catch (e) { }
+    },
+    extractTotal(resp: any): number {
+      if (resp == null) return 0
+      const r = resp as UTSJSONObject
+      if ((r.getNumber('code') ?? -1) != 0) return 0
+      const data = r['data'] as UTSJSONObject
+      if (data == null) return 0
+      const pagination = data['pagination'] as UTSJSONObject | null
+      if (pagination != null) {
+        return pagination!.getNumber('total') ?? 0
+      }
+      return 0
+    },
+    async loadNotices() {
+      try {
+        const resp = await listMessages({ type: 'SYSTEM', page: 1, pageSize: 5 } as UTSJSONObject)
+        if (resp.code == 0 && resp.data != null) {
+          const data = resp.data as UTSJSONObject
+          const list = (data['list'] as any[]) ?? []
+          const arr: NoticeItem[] = []
+          for (let i = 0; i < list.length; i++) {
+            const m = list[i] as UTSJSONObject
+            arr.push({
+              id: m.getNumber('id') ?? 0,
+              title: m.getString('title') ?? '',
+              createdAt: relativeTime(m['createdAt'])
+            } as NoticeItem)
+          }
+          this.notices = arr
+        }
+      } catch (e) { }
+    },
+    async loadUnread() {
+      try {
+        const resp = await getUnreadCount()
+        if (resp.code == 0 && resp.data != null) {
+          const data = resp.data as UTSJSONObject
+          this.unreadCount = data.getNumber('total') ?? data.getNumber('count') ?? 0
+        }
+      } catch (e) { }
+    },
+    onStatusChange(e: any) {
+      const d = e.detail as UTSJSONObject
+      const value = d.getBoolean('value') ?? false
+      const targetStatus = value ? 'OPEN' : 'CLOSED'
+      const self = this
+      uni.showModal({
+        title: '确认操作',
+        content: value ? '确认开启营业吗？' : '确认暂停营业吗？',
+        success: async (res) => {
+          if (!res.confirm) {
+            // 还原
+            self.businessStatus = self.businessStatus == 'OPEN' ? 'CLOSED' : 'OPEN'
+            return
+          }
+          try {
+            const resp = await switchStoreStatus(self.currentStoreId, targetStatus)
+            if (resp.code == 0) {
+              self.businessStatus = targetStatus
+              uni.showToast({ title: '已切换', icon: 'success' })
+            }
+          } catch (e) { }
+        }
+      } as ShowModalOptions)
+    },
+    goOrderList(status: string) {
+      uni.switchTab({ url: '/pages/order/list' })
+      uni.$emit('setOrderTab', { status: status } as UTSJSONObject)
+    },
+    goAftersale() {
+      uni.navigateTo({ url: '/pages/order/aftersale' })
+    },
+    goOrders() { uni.switchTab({ url: '/pages/order/list' }) },
+    goProduct() { uni.switchTab({ url: '/pages/product/manage' }) },
+    goFinance() { uni.navigateTo({ url: '/pages/finance/bill' }) },
+    goShop() { uni.navigateTo({ url: '/pages/shop/settings' }) },
+    goPrinter() { uni.navigateTo({ url: '/pages/shop/printer' }) },
+    goMessage() { uni.navigateTo({ url: '/pages/message/index' }) },
+    goSettings() { uni.navigateTo({ url: '/pages/auth/settings' }) },
+    goWithdraw() { uni.navigateTo({ url: '/pages/finance/withdraw' }) }
+  }
+}
+</script>
+
+<style lang="scss">
+.container {
+  min-height: 100vh;
+  background-color: #f5f6f8;
+  display: flex;
+  flex-direction: column;
+}
+.body {
+  flex: 1;
+  padding: 20rpx;
+}
+.shop-bar {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx 30rpx;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+.shop-info {
+  flex: 1;
+}
+.shop-name {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+}
+.shop-subtitle {
+  font-size: 24rpx;
+  color: #52C41A;
+  margin-top: 6rpx;
+  display: block;
+}
+.status-switch {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.status-label {
+  font-size: 24rpx;
+  color: #666;
+  margin-right: 16rpx;
+}
+.pending-card, .today-card, .shortcut-card, .notice-card {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx 30rpx;
+  margin-bottom: 20rpx;
+}
+.pending-title, .today-title, .card-title {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 20rpx;
+  display: block;
+}
+.pending-grid {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+}
+.pending-item {
+  flex: 1;
+  text-align: center;
+  padding: 10rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.pending-num {
+  font-size: 44rpx;
+  font-weight: bold;
+  color: #333;
+  line-height: 1.2;
+}
+.pending-item.danger .pending-num {
+  color: #F5222D;
+}
+.pending-label {
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 6rpx;
+}
+.today-grid {
+  display: flex;
+  flex-direction: row;
+}
+.today-item {
+  flex: 1;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.today-num {
+  font-size: 38rpx;
+  font-weight: bold;
+  color: #FF6B00;
+}
+.today-label {
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 6rpx;
+}
+.shortcut-grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.shortcut-item {
+  width: 25%;
+  padding: 16rpx 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.shortcut-icon {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10rpx;
+  position: relative;
+}
+.shortcut-icon.orange { background-color: #FFF5EC; }
+.shortcut-icon.blue { background-color: #E6F7FF; }
+.shortcut-icon.green { background-color: #F6FFED; }
+.shortcut-icon.purple { background-color: #F9F0FF; }
+.shortcut-icon.grey { background-color: #F5F5F5; }
+.shortcut-icon.red { background-color: #FFF1F0; }
+.icon-emoji {
+  font-size: 44rpx;
+}
+.icon-badge {
+  position: absolute;
+  top: -4rpx;
+  right: -4rpx;
+  min-width: 32rpx;
+  height: 32rpx;
+  padding: 0 8rpx;
+  background-color: #F5222D;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.badge-num {
+  color: #fff;
+  font-size: 20rpx;
+  line-height: 1;
+}
+.shortcut-label {
+  font-size: 24rpx;
+  color: #333;
+}
+.notice-empty {
+  padding: 30rpx;
+  text-align: center;
+}
+.empty-text {
+  font-size: 26rpx;
+  color: #bbb;
+}
+.notice-item {
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+.notice-item:last-child {
+  border-bottom: none;
+}
+.notice-title {
+  flex: 1;
+  font-size: 26rpx;
+  color: #333;
+}
+.notice-time {
+  font-size: 22rpx;
+  color: #999;
+  margin-left: 16rpx;
+}
+</style>

@@ -1,0 +1,185 @@
+/**
+ * 通用格式化工具
+ */
+
+/**
+ * 分 → 元 字符串（保留2位小数）
+ */
+export const fenToYuan = (fen: number): string => {
+  if (fen == null) return '0.00'
+  const n = (fen / 100)
+  return n.toFixed(2)
+}
+
+/**
+ * 元 → 分
+ */
+export const yuanToFen = (yuan: number): number => {
+  return Math.round(yuan * 100)
+}
+
+/**
+ * 时间戳 → YYYY-MM-DD HH:mm
+ */
+export const formatDateTime = (ts: number | string | null): string => {
+  if (ts == null) return ''
+  let d: Date
+  if (typeof ts == 'number') {
+    d = new Date(ts as number)
+  } else {
+    d = new Date(ts as string)
+  }
+  const pad = (n: number): string => (n < 10 ? '0' + n : '' + n)
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+/**
+ * 时间戳 → HH:mm
+ */
+export const formatTime = (ts: number | string | null): string => {
+  if (ts == null) return ''
+  let d: Date
+  if (typeof ts == 'number') {
+    d = new Date(ts as number)
+  } else {
+    d = new Date(ts as string)
+  }
+  const pad = (n: number): string => (n < 10 ? '0' + n : '' + n)
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+/**
+ * 相对时间：刚刚/N分钟前/N小时前/...
+ */
+export const relativeTime = (ts: number | string | null): string => {
+  if (ts == null) return ''
+  let t: number
+  if (typeof ts == 'number') {
+    t = ts as number
+  } else {
+    t = new Date(ts as string).getTime()
+  }
+  const diff = (Date.now() - t) / 1000
+  if (diff < 60) return '刚刚'
+  if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`
+  if (diff < 2592000) return `${Math.floor(diff / 86400)}天前`
+  return formatDateTime(ts)
+}
+
+/**
+ * 手机号脱敏
+ */
+export const maskPhone = (phone: string): string => {
+  if (phone == null || phone.length < 11) return phone
+  return phone.substring(0, 3) + '****' + phone.substring(7)
+}
+
+/**
+ * 验证手机号
+ */
+export const isValidPhone = (phone: string): boolean => {
+  return /^1[3-9]\d{9}$/.test(phone)
+}
+
+/**
+ * 验证身份证号（18位）
+ */
+export const isValidIdCard = (idCard: string): boolean => {
+  return /^\d{17}[\dXx]$/.test(idCard)
+}
+
+/**
+ * 订单状态文案
+ */
+export const orderStatusText = (status: string): string => {
+  switch (status) {
+    case 'PENDING_PAYMENT': return '待付款'
+    case 'PENDING_MERCHANT': return '待接单'
+    case 'PENDING_RIDER': return '待派送'
+    case 'PENDING_PICKUP': return '待取货'
+    case 'DELIVERING': return '配送中'
+    case 'DELIVERED': return '已送达'
+    case 'COMPLETED': return '已完成'
+    case 'CANCELLED': return '已取消'
+    case 'REJECTED': return '已拒单'
+    case 'AFTERSALE': return '售后中'
+    case 'RIDER_ACCEPTED': return '骑手已接单'
+    case 'ON_THE_WAY': return '骑手在途'
+    case 'IN_PROGRESS': return '服务中'
+    default: return status
+  }
+}
+
+/**
+ * 订单状态颜色
+ */
+export const orderStatusColor = (status: string): string => {
+  switch (status) {
+    case 'PENDING_MERCHANT': return '#FF6B00'
+    case 'PENDING_RIDER':
+    case 'PENDING_PICKUP':
+    case 'DELIVERING': return '#1677FF'
+    case 'COMPLETED':
+    case 'DELIVERED': return '#52C41A'
+    case 'CANCELLED':
+    case 'REJECTED': return '#999999'
+    case 'AFTERSALE': return '#F5222D'
+    default: return '#666666'
+  }
+}
+
+/**
+ * 售后状态文案
+ */
+export const aftersaleStatusText = (status: string): string => {
+  switch (status) {
+    case 'PENDING_ACCEPT': return '待受理'
+    case 'PROCESSING': return '处理中'
+    case 'PENDING_REFUND': return '待退款'
+    case 'REFUNDED': return '已退款'
+    case 'REJECTED': return '已驳回'
+    case 'CANCELLED': return '已取消'
+    default: return status
+  }
+}
+
+/**
+ * 账单/结算状态
+ */
+export const billStatusText = (status: string): string => {
+  switch (status) {
+    case 'PENDING': return '待结算'
+    case 'FROZEN': return '冻结中'
+    case 'SETTLED': return '已结算'
+    case 'CANCELLED': return '已取消'
+    default: return status
+  }
+}
+
+/**
+ * 提现状态
+ */
+export const withdrawStatusText = (status: string): string => {
+  switch (status) {
+    case 'PENDING': return '审核中'
+    case 'APPROVED': return '已通过'
+    case 'REJECTED': return '已驳回'
+    case 'TRANSFERRING': return '转账中'
+    case 'SUCCESS': return '已到账'
+    case 'FAILED': return '失败'
+    default: return status
+  }
+}
+
+/**
+ * 审核状态
+ */
+export const auditStatusText = (status: string): string => {
+  switch (status) {
+    case 'PENDING': return '审核中'
+    case 'APPROVED': return '已通过'
+    case 'REJECTED': return '已驳回'
+    default: return status
+  }
+}

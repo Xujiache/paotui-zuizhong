@@ -1,0 +1,64 @@
+/**
+ * 商家端认证授权接口
+ * 对应后端 /api/v1/auth/merchant/* 系列
+ */
+import { post, ApiResponse } from './request'
+
+/**
+ * 发送短信验证码（登录/注册通用）
+ * scene: LOGIN（登录）| REGISTER（注册）
+ */
+export const sendSmsCode = (phone: string, scene: string = 'LOGIN'): Promise<ApiResponse> => {
+  return post(
+    '/auth/merchant/send-code',
+    { phone: phone, scene: scene } as UTSJSONObject,
+    { noAuth: true, hideErrorToast: false } as UTSJSONObject,
+  )
+}
+
+/**
+ * 商家注册（首次使用）
+ */
+export const merchantRegister = (data: UTSJSONObject): Promise<ApiResponse> => {
+  return post('/auth/merchant/register', data, { noAuth: true, hideErrorToast: true } as UTSJSONObject)
+}
+
+/**
+ * 验证码登录
+ */
+export const loginByCode = (phone: string, code: string): Promise<ApiResponse> => {
+  return post(
+    '/auth/merchant/login',
+    { phone: phone, code: code } as UTSJSONObject,
+    { noAuth: true, hideErrorToast: true } as UTSJSONObject,
+  )
+}
+
+/**
+ * 密码登录
+ */
+export const loginByPassword = (phone: string, password: string): Promise<ApiResponse> => {
+  return post(
+    '/auth/merchant/login-pwd',
+    { phone: phone, password: password } as UTSJSONObject,
+    { noAuth: true, hideErrorToast: true } as UTSJSONObject,
+  )
+}
+
+/**
+ * 刷新 token
+ */
+export const refreshToken = (refreshToken: string): Promise<ApiResponse> => {
+  return post(
+    '/auth/refresh-token',
+    { refreshToken: refreshToken } as UTSJSONObject,
+    { noAuth: true, hideErrorToast: true } as UTSJSONObject,
+  )
+}
+
+/**
+ * 登出
+ */
+export const logout = (): Promise<ApiResponse> => {
+  return post('/auth/logout', null)
+}

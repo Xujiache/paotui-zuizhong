@@ -1,0 +1,71 @@
+/**
+ * 离线缓存服务
+ *
+ * 首期实现：
+ *  - 使用 uni.setStorageSync 做轻量订单缓存
+ *  - 仅支持只读展示已缓存的订单，断网时不允许写操作（接单/备货等）
+ *  - 网络恢复时自动触发回调同步
+ */
+
+const CACHE_KEY_ORDERS = 'mct_offline_orders'
+const CACHE_KEY_TS = 'mct_offline_orders_ts'
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000
+
+let _isOnline: boolean = true
+let _onlineListeners: ((online: boolean) => void)[] = []
+
+export const init = () => {
+  // 获取当前网络状态
+  uni.getNetworkType({
+    success: (res) => {
+      _isOnline = res.networkType != 'none'
+    },
+  } as GetNetworkTypeOptions)
+
+  uni.onNetworkStatusChange((res) => {
+    const newOnline = res.isConnected
+    if (newOnline != _isOnline) {
+      _isOnline = newOnline
+      for (let i = 0; i < _onlineListeners.length; i++) {
+        _onlineListeners[i](newOnline)
+      }
+      if (newOnline) {
+        uni.showToast({ title: '网络已恢复', icon: 'success' })
+      } else {
+        uni.showToast({ title: '网络已断开', icon: 'none' })
+      }
+    }
+  })
+}
+
+export const isOnline = (): boolean => {
+  return _isOnline
+}
+
+export const onOnlineChange = (cb: (online: boolean) => void) => {
+  _onlineListeners.push(cb)
+}
+
+export const cacheOrders = (orders: any[]) => {
+  uni.setStorageSync(CACHE_KEY_ORDERS, orders)
+  uni.setStorageSync(CACHE_KEY_TS, Date.now())
+}
+
+export const getCachedOrders = (): any[] => {
+  const ts = uni.getStorageSync(CACHE_KEY_TS)
+  if (ts == null) return []
+  if (typeof ts != 'number') return []
+  if (Date.now() - (ts as number) > CACHE_TTL_MS) {
+    uni.removeStorageSync(CACHE_KEY_ORDERS)
+    uni.removeStorageSync(CACHE_KEY_TS)
+    return []
+  }
+  const data = uni.getStorageSync(CACHE_KEY_ORDERS)
+  if (data == null) return []
+  return data as any[]
+}
+
+export const clearCache = () => {
+  uni.removeStorageSync(CACHE_KEY_ORDERS)
+  uni.removeStorageSync(CACHE_KEY_TS)
+}

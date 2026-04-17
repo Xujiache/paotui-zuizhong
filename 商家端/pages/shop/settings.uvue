@@ -1,0 +1,436 @@
+<template>
+  <view class="container">
+    <scroll-view class="body" scroll-y="true">
+      <view v-if="loading" class="loading">
+        <text class="loading-text">加载中...</text>
+      </view>
+
+      <view v-else>
+        <view class="card logo-card" @click="onChooseLogo">
+          <view class="logo-wrap">
+            <image v-if="form.logo != ''" class="logo-img" :src="form.logo" mode="aspectFill" />
+            <view v-else class="logo-placeholder">
+              <text class="ph-text">点击上传店铺头图</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="card">
+          <view class="form-row">
+            <text class="label">门店名称</text>
+            <input class="input" placeholder="门店名称" v-model="form.name" maxlength="30" />
+          </view>
+          <view class="form-row">
+            <text class="label">联系电话</text>
+            <input class="input" type="number" placeholder="联系电话" v-model="form.phone" maxlength="11" />
+          </view>
+          <view class="form-row">
+            <text class="label">门店地址</text>
+            <view class="addr-row" @click="chooseLocation">
+              <text class="addr-text">{{ form.address != '' ? form.address : '点击选择位置' }}</text>
+              <text class="arrow">›</text>
+            </view>
+          </view>
+          <view v-if="form.lat != 0" class="coords-row">
+            <text class="coords">经纬度：{{ form.lat.toFixed(6) }}, {{ form.lng.toFixed(6) }}</text>
+          </view>
+        </view>
+
+        <view class="card">
+          <text class="card-title">店铺公告</text>
+          <textarea
+            class="announcement-input"
+            placeholder="告知用户最新促销、营业情况等"
+            v-model="form.announcement"
+            maxlength="200"
+          />
+          <text class="count">{{ form.announcement.length }}/200</text>
+          <button class="btn-save-announcement" @click="saveAnnouncement">保存公告</button>
+        </view>
+
+        <view class="card">
+          <text class="card-title">门店照片</text>
+          <view class="img-grid">
+            <view v-for="(img, idx) in form.images" :key="idx" class="img-slot">
+              <image class="prev" :src="img" mode="aspectFill" />
+              <view class="close-x" @click="removeImg(idx)">
+                <text class="cx">×</text>
+              </view>
+            </view>
+            <view v-if="form.images.length < 9" class="img-add" @click="addImg">
+              <text class="plus">+</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="footer">
+      <button class="btn-submit" @click="saveAll">保存基本信息</button>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+import { getStores, getStoreDetail, updateStore, updateAnnouncement } from '@/api/merchant'
+import { uploadImage } from '@/api/common'
+import { getCurrentStoreId, setCurrentStoreId } from '@/stores/user'
+
+type ShopForm = {
+  logo: string
+  name: string
+  phone: string
+  province: string
+  city: string
+  district: string
+  address: string
+  lat: number
+  lng: number
+  announcement: string
+  images: string[]
+}
+
+export default {
+  data() {
+    return {
+      storeId: 0 as number,
+      loading: true,
+      form: {
+        logo: '',
+        name: '',
+        phone: '',
+        province: '',
+        city: '',
+        district: '',
+        address: '',
+        lat: 0,
+        lng: 0,
+        announcement: '',
+        images: [] as string[]
+      } as ShopForm
+    }
+  },
+  onLoad() {
+    this.load()
+  },
+  methods: {
+    async load() {
+      this.loading = true
+      try {
+        let storeId = getCurrentStoreId()
+        if (storeId == 0) {
+          // 尝试从 stores 列表里取第一个
+          const resp = await getStores()
+          if (resp.code == 0 && resp.data != null) {
+            const d = resp.data as UTSJSONObject
+            const list = (d['list'] as any[]) ?? []
+            if (list.length > 0) {
+              const first = list[0] as UTSJSONObject
+              storeId = first.getNumber('id') ?? 0
+              setCurrentStoreId(storeId)
+            }
+          }
+        }
+        if (storeId == 0) {
+          uni.showToast({ title: '请先创建门店', icon: 'none' })
+          this.loading = false
+          return
+        }
+        this.storeId = storeId
+        const detail = await getStoreDetail(storeId)
+        if (detail.code == 0 && detail.data != null) {
+          const d = detail.data as UTSJSONObject
+          this.form.logo = d.getString('logo') ?? ''
+          this.form.name = d.getString('name') ?? ''
+          this.form.phone = d.getString('phone') ?? ''
+          this.form.province = d.getString('province') ?? ''
+          this.form.city = d.getString('city') ?? ''
+          this.form.district = d.getString('district') ?? ''
+          this.form.address = d.getString('address') ?? ''
+          this.form.lat = d.getNumber('lat') ?? 0
+          this.form.lng = d.getNumber('lng') ?? 0
+          this.form.announcement = d.getString('announcement') ?? ''
+          const imgs = d['images'] as string[] | null
+          this.form.images = imgs != null ? imgs! : [] as string[]
+        }
+      } catch (e) { }
+      finally {
+        this.loading = false
+      }
+    },
+    onChooseLogo() {
+      const self = this
+      uni.chooseImage({
+        count: 1,
+        sourceType: ['camera', 'album'],
+        success: async (res) => {
+          if (res.tempFilePaths.length == 0) return
+          uni.showLoading({ title: '上传中...' })
+          try {
+            const url = await uploadImage(res.tempFilePaths[0])
+            self.form.logo = url
+            uni.hideLoading()
+          } catch (e) {
+            uni.hideLoading()
+          }
+        }
+      } as ChooseImageOptions)
+    },
+    chooseLocation() {
+      const self = this
+      uni.chooseLocation({
+        success: (res) => {
+          self.form.lat = res.latitude
+          self.form.lng = res.longitude
+          self.form.address = res.address + (res.name != '' ? (' · ' + res.name) : '')
+        }
+      } as ChooseLocationOptions)
+    },
+    addImg() {
+      const self = this
+      uni.chooseImage({
+        count: 9 - this.form.images.length,
+        sourceType: ['camera', 'album'],
+        success: async (res) => {
+          uni.showLoading({ title: '上传中...' })
+          for (let i = 0; i < res.tempFilePaths.length; i++) {
+            try {
+              const url = await uploadImage(res.tempFilePaths[i])
+              self.form.images.push(url)
+            } catch (e) { }
+          }
+          uni.hideLoading()
+        }
+      } as ChooseImageOptions)
+    },
+    removeImg(idx: number) {
+      this.form.images.splice(idx, 1)
+    },
+    async saveAll() {
+      if (this.form.name == '') {
+        uni.showToast({ title: '请输入门店名称', icon: 'none' })
+        return
+      }
+      uni.showLoading({ title: '保存中...' })
+      try {
+        const body: UTSJSONObject = {
+          name: this.form.name,
+          phone: this.form.phone,
+          logo: this.form.logo
+        }
+        if (this.form.lat != 0 && this.form.lng != 0) {
+          body['lat'] = this.form.lat
+          body['lng'] = this.form.lng
+          body['address'] = this.form.address
+          if (this.form.province != '') body['province'] = this.form.province
+          if (this.form.city != '') body['city'] = this.form.city
+          if (this.form.district != '') body['district'] = this.form.district
+        }
+        const resp = await updateStore(this.storeId, body)
+        uni.hideLoading()
+        if (resp.code == 0) {
+          uni.showToast({ title: '已保存', icon: 'success' })
+        }
+      } catch (e) {
+        uni.hideLoading()
+      }
+    },
+    async saveAnnouncement() {
+      uni.showLoading({ title: '保存中...' })
+      try {
+        const resp = await updateAnnouncement(this.storeId, this.form.announcement)
+        uni.hideLoading()
+        if (resp.code == 0) {
+          uni.showToast({ title: '公告已更新', icon: 'success' })
+        }
+      } catch (e) {
+        uni.hideLoading()
+      }
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.container {
+  min-height: 100vh;
+  background-color: #f5f6f8;
+  display: flex;
+  flex-direction: column;
+}
+.body {
+  flex: 1;
+  padding: 20rpx;
+}
+.loading {
+  padding: 120rpx 0;
+  text-align: center;
+}
+.loading-text {
+  font-size: 28rpx;
+  color: #bbb;
+}
+.card {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx 30rpx;
+  margin-bottom: 20rpx;
+}
+.logo-card {
+  padding: 0;
+  overflow: hidden;
+}
+.logo-wrap {
+  width: 100%;
+  height: 320rpx;
+  background-color: #f5f5f5;
+}
+.logo-img {
+  width: 100%;
+  height: 100%;
+}
+.logo-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ph-text {
+  color: #bbb;
+  font-size: 26rpx;
+}
+.form-row {
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+.form-row:last-child {
+  border-bottom: none;
+}
+.label {
+  font-size: 24rpx;
+  color: #999;
+  display: block;
+  margin-bottom: 10rpx;
+}
+.input {
+  height: 72rpx;
+  font-size: 30rpx;
+  color: #333;
+}
+.addr-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  height: 72rpx;
+}
+.addr-text {
+  flex: 1;
+  font-size: 28rpx;
+  color: #333;
+}
+.arrow {
+  font-size: 32rpx;
+  color: #ccc;
+}
+.coords-row {
+  padding: 10rpx 0;
+}
+.coords {
+  font-size: 22rpx;
+  color: #999;
+}
+.card-title {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 16rpx;
+  display: block;
+}
+.announcement-input {
+  width: 100%;
+  height: 180rpx;
+  padding: 16rpx;
+  background-color: #fafafa;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+}
+.count {
+  display: block;
+  text-align: right;
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 10rpx;
+}
+.btn-save-announcement {
+  margin-top: 20rpx;
+  height: 72rpx;
+  line-height: 72rpx;
+  background-color: #fff;
+  color: #FF6B00;
+  border: 1rpx solid #FF6B00;
+  font-size: 26rpx;
+  border-radius: 36rpx;
+}
+.img-grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.img-slot {
+  width: 200rpx;
+  height: 200rpx;
+  margin-right: 12rpx;
+  margin-bottom: 12rpx;
+  position: relative;
+}
+.prev {
+  width: 100%;
+  height: 100%;
+  border-radius: 12rpx;
+}
+.close-x {
+  position: absolute;
+  top: -10rpx;
+  right: -10rpx;
+  width: 36rpx;
+  height: 36rpx;
+  background-color: rgba(0,0,0,0.5);
+  border-radius: 18rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cx {
+  color: #fff;
+  font-size: 22rpx;
+}
+.img-add {
+  width: 200rpx;
+  height: 200rpx;
+  background-color: #fafafa;
+  border: 2rpx dashed #ddd;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.plus {
+  font-size: 60rpx;
+  color: #bbb;
+}
+.footer {
+  padding: 20rpx;
+  background-color: #fff;
+  border-top: 1rpx solid #f0f0f0;
+}
+.btn-submit {
+  height: 88rpx;
+  line-height: 88rpx;
+  background-color: #FF6B00;
+  color: #fff;
+  font-size: 30rpx;
+  border-radius: 44rpx;
+}
+</style>

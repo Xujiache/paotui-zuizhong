@@ -1,0 +1,64 @@
+/**
+ * 通用接口（上传/健康检查）
+ * 对应后端 /api/v1/common/*
+ */
+import { get, ApiResponse, getToken } from './request'
+import { BASE_URL, API_PREFIX, CLIENT_TYPE } from '@/utils/env'
+
+/**
+ * 健康检查
+ */
+export const health = (): Promise<ApiResponse> => {
+  return get('/common/health', null, { hideErrorToast: true, noAuth: true } as UTSJSONObject)
+}
+
+/**
+ * 上传单张图片（通过 uni.uploadFile）
+ * 返回: { url, size, mimetype, ... }
+ */
+export const uploadImage = (filePath: string): Promise<string> => {
+  return new Promise<string>((resolve, reject) => {
+    const token = getToken()
+    const header = {
+      'X-Client-Type': CLIENT_TYPE,
+    } as UTSJSONObject
+    if (token != '') {
+      header['Authorization'] = 'Bearer ' + token
+    }
+    uni.uploadFile({
+      url: BASE_URL + API_PREFIX + '/common/upload/image',
+      filePath: filePath,
+      name: 'file',
+      header: header,
+      success: (res) => {
+        if (res.statusCode != 200) {
+          reject(new Error('上传失败：' + res.statusCode))
+          return
+        }
+        const body = JSON.parse(res.data) as UTSJSONObject
+        const code = body.getNumber('code')
+        if (code != null && code == 0) {
+          const data = body['data'] as UTSJSONObject
+          const url = data.getString('url') ?? ''
+          resolve(url)
+        } else {
+          reject(new Error(body.getString('message') ?? '上传失败'))
+        }
+      },
+      fail: (err) => {
+        reject(new Error(err.errMsg ?? '上传失败'))
+      },
+    })
+  })
+}
+
+/**
+ * 批量上传图片
+ */
+export const uploadImages = (filePaths: string[]): Promise<string[]> => {
+  const results: Promise<string>[] = []
+  for (let i = 0; i < filePaths.length; i++) {
+    results.push(uploadImage(filePaths[i]))
+  }
+  return Promise.all(results)
+}

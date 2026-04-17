@@ -165,6 +165,43 @@ export const listAftersales = async (
   return { list, total: total[0]?.total ?? 0 };
 };
 
+export interface MerchantAftersaleListParams {
+  merchantId: number;
+  status?: string;
+  page: number;
+  pageSize: number;
+}
+
+export const listMerchantAftersales = async (
+  params: MerchantAftersaleListParams,
+): Promise<{ list: AftersaleRow[]; total: number }> => {
+  const where: string[] = ['a.is_deleted = 0', 's.merchant_id = ?'];
+  const vals: Array<string | number> = [params.merchantId];
+  if (params.status) {
+    where.push('a.status = ?');
+    vals.push(params.status);
+  }
+  const whereSql = where.join(' AND ');
+  const offset = (params.page - 1) * params.pageSize;
+  const list = await query<AftersaleRow[]>(
+    `SELECT a.* FROM aftersales a
+     INNER JOIN orders o ON a.order_id = o.id
+     INNER JOIN stores s ON o.store_id = s.id
+     WHERE ${whereSql}
+     ORDER BY a.id DESC
+     LIMIT ${params.pageSize} OFFSET ${offset}`,
+    vals,
+  );
+  const total = await query<(RowDataPacket & { total: number })[]>(
+    `SELECT COUNT(*) AS total FROM aftersales a
+     INNER JOIN orders o ON a.order_id = o.id
+     INNER JOIN stores s ON o.store_id = s.id
+     WHERE ${whereSql}`,
+    vals,
+  );
+  return { list, total: total[0]?.total ?? 0 };
+};
+
 // ============ 投诉 ============
 
 export const findComplaintById = async (id: number): Promise<ComplaintRow | null> =>

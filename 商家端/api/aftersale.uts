@@ -1,0 +1,50 @@
+/**
+ * 商家端售后接口
+ * 对应后端 /api/v1/aftersale/*
+ */
+import { get, post, ApiResponse } from './request'
+
+/**
+ * 商家端售后列表（按商家门店过滤）
+ * params: { status?, page, pageSize }
+ */
+export const listMerchantAftersales = (params: UTSJSONObject): Promise<ApiResponse> => {
+  return get('/aftersale/merchant-aftersales', params)
+}
+
+/**
+ * 售后详情
+ */
+export const getAftersaleDetail = (id: number): Promise<ApiResponse> => {
+  return get(`/aftersale/aftersales/${id}`)
+}
+
+/**
+ * 商家处理售后
+ * action: AGREE | REJECT
+ */
+export const merchantHandle = (
+  aftersaleId: number,
+  action: string,
+  remark: string,
+): Promise<ApiResponse> => {
+  return post(`/aftersale/aftersales/${aftersaleId}/merchant-handle`, {
+    action: action,
+    remark: remark,
+  } as UTSJSONObject)
+}
+
+/**
+ * 商家异常上报（缺货、门店异常等）
+ */
+export const merchantReportException = (
+  orderId: number,
+  reason: string,
+  description: string,
+): Promise<ApiResponse> => {
+  return post('/aftersale/merchant-exception', {
+    orderId: orderId,
+    reason: reason,
+    description: description,
+  } as UTSJSONObject)
+}

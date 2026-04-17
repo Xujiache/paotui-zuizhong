@@ -1,24 +1,154 @@
 {
-	"pages": [
-		{
-			"path": "pages/index/index",
-			"style": {
-				"navigationBarTitleText": "商家工作台"
-			}
-		},
-		{
-			"path": "pages/login/login",
-			"style": {
-				"navigationBarTitleText": "商家登录",
-				"navigationStyle": "custom"
-			}
-		}
-	],
-	"globalStyle": {
-		"pageOrientation": "portrait",
-		"navigationBarTitleText": "同城O2O商家端",
-		"navigationBarTextStyle": "white",
-		"navigationBarBackgroundColor": "#FF6B00",
-		"backgroundColor": "#F8F8F8"
-	}
+  "pages": [
+    {
+      "path": "pages/workbench/index",
+      "style": {
+        "navigationBarTitleText": "工作台",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/order/list",
+      "style": {
+        "navigationBarTitleText": "订单",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/product/manage",
+      "style": {
+        "navigationBarTitleText": "商品",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/finance/dashboard",
+      "style": {
+        "navigationBarTitleText": "数据",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/auth/login",
+      "style": {
+        "navigationBarTitleText": "商家登录",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/auth/apply",
+      "style": {
+        "navigationBarTitleText": "入驻申请"
+      }
+    },
+    {
+      "path": "pages/auth/review",
+      "style": {
+        "navigationBarTitleText": "审核进度"
+      }
+    },
+    {
+      "path": "pages/auth/settings",
+      "style": {
+        "navigationBarTitleText": "账号设置"
+      }
+    },
+    {
+      "path": "pages/order/detail",
+      "style": {
+        "navigationBarTitleText": "订单详情"
+      }
+    },
+    {
+      "path": "pages/order/aftersale",
+      "style": {
+        "navigationBarTitleText": "售后处理"
+      }
+    },
+    {
+      "path": "pages/order/report",
+      "style": {
+        "navigationBarTitleText": "异常上报"
+      }
+    },
+    {
+      "path": "pages/product/category",
+      "style": {
+        "navigationBarTitleText": "商品分类"
+      }
+    },
+    {
+      "path": "pages/product/sku",
+      "style": {
+        "navigationBarTitleText": "规格库存"
+      }
+    },
+    {
+      "path": "pages/shop/settings",
+      "style": {
+        "navigationBarTitleText": "店铺设置"
+      }
+    },
+    {
+      "path": "pages/shop/config",
+      "style": {
+        "navigationBarTitleText": "营业配送"
+      }
+    },
+    {
+      "path": "pages/shop/printer",
+      "style": {
+        "navigationBarTitleText": "打印配置"
+      }
+    },
+    {
+      "path": "pages/finance/bill",
+      "style": {
+        "navigationBarTitleText": "账单中心"
+      }
+    },
+    {
+      "path": "pages/finance/withdraw",
+      "style": {
+        "navigationBarTitleText": "提现"
+      }
+    },
+    {
+      "path": "pages/message/index",
+      "style": {
+        "navigationBarTitleText": "消息"
+      }
+    }
+  ],
+  "globalStyle": {
+    "pageOrientation": "portrait",
+    "navigationBarTitleText": "同城O2O商家端",
+    "navigationBarTextStyle": "white",
+    "navigationBarBackgroundColor": "#FF6B00",
+    "backgroundColor": "#F5F6F8"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#FF6B00",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/workbench/index",
+        "text": "工作台"
+      },
+      {
+        "pagePath": "pages/order/list",
+        "text": "订单"
+      },
+      {
+        "pagePath": "pages/product/manage",
+        "text": "商品"
+      },
+      {
+        "pagePath": "pages/finance/dashboard",
+        "text": "数据"
+      }
+    ]
+  }
 }

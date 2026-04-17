@@ -1,0 +1,42 @@
+/**
+ * 商家端订单接口
+ * 对应后端 /api/v1/order/*
+ */
+import { get, post, ApiResponse } from './request'
+
+/**
+ * 商家订单列表
+ * params: { storeId?, status?, page, pageSize }
+ * status: PENDING_MERCHANT | PENDING_RIDER | PENDING_PICKUP | DELIVERING | COMPLETED | CANCELLED | AFTERSALE ...
+ */
+export const listMerchantOrders = (params: UTSJSONObject): Promise<ApiResponse> => {
+  return get('/order/merchant-orders', params)
+}
+
+/**
+ * 订单详情
+ */
+export const getOrderDetail = (id: number): Promise<ApiResponse> => {
+  return get(`/order/orders/${id}`)
+}
+
+/**
+ * 订单日志
+ */
+export const getOrderLogs = (id: number): Promise<ApiResponse> => {
+  return get(`/order/orders/${id}/logs`)
+}
+
+/**
+ * 接单
+ */
+export const merchantAccept = (orderId: number): Promise<ApiResponse> => {
+  return post(`/order/orders/${orderId}/merchant-accept`, null)
+}
+
+/**
+ * 拒单
+ */
+export const merchantReject = (orderId: number, reason: string): Promise<ApiResponse> => {
+  return post(`/order/orders/${orderId}/merchant-reject`, { reason: reason } as UTSJSONObject)
+}

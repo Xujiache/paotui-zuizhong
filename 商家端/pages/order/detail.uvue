@@ -1,0 +1,720 @@
+<template>
+  <view class="container">
+    <scroll-view class="body" scroll-y="true">
+      <view v-if="loading" class="loading">
+        <text class="loading-text">加载中...</text>
+      </view>
+
+      <view v-else>
+        <view class="status-card">
+          <text class="status-title">{{ statusText }}</text>
+          <text v-if="countdownText != ''" class="status-countdown">剩余 {{ countdownText }}</text>
+        </view>
+
+        <view class="card user-card">
+          <text class="card-title">收货信息</text>
+          <view class="user-info">
+            <text class="user-name">{{ userName }}</text>
+            <text class="user-phone" @click="callPhone(userPhone)">📞 {{ userPhone }}</text>
+          </view>
+          <text class="user-address">{{ userAddress }}</text>
+        </view>
+
+        <view class="card">
+          <text class="card-title">商品清单</text>
+          <view v-for="(it, idx) in items" :key="idx" class="item-row">
+            <view class="item-info">
+              <text class="item-name">{{ it.productName }}</text>
+              <text v-if="it.skuText != ''" class="item-spec">{{ it.skuText }}</text>
+            </view>
+            <text class="item-qty">×{{ it.quantity }}</text>
+            <text class="item-price">¥{{ yuanText(it.price * it.quantity) }}</text>
+          </view>
+        </view>
+
+        <view v-if="remark != ''" class="card remark-card">
+          <text class="remark-label">用户备注</text>
+          <text class="remark-text">{{ remark }}</text>
+        </view>
+
+        <view class="card">
+          <text class="card-title">费用明细</text>
+          <view class="fee-row">
+            <text class="fee-label">商品合计</text>
+            <text class="fee-value">¥{{ yuanText(productAmount) }}</text>
+          </view>
+          <view class="fee-row">
+            <text class="fee-label">打包费</text>
+            <text class="fee-value">¥{{ yuanText(packingFee) }}</text>
+          </view>
+          <view class="fee-row">
+            <text class="fee-label">配送费</text>
+            <text class="fee-value">¥{{ yuanText(deliveryFee) }}</text>
+          </view>
+          <view v-if="discountAmount > 0" class="fee-row">
+            <text class="fee-label">优惠</text>
+            <text class="fee-value discount">-¥{{ yuanText(discountAmount) }}</text>
+          </view>
+          <view class="fee-row total-row">
+            <text class="fee-label">实付</text>
+            <text class="fee-value total">¥{{ yuanText(paidAmount) }}</text>
+          </view>
+        </view>
+
+        <view v-if="rider != null" class="card">
+          <text class="card-title">骑手信息</text>
+          <view class="rider-row">
+            <view class="rider-info">
+              <text class="rider-name">{{ riderName }}</text>
+              <text class="rider-rating">⭐ {{ riderRating.toFixed(1) }} · {{ riderOrderCount }}单</text>
+            </view>
+            <text class="rider-phone" @click="callPhone(riderPhone)">📞 {{ riderPhone }}</text>
+          </view>
+        </view>
+
+        <view class="card">
+          <text class="card-title">订单信息</text>
+          <view class="meta-row">
+            <text class="meta-label">订单号</text>
+            <text class="meta-value">{{ orderNo }}</text>
+          </view>
+          <view class="meta-row">
+            <text class="meta-label">下单时间</text>
+            <text class="meta-value">{{ createdAtText }}</text>
+          </view>
+          <view v-if="payMethod != ''" class="meta-row">
+            <text class="meta-label">支付方式</text>
+            <text class="meta-value">{{ payMethodText }}</text>
+          </view>
+          <view v-if="paidAt > 0" class="meta-row">
+            <text class="meta-label">支付时间</text>
+            <text class="meta-value">{{ paidAtText }}</text>
+          </view>
+        </view>
+
+        <view class="card log-card">
+          <text class="card-title">订单日志</text>
+          <view v-for="(log, idx) in logs" :key="idx" class="log-row">
+            <view class="log-dot"></view>
+            <view class="log-info">
+              <text class="log-action">{{ logActionText(log.action) }}</text>
+              <text class="log-time">{{ formatDate(log.createdAt) }}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="footer">
+      <button v-if="showReport" class="btn-default" @click="goReport">异常上报</button>
+      <button v-if="showPrint" class="btn-default" @click="handlePrint">打印小票</button>
+      <button v-if="status == 'PENDING_MERCHANT'" class="btn-default" @click="handleReject">拒单</button>
+      <button v-if="status == 'PENDING_MERCHANT'" class="btn-primary" @click="handleAccept">接单</button>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+import { getOrderDetail, getOrderLogs, merchantAccept, merchantReject } from '@/api/order'
+import { fenToYuan, formatDateTime, orderStatusText } from '@/utils/format'
+import { printOrder, PrintOrder, PrintItem, loadPrinterConfig } from '@/services/printerService'
+
+type ItemRow = {
+  productName: string
+  skuText: string
+  quantity: number
+  price: number
+}
+
+type LogRow = {
+  action: string
+  createdAt: number | string | null
+}
+
+export default {
+  data() {
+    return {
+      orderId: 0 as number,
+      loading: true,
+      order: null as UTSJSONObject | null,
+      logs: [] as LogRow[],
+      timer: 0 as number,
+      countdownSec: 0 as number,
+    }
+  },
+  onLoad(opts: any) {
+    const o = opts as UTSJSONObject
+    this.orderId = o.getNumber('id') ?? 0
+    this.loadDetail()
+    this.loadLogs()
+  },
+  onUnload() {
+    this.clearTimer()
+  },
+  computed: {
+    status(): string {
+      if (this.order == null) return ''
+      return this.order!.getString('status') ?? ''
+    },
+    statusText(): string {
+      return orderStatusText(this.status)
+    },
+    countdownText(): string {
+      if (this.countdownSec <= 0) return ''
+      const m = Math.floor(this.countdownSec / 60)
+      const s = this.countdownSec % 60
+      return `${m}:${s < 10 ? '0' + s : '' + s}`
+    },
+    userName(): string {
+      if (this.order == null) return '-'
+      const u = this.order!['user'] as UTSJSONObject | null
+      if (u == null) return '-'
+      return u!.getString('contactName') ?? u!.getString('userName') ?? '-'
+    },
+    userPhone(): string {
+      if (this.order == null) return ''
+      const u = this.order!['user'] as UTSJSONObject | null
+      if (u == null) return ''
+      return u!.getString('contactPhone') ?? ''
+    },
+    userAddress(): string {
+      if (this.order == null) return ''
+      const u = this.order!['user'] as UTSJSONObject | null
+      if (u == null) return ''
+      return u!.getString('address') ?? ''
+    },
+    items(): ItemRow[] {
+      if (this.order == null) return [] as ItemRow[]
+      const raw = (this.order!['items'] as any[]) ?? []
+      const arr: ItemRow[] = []
+      for (let i = 0; i < raw.length; i++) {
+        const it = raw[i] as UTSJSONObject
+        arr.push({
+          productName: it.getString('productName') ?? '',
+          skuText: it.getString('skuText') ?? '',
+          quantity: it.getNumber('quantity') ?? 1,
+          price: it.getNumber('price') ?? 0
+        } as ItemRow)
+      }
+      return arr
+    },
+    productAmount(): number {
+      if (this.order == null) return 0
+      return this.order!.getNumber('totalAmount') ?? 0
+    },
+    packingFee(): number {
+      if (this.order == null) return 0
+      return this.order!.getNumber('packingFee') ?? 0
+    },
+    deliveryFee(): number {
+      if (this.order == null) return 0
+      return this.order!.getNumber('deliveryFee') ?? 0
+    },
+    discountAmount(): number {
+      if (this.order == null) return 0
+      return this.order!.getNumber('discountAmount') ?? 0
+    },
+    paidAmount(): number {
+      if (this.order == null) return 0
+      return this.order!.getNumber('paidAmount') ?? this.order!.getNumber('totalAmount') ?? 0
+    },
+    remark(): string {
+      if (this.order == null) return ''
+      return this.order!.getString('remark') ?? ''
+    },
+    rider(): UTSJSONObject | null {
+      if (this.order == null) return null
+      return this.order!['rider'] as UTSJSONObject | null
+    },
+    riderName(): string {
+      if (this.rider == null) return ''
+      return this.rider!.getString('name') ?? ''
+    },
+    riderPhone(): string {
+      if (this.rider == null) return ''
+      return this.rider!.getString('phone') ?? ''
+    },
+    riderRating(): number {
+      if (this.rider == null) return 5.0
+      return this.rider!.getNumber('rating') ?? 5.0
+    },
+    riderOrderCount(): number {
+      if (this.rider == null) return 0
+      return this.rider!.getNumber('completedCount') ?? 0
+    },
+    orderNo(): string {
+      if (this.order == null) return ''
+      return this.order!.getString('orderNo') ?? ''
+    },
+    createdAtText(): string {
+      if (this.order == null) return ''
+      return formatDateTime(this.order!['createdAt'])
+    },
+    paidAt(): number {
+      if (this.order == null) return 0
+      const t = this.order!['paidAt']
+      if (t == null) return 0
+      if (typeof t == 'number') return t as number
+      return new Date(t as string).getTime()
+    },
+    paidAtText(): string {
+      return formatDateTime(this.paidAt)
+    },
+    payMethod(): string {
+      if (this.order == null) return ''
+      return this.order!.getString('payMethod') ?? ''
+    },
+    payMethodText(): string {
+      const m = this.payMethod
+      if (m == 'WECHAT' || m == 'WXPAY') return '微信支付'
+      if (m == 'ALIPAY') return '支付宝'
+      if (m == 'BALANCE') return '余额支付'
+      return m
+    },
+    showPrint(): boolean {
+      const s = this.status
+      return s != 'PENDING_PAYMENT' && s != 'CANCELLED' && s != 'REJECTED'
+    },
+    showReport(): boolean {
+      const s = this.status
+      return s == 'PENDING_MERCHANT' || s == 'PENDING_RIDER' || s == 'PENDING_PICKUP'
+    }
+  },
+  methods: {
+    async loadDetail() {
+      this.loading = true
+      try {
+        const resp = await getOrderDetail(this.orderId)
+        if (resp.code == 0 && resp.data != null) {
+          this.order = resp.data as UTSJSONObject
+          this.setupCountdown()
+        }
+      } catch (e) { }
+      finally {
+        this.loading = false
+      }
+    },
+    async loadLogs() {
+      try {
+        const resp = await getOrderLogs(this.orderId)
+        if (resp.code == 0 && resp.data != null) {
+          const data = resp.data as UTSJSONObject
+          const list = (data['list'] as any[]) ?? []
+          const arr: LogRow[] = []
+          for (let i = 0; i < list.length; i++) {
+            const r = list[i] as UTSJSONObject
+            arr.push({
+              action: r.getString('action') ?? '',
+              createdAt: r['createdAt']
+            } as LogRow)
+          }
+          this.logs = arr
+        }
+      } catch (e) { }
+    },
+    setupCountdown() {
+      this.clearTimer()
+      if (this.status != 'PENDING_MERCHANT') return
+      if (this.order == null) return
+      // 5分钟接单倒计时（以createdAt为基点）
+      const createdAt = this.order!['createdAt']
+      if (createdAt == null) return
+      let baseMs: number = 0
+      if (typeof createdAt == 'number') {
+        baseMs = createdAt as number
+      } else if (typeof createdAt == 'string') {
+        baseMs = new Date(createdAt as string).getTime()
+      }
+      const expireMs = baseMs + 5 * 60 * 1000
+      const left = Math.floor((expireMs - Date.now()) / 1000)
+      if (left <= 0) return
+      this.countdownSec = left
+      this.timer = setInterval(() => {
+        this.countdownSec--
+        if (this.countdownSec <= 0) {
+          this.clearTimer()
+          this.countdownSec = 0
+        }
+      }, 1000) as number
+    },
+    clearTimer() {
+      if (this.timer != 0) {
+        clearInterval(this.timer)
+        this.timer = 0
+      }
+    },
+    yuanText(fen: number): string {
+      return fenToYuan(fen)
+    },
+    formatDate(t: any): string {
+      return formatDateTime(t)
+    },
+    logActionText(action: string): string {
+      switch (action) {
+        case 'CREATE': return '订单创建'
+        case 'PAY': return '用户已支付'
+        case 'MERCHANT_ACCEPT': return '商家已接单'
+        case 'MERCHANT_REJECT': return '商家拒单'
+        case 'RIDER_ACCEPT': return '骑手接单'
+        case 'RIDER_PICKUP': return '骑手已取货'
+        case 'RIDER_DEPART': return '骑手已出发'
+        case 'RIDER_DELIVER': return '骑手已送达'
+        case 'USER_CONFIRM': return '用户已确认'
+        case 'CANCEL': return '订单取消'
+        case 'AFTERSALE_SUBMIT': return '发起售后'
+        case 'AFTERSALE_AGREE': return '商家同意售后'
+        case 'AFTERSALE_REJECT': return '商家驳回售后'
+        default: return action
+      }
+    },
+    callPhone(phone: string) {
+      if (phone == '') return
+      uni.makePhoneCall({ phoneNumber: phone } as MakePhoneCallOptions)
+    },
+    handleAccept() {
+      const self = this
+      uni.showModal({
+        title: '确认接单',
+        content: '确认接受此订单？',
+        success: async (res) => {
+          if (!res.confirm) return
+          uni.showLoading({ title: '接单中...' })
+          try {
+            const resp = await merchantAccept(self.orderId)
+            uni.hideLoading()
+            if (resp.code == 0) {
+              uni.showToast({ title: '接单成功', icon: 'success' })
+              // 自动打印
+              const cfg = loadPrinterConfig()
+              const autoPrint = uni.getStorageSync('mct_auto_print')
+              if (cfg != null && autoPrint == true) {
+                setTimeout(() => self.handlePrint(), 600)
+              }
+              setTimeout(() => {
+                self.loadDetail()
+                self.loadLogs()
+                uni.$emit('orderAccepted', { orderId: self.orderId } as UTSJSONObject)
+              }, 300)
+            }
+          } catch (e) {
+            uni.hideLoading()
+          }
+        }
+      } as ShowModalOptions)
+    },
+    handleReject() {
+      const self = this
+      uni.showActionSheet({
+        itemList: ['门店已关闭', '商品已售罄', '配送范围外', '其他原因'],
+        success: async (res) => {
+          const reasons = ['门店已关闭', '商品已售罄', '配送范围外', '其他原因']
+          const reason = reasons[res.tapIndex]
+          uni.showModal({
+            title: '确认拒单',
+            content: `原因：${reason}`,
+            success: async (r) => {
+              if (!r.confirm) return
+              try {
+                const resp = await merchantReject(self.orderId, reason)
+                if (resp.code == 0) {
+                  uni.showToast({ title: '已拒单', icon: 'success' })
+                  setTimeout(() => {
+                    uni.$emit('orderStatusChanged', { orderId: self.orderId } as UTSJSONObject)
+                    uni.navigateBack()
+                  }, 1000)
+                }
+              } catch (e) { }
+            }
+          } as ShowModalOptions)
+        }
+      } as ShowActionSheetOptions)
+    },
+    async handlePrint() {
+      const cfg = loadPrinterConfig()
+      if (cfg == null) {
+        uni.showToast({ title: '请先配置打印机', icon: 'none' })
+        return
+      }
+      if (this.order == null) return
+      uni.showLoading({ title: '打印中...' })
+      try {
+        const items: PrintItem[] = []
+        for (let i = 0; i < this.items.length; i++) {
+          const it = this.items[i]
+          items.push({
+            name: it.productName,
+            quantity: it.quantity,
+            price: it.price,
+            specText: it.skuText
+          } as PrintItem)
+        }
+        const printData: PrintOrder = {
+          shopName: this.order!.getString('storeName') ?? '我的店铺',
+          orderNo: this.orderNo,
+          orderTime: this.createdAtText,
+          items: items,
+          totalAmount: this.productAmount,
+          packingFee: this.packingFee,
+          deliveryFee: this.deliveryFee,
+          payAmount: this.paidAmount,
+          remark: this.remark,
+          userName: this.userName,
+          userPhone: this.userPhone,
+          userAddress: this.userAddress
+        }
+        const ok = await printOrder(printData)
+        uni.hideLoading()
+        uni.showToast({ title: ok ? '已发送' : '打印失败', icon: ok ? 'success' : 'none' })
+      } catch (e) {
+        uni.hideLoading()
+      }
+    },
+    goReport() {
+      uni.navigateTo({ url: `/pages/order/report?id=${this.orderId}` })
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.container {
+  min-height: 100vh;
+  background-color: #f5f6f8;
+  display: flex;
+  flex-direction: column;
+}
+.body {
+  flex: 1;
+  padding: 20rpx;
+}
+.loading {
+  padding: 120rpx 0;
+  text-align: center;
+}
+.loading-text {
+  font-size: 28rpx;
+  color: #bbb;
+}
+.status-card {
+  background-color: #FF6B00;
+  padding: 40rpx 30rpx;
+  border-radius: 16rpx;
+  margin-bottom: 20rpx;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.status-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #fff;
+}
+.status-countdown {
+  font-size: 26rpx;
+  color: #fff;
+  margin-top: 10rpx;
+}
+.card {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx 30rpx;
+  margin-bottom: 20rpx;
+}
+.card-title {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 16rpx;
+  display: block;
+}
+.user-info {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10rpx;
+}
+.user-name {
+  font-size: 30rpx;
+  color: #333;
+  font-weight: 500;
+}
+.user-phone {
+  font-size: 26rpx;
+  color: #1677FF;
+}
+.user-address {
+  font-size: 26rpx;
+  color: #666;
+  line-height: 1.6;
+}
+.item-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+.item-row:last-child {
+  border-bottom: none;
+}
+.item-info {
+  flex: 1;
+}
+.item-name {
+  font-size: 28rpx;
+  color: #333;
+  display: block;
+}
+.item-spec {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 4rpx;
+}
+.item-qty {
+  font-size: 26rpx;
+  color: #999;
+  margin-right: 20rpx;
+}
+.item-price {
+  font-size: 28rpx;
+  color: #333;
+  width: 120rpx;
+  text-align: right;
+}
+.remark-card {
+  background-color: #FFF1F0;
+}
+.remark-label {
+  display: block;
+  font-size: 26rpx;
+  color: #F5222D;
+  font-weight: bold;
+  margin-bottom: 10rpx;
+}
+.remark-text {
+  font-size: 26rpx;
+  color: #F5222D;
+  line-height: 1.6;
+}
+.fee-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  padding: 12rpx 0;
+}
+.fee-label {
+  font-size: 26rpx;
+  color: #666;
+}
+.fee-value {
+  font-size: 26rpx;
+  color: #333;
+}
+.fee-value.discount {
+  color: #F5222D;
+}
+.total-row {
+  padding-top: 20rpx;
+  border-top: 1rpx solid #f5f5f5;
+}
+.fee-value.total {
+  color: #FF6B00;
+  font-size: 32rpx;
+  font-weight: bold;
+}
+.rider-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+.rider-info {
+  flex: 1;
+}
+.rider-name {
+  font-size: 28rpx;
+  color: #333;
+  display: block;
+}
+.rider-rating {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 4rpx;
+}
+.rider-phone {
+  font-size: 26rpx;
+  color: #1677FF;
+}
+.meta-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  padding: 10rpx 0;
+}
+.meta-label {
+  font-size: 26rpx;
+  color: #999;
+}
+.meta-value {
+  font-size: 26rpx;
+  color: #333;
+}
+.log-card {
+  padding-bottom: 16rpx;
+}
+.log-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 14rpx 0;
+  position: relative;
+}
+.log-dot {
+  width: 16rpx;
+  height: 16rpx;
+  background-color: #FF6B00;
+  border-radius: 8rpx;
+  margin-right: 16rpx;
+}
+.log-info {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+.log-action {
+  font-size: 26rpx;
+  color: #333;
+}
+.log-time {
+  font-size: 22rpx;
+  color: #999;
+}
+.footer {
+  padding: 20rpx;
+  background-color: #fff;
+  display: flex;
+  flex-direction: row;
+  border-top: 1rpx solid #f0f0f0;
+}
+.btn-default, .btn-primary {
+  flex: 1;
+  height: 80rpx;
+  line-height: 80rpx;
+  margin: 0 8rpx;
+  border-radius: 40rpx;
+  font-size: 28rpx;
+}
+.btn-default {
+  background-color: #fff;
+  color: #666;
+  border: 1rpx solid #e0e0e0;
+}
+.btn-primary {
+  background-color: #FF6B00;
+  color: #fff;
+}
+</style>

@@ -1,0 +1,41 @@
+/**
+ * 商家端结算/财务接口
+ * 对应后端 /api/v1/settlement/*
+ */
+import { get, post, ApiResponse } from './request'
+
+/**
+ * 商家结算单列表
+ */
+export const listMerchantBills = (params: UTSJSONObject): Promise<ApiResponse> => {
+  return get('/settlement/merchant-bills', params)
+}
+
+/**
+ * 结算单详情
+ */
+export const getBillDetail = (id: number): Promise<ApiResponse> => {
+  return get(`/settlement/bills/${id}`)
+}
+
+/**
+ * 余额（可用+冻结）
+ */
+export const getBalance = (): Promise<ApiResponse> => {
+  return get('/settlement/balance')
+}
+
+/**
+ * 申请提现
+ * accountType: WECHAT | BANK
+ */
+export const applyWithdraw = (data: UTSJSONObject): Promise<ApiResponse> => {
+  return post('/settlement/withdraw', data)
+}
+
+/**
+ * 我的提现记录
+ */
+export const listWithdrawals = (params: UTSJSONObject): Promise<ApiResponse> => {
+  return get('/settlement/withdrawals', params)
+}

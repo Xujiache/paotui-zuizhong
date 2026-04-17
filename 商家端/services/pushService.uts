@@ -1,0 +1,124 @@
+/**
+ * 消息推送服务
+ *
+ * 首期实现：
+ *  - APP在前台时通过轮询 /order/merchant-orders?status=PENDING_MERCHANT 感知新订单
+ *  - 接入极光推送(JG-JPush) uni-app x 插件时，通过 onMessage 回调触发新订单弹窗
+ *  - 消息类型: new_order / aftersale / system / urge
+ */
+
+import { pushNewOrder, NewOrderItem } from '@/stores/orderAlert'
+import { listMerchantOrders } from '@/api/order'
+import { fenToYuan } from '@/utils/format'
+import { isLoggedIn } from '@/stores/user'
+import { getUnreadCount } from '@/api/message'
+
+let _pollTimer: number = 0
+let _lastOrderIds: Set<number> = new Set<number>()
+let _unreadCount: number = 0
+let _unreadListeners: ((count: number) => void)[] = []
+
+/**
+ * 启动轮询（前台时）
+ * interval: 轮询间隔（毫秒），默认 15 秒
+ */
+export const startPolling = (interval: number = 15000) => {
+  stopPolling()
+  // 立即执行一次
+  pollOnce()
+  _pollTimer = setInterval(() => {
+    pollOnce()
+  }, interval) as number
+}
+
+export const stopPolling = () => {
+  if (_pollTimer != 0) {
+    clearInterval(_pollTimer)
+    _pollTimer = 0
+  }
+}
+
+/**
+ * 单次轮询：拉取待接单和未读数
+ */
+const pollOnce = async () => {
+  if (!isLoggedIn()) return
+  try {
+    // 拉取最新待接单
+    const resp = await listMerchantOrders({
+      status: 'PENDING_MERCHANT',
+      page: 1,
+      pageSize: 20,
+    } as UTSJSONObject)
+    if (resp.code == 0 && resp.data != null) {
+      const d = resp.data as UTSJSONObject
+      const list = (d['list'] as any[]) ?? []
+      const newIds: Set<number> = new Set<number>()
+      for (let i = 0; i < list.length; i++) {
+        const it = list[i] as UTSJSONObject
+        const id = it.getNumber('id') ?? 0
+        if (id == 0) continue
+        newIds.add(id)
+        if (!_lastOrderIds.has(id)) {
+          // 新订单：触发弹窗
+          const orderNo = it.getString('orderNo') ?? ''
+          const orderType = it.getString('orderType') ?? 'PRODUCT'
+          const totalAmount = it.getNumber('totalAmount') ?? it.getNumber('paidAmount') ?? 0
+          const itemsCount = (it['itemsCount'] as number) ?? 1
+          const summary = `共${itemsCount}件商品 ¥${fenToYuan(totalAmount)}`
+          const item: NewOrderItem = {
+            orderId: id,
+            orderNo: orderNo,
+            orderType: orderType,
+            orderSummary: summary,
+            amount: totalAmount,
+            countdown: 300,
+            createdAt: Date.now(),
+          }
+          if (_lastOrderIds.size > 0) {
+            // 首次轮询不触发（避免登录时存量订单触发）
+            pushNewOrder(item)
+          }
+        }
+      }
+      _lastOrderIds = newIds
+    }
+
+    // 未读消息数
+    const ur = await getUnreadCount()
+    if (ur.code == 0 && ur.data != null) {
+      const data = ur.data as UTSJSONObject
+      const count = data.getNumber('total') ?? data.getNumber('count') ?? 0
+      setUnreadCount(count)
+    }
+  } catch (e) {
+    // 静默失败，等待下次轮询
+  }
+}
+
+export const getLocalUnreadCount = (): number => {
+  return _unreadCount
+}
+
+const setUnreadCount = (count: number) => {
+  _unreadCount = count
+  for (let i = 0; i < _unreadListeners.length; i++) {
+    _unreadListeners[i](count)
+  }
+}
+
+export const onUnreadChange = (cb: (count: number) => void) => {
+  _unreadListeners.push(cb)
+}
+
+export const offUnreadChange = (cb: (count: number) => void) => {
+  const idx = _unreadListeners.indexOf(cb)
+  if (idx >= 0) _unreadListeners.splice(idx, 1)
+}
+
+/**
+ * 重置订单缓存（用户主动刷新时调用）
+ */
+export const resetOrderCache = () => {
+  _lastOrderIds = new Set<number>()
+}

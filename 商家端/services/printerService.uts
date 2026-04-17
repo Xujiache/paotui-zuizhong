@@ -1,0 +1,377 @@
+/**
+ * 蓝牙打印服务（ESC/POS）
+ * 用于订单小票打印
+ *
+ * 首期覆盖：BLE蓝牙设备搜索/连接/打印ESC/POS指令
+ * API链路：openBluetoothAdapter → startBluetoothDevicesDiscovery →
+ *         onBluetoothDeviceFound → createBLEConnection → getBLEDeviceServices →
+ *         getBLEDeviceCharacteristics → writeBLECharacteristicValue
+ */
+
+import { STORAGE_KEYS, setStorage, getObject } from '@/utils/storage'
+import { fenToYuan, formatDateTime } from '@/utils/format'
+
+export type BluetoothDeviceInfo = {
+  name: string
+  deviceId: string
+  RSSI: number
+}
+
+export type PrinterConfig = {
+  name: string
+  deviceId: string
+  serviceId: string
+  characteristicId: string
+}
+
+export type PrintItem = {
+  name: string
+  quantity: number
+  price: number
+  specText: string
+}
+
+export type PrintOrder = {
+  shopName: string
+  orderNo: string
+  orderTime: string
+  items: PrintItem[]
+  totalAmount: number
+  packingFee: number
+  deliveryFee: number
+  payAmount: number
+  remark: string
+  userName: string
+  userPhone: string
+  userAddress: string
+}
+
+let _connectedDeviceId: string = ''
+let _serviceId: string = ''
+let _characteristicId: string = ''
+
+/**
+ * 加载已配置的打印机
+ */
+export const loadPrinterConfig = (): PrinterConfig | null => {
+  const v = getObject(STORAGE_KEYS.PRINTER_CONFIG)
+  if (v == null) return null
+  return v as PrinterConfig
+}
+
+export const savePrinterConfig = (cfg: PrinterConfig) => {
+  setStorage(STORAGE_KEYS.PRINTER_CONFIG, cfg)
+  _connectedDeviceId = cfg.deviceId
+  _serviceId = cfg.serviceId
+  _characteristicId = cfg.characteristicId
+}
+
+/**
+ * 初始化蓝牙适配器
+ */
+export const initBluetooth = (): Promise<boolean> => {
+  return new Promise<boolean>((resolve) => {
+    // #ifdef APP-ANDROID || APP-IOS
+    uni.openBluetoothAdapter({
+      success: () => {
+        resolve(true)
+      },
+      fail: () => {
+        uni.showToast({ title: '请先开启蓝牙', icon: 'none' })
+        resolve(false)
+      },
+    })
+    // #endif
+    // #ifndef APP-ANDROID || APP-IOS
+    uni.showToast({ title: '仅支持移动端蓝牙', icon: 'none' })
+    resolve(false)
+    // #endif
+  })
+}
+
+/**
+ * 搜索蓝牙设备
+ * duration: 搜索持续时间（毫秒）
+ */
+export const discover = (duration: number = 5000): Promise<BluetoothDeviceInfo[]> => {
+  return new Promise<BluetoothDeviceInfo[]>((resolve) => {
+    const devices: BluetoothDeviceInfo[] = []
+    // #ifdef APP-ANDROID || APP-IOS
+    uni.onBluetoothDeviceFound((res) => {
+      const list = res.devices
+      for (let i = 0; i < list.length; i++) {
+        const d = list[i]
+        if (d.name != null && d.name != '') {
+          let exists = false
+          for (let j = 0; j < devices.length; j++) {
+            if (devices[j].deviceId == d.deviceId) {
+              exists = true
+              break
+            }
+          }
+          if (!exists) {
+            devices.push({
+              name: d.name!,
+              deviceId: d.deviceId,
+              RSSI: d.RSSI ?? 0,
+            } as BluetoothDeviceInfo)
+          }
+        }
+      }
+    })
+
+    uni.startBluetoothDevicesDiscovery({
+      allowDuplicatesKey: false,
+      services: [] as string[],
+      success: () => {
+        setTimeout(() => {
+          uni.stopBluetoothDevicesDiscovery({
+            success: () => resolve(devices),
+            fail: () => resolve(devices),
+          })
+        }, duration)
+      },
+      fail: () => {
+        resolve([])
+      },
+    })
+    // #endif
+    // #ifndef APP-ANDROID || APP-IOS
+    resolve([])
+    // #endif
+  })
+}
+
+/**
+ * 连接指定的蓝牙设备
+ */
+export const connect = (deviceId: string): Promise<boolean> => {
+  return new Promise<boolean>((resolve) => {
+    // #ifdef APP-ANDROID || APP-IOS
+    uni.createBLEConnection({
+      deviceId: deviceId,
+      success: () => {
+        _connectedDeviceId = deviceId
+        resolve(true)
+      },
+      fail: () => {
+        resolve(false)
+      },
+    })
+    // #endif
+    // #ifndef APP-ANDROID || APP-IOS
+    resolve(false)
+    // #endif
+  })
+}
+
+/**
+ * 发现并保存打印服务
+ */
+export const discoverService = (deviceId: string): Promise<boolean> => {
+  return new Promise<boolean>((resolve) => {
+    // #ifdef APP-ANDROID || APP-IOS
+    uni.getBLEDeviceServices({
+      deviceId: deviceId,
+      success: (res) => {
+        const services = res.services
+        if (services.length == 0) {
+          resolve(false)
+          return
+        }
+        // 取第一个服务作为打印服务
+        _serviceId = services[0].uuid
+        uni.getBLEDeviceCharacteristics({
+          deviceId: deviceId,
+          serviceId: _serviceId,
+          success: (cres) => {
+            const chars = cres.characteristics
+            for (let i = 0; i < chars.length; i++) {
+              const c = chars[i]
+              if (c.properties != null && c.properties.write == true) {
+                _characteristicId = c.uuid
+                resolve(true)
+                return
+              }
+            }
+            resolve(false)
+          },
+          fail: () => resolve(false),
+        })
+      },
+      fail: () => resolve(false),
+    })
+    // #endif
+    // #ifndef APP-ANDROID || APP-IOS
+    resolve(false)
+    // #endif
+  })
+}
+
+const strToBuffer = (text: string): ArrayBuffer => {
+  const bytes: number[] = []
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i)
+    if (code < 0x80) {
+      bytes.push(code)
+    } else if (code < 0x800) {
+      bytes.push(0xc0 | (code >> 6))
+      bytes.push(0x80 | (code & 0x3f))
+    } else {
+      bytes.push(0xe0 | (code >> 12))
+      bytes.push(0x80 | ((code >> 6) & 0x3f))
+      bytes.push(0x80 | (code & 0x3f))
+    }
+  }
+  const buf = new ArrayBuffer(bytes.length)
+  const view = new Uint8Array(buf)
+  for (let i = 0; i < bytes.length; i++) {
+    view[i] = bytes[i]
+  }
+  return buf
+}
+
+const sendChunk = (data: ArrayBuffer): Promise<boolean> => {
+  return new Promise<boolean>((resolve) => {
+    // #ifdef APP-ANDROID || APP-IOS
+    uni.writeBLECharacteristicValue({
+      deviceId: _connectedDeviceId,
+      serviceId: _serviceId,
+      characteristicId: _characteristicId,
+      value: data,
+      success: () => resolve(true),
+      fail: () => resolve(false),
+    })
+    // #endif
+    // #ifndef APP-ANDROID || APP-IOS
+    resolve(false)
+    // #endif
+  })
+}
+
+const delay = (ms: number): Promise<void> => {
+  return new Promise<void>((resolve) => setTimeout(() => resolve(), ms))
+}
+
+/**
+ * 按分块发送打印数据（蓝牙MTU一般20字节）
+ */
+const sendData = async (fullText: string): Promise<boolean> => {
+  const buf = strToBuffer(fullText)
+  const total = buf.byteLength
+  const chunkSize = 20
+  for (let i = 0; i < total; i += chunkSize) {
+    const end = Math.min(i + chunkSize, total)
+    const chunk = buf.slice(i, end)
+    const ok = await sendChunk(chunk)
+    if (!ok) return false
+    await delay(20)
+  }
+  return true
+}
+
+/**
+ * 构建小票文本
+ */
+const buildOrderText = (order: PrintOrder): string => {
+  let s = ''
+  s += '\x1B\x40' // 初始化
+  s += '\x1B\x61\x01' // 居中
+  s += order.shopName + '\n'
+  s += '--------------------------------\n'
+  s += '\x1B\x61\x00' // 左对齐
+  s += `订单号: ${order.orderNo}\n`
+  s += `下单时间: ${order.orderTime}\n`
+  s += '--------------------------------\n'
+  for (let i = 0; i < order.items.length; i++) {
+    const it = order.items[i]
+    s += `${it.name}\n`
+    if (it.specText != null && it.specText != '') {
+      s += `  规格: ${it.specText}\n`
+    }
+    s += `  x${it.quantity}    ¥${fenToYuan(it.price * it.quantity)}\n`
+  }
+  s += '--------------------------------\n'
+  s += `商品合计: ¥${fenToYuan(order.totalAmount)}\n`
+  if (order.packingFee > 0) s += `打包费: ¥${fenToYuan(order.packingFee)}\n`
+  if (order.deliveryFee > 0) s += `配送费: ¥${fenToYuan(order.deliveryFee)}\n`
+  s += `\x1B\x21\x10实付: ¥${fenToYuan(order.payAmount)}\x1B\x21\x00\n`
+  s += '--------------------------------\n'
+  s += `备注: ${order.remark != '' ? order.remark : '无'}\n`
+  s += `收货人: ${order.userName} ${order.userPhone}\n`
+  s += `地址: ${order.userAddress}\n`
+  s += '\n\n\n'
+  s += '\x1D\x56\x01' // 切纸
+  return s
+}
+
+/**
+ * 打印订单小票
+ */
+export const printOrder = async (order: PrintOrder): Promise<boolean> => {
+  const cfg = loadPrinterConfig()
+  if (cfg == null) {
+    uni.showToast({ title: '请先配置打印机', icon: 'none' })
+    return false
+  }
+  if (_connectedDeviceId == '') {
+    _connectedDeviceId = cfg.deviceId
+    _serviceId = cfg.serviceId
+    _characteristicId = cfg.characteristicId
+    const connected = await connect(cfg.deviceId)
+    if (!connected) {
+      uni.showToast({ title: '连接打印机失败', icon: 'none' })
+      return false
+    }
+  }
+  const text = buildOrderText(order)
+  return await sendData(text)
+}
+
+/**
+ * 测试打印
+ */
+export const testPrint = async (): Promise<boolean> => {
+  const testOrder: PrintOrder = {
+    shopName: '测试打印',
+    orderNo: 'TEST' + Date.now(),
+    orderTime: formatDateTime(Date.now()),
+    items: [
+      { name: '测试商品', quantity: 1, price: 100, specText: '' } as PrintItem,
+    ],
+    totalAmount: 100,
+    packingFee: 0,
+    deliveryFee: 0,
+    payAmount: 100,
+    remark: '这是一条测试打印',
+    userName: '测试用户',
+    userPhone: '138****0000',
+    userAddress: '测试地址',
+  }
+  return await printOrder(testOrder)
+}
+
+/**
+ * 断开连接
+ */
+export const disconnect = (): Promise<boolean> => {
+  return new Promise<boolean>((resolve) => {
+    // #ifdef APP-ANDROID || APP-IOS
+    if (_connectedDeviceId == '') {
+      resolve(true)
+      return
+    }
+    uni.closeBLEConnection({
+      deviceId: _connectedDeviceId,
+      success: () => {
+        _connectedDeviceId = ''
+        resolve(true)
+      },
+      fail: () => resolve(false),
+    })
+    // #endif
+    // #ifndef APP-ANDROID || APP-IOS
+    resolve(true)
+    // #endif
+  })
+}

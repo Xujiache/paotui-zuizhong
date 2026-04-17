@@ -1,0 +1,41 @@
+/**
+ * 消息中心接口
+ * 对应后端 /api/v1/message/*
+ */
+import { get, patch, del, ApiResponse } from './request'
+
+/**
+ * 消息列表
+ * params: { type?, page, pageSize }
+ */
+export const listMessages = (params: UTSJSONObject): Promise<ApiResponse> => {
+  return get('/message/messages', params)
+}
+
+/**
+ * 未读数
+ */
+export const getUnreadCount = (): Promise<ApiResponse> => {
+  return get('/message/unread-count')
+}
+
+/**
+ * 标记所有已读
+ */
+export const markAllRead = (): Promise<ApiResponse> => {
+  return patch('/message/messages/read-all', null)
+}
+
+/**
+ * 标记单条已读
+ */
+export const markRead = (id: number): Promise<ApiResponse> => {
+  return patch(`/message/messages/${id}/read`, null)
+}
+
+/**
+ * 删除消息
+ */
+export const deleteMessage = (id: number): Promise<ApiResponse> => {
+  return del(`/message/messages/${id}`)
+}

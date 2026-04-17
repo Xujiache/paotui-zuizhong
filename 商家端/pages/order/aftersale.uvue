@@ -1,0 +1,399 @@
+<template>
+  <view class="container">
+    <view class="tab-bar">
+      <view :class="'tab ' + (activeTab == 'pending' ? 'active' : '')" @click="switchTab('pending')">
+        <text class="tab-text">待处理</text>
+        <view v-if="pendingCount > 0" class="tab-badge">
+          <text class="badge-num">{{ pendingCount }}</text>
+        </view>
+      </view>
+      <view :class="'tab ' + (activeTab == 'done' ? 'active' : '')" @click="switchTab('done')">
+        <text class="tab-text">已处理</text>
+      </view>
+    </view>
+
+    <scroll-view class="body" scroll-y="true" :refresher-enabled="true"
+      :refresher-triggered="refreshing" @refresherrefresh="onRefresh"
+      @scrolltolower="onLoadMore">
+
+      <view v-if="loading && list.length == 0" class="loading">
+        <text class="loading-text">加载中...</text>
+      </view>
+
+      <view v-else-if="list.length == 0" class="empty">
+        <text class="empty-text">暂无售后</text>
+      </view>
+
+      <view v-else>
+        <view v-for="item in list" :key="getId(item)" class="as-card">
+          <view class="card-header">
+            <text class="as-no">售后单 #{{ getString(item, 'aftersaleNo') }}</text>
+            <text :class="'status ' + statusClass(getString(item, 'status'))">
+              {{ statusText(getString(item, 'status')) }}
+            </text>
+          </view>
+          <view class="as-info">
+            <text class="info-label">订单：</text>
+            <text class="info-value">#{{ getNumber(item, 'orderId') }}</text>
+          </view>
+          <view class="as-info">
+            <text class="info-label">原因：</text>
+            <text class="info-value">{{ getString(item, 'reason') }}</text>
+          </view>
+          <view v-if="getString(item, 'description') != ''" class="as-info">
+            <text class="info-label">描述：</text>
+            <text class="info-value">{{ getString(item, 'description') }}</text>
+          </view>
+          <view class="as-info">
+            <text class="info-label">申请退款：</text>
+            <text class="info-value amount">¥{{ yuanText(getNumber(item, 'refundAmount')) }}</text>
+          </view>
+          <view v-if="images(item).length > 0" class="img-row">
+            <image v-for="(img, i) in images(item)" :key="i" class="img-item" :src="img" mode="aspectFill" />
+          </view>
+          <view v-if="activeTab == 'pending'" class="card-footer">
+            <button class="btn-reject" @click="onReject(item)">驳回</button>
+            <button class="btn-approve" @click="onApprove(item)">同意退款</button>
+          </view>
+          <view v-else class="handle-info">
+            <text class="handle-text">处理意见：{{ getString(item, 'handleRemark') }}</text>
+          </view>
+        </view>
+
+        <view class="load-more">
+          <text v-if="hasMore" class="load-text">上拉加载更多</text>
+          <text v-else class="load-text">没有更多了</text>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+</template>
+
+<script lang="uts">
+import { listMerchantAftersales, merchantHandle } from '@/api/aftersale'
+import { fenToYuan, aftersaleStatusText } from '@/utils/format'
+
+export default {
+  data() {
+    return {
+      activeTab: 'pending' as string,
+      list: [] as any[],
+      page: 1,
+      pageSize: 10,
+      hasMore: true,
+      refreshing: false,
+      loading: false,
+      pendingCount: 0,
+    }
+  },
+  onLoad() {
+    this.loadList(true)
+  },
+  methods: {
+    getId(item: any): number {
+      return (item as UTSJSONObject).getNumber('id') ?? 0
+    },
+    getString(item: any, key: string): string {
+      return (item as UTSJSONObject).getString(key) ?? ''
+    },
+    getNumber(item: any, key: string): number {
+      return (item as UTSJSONObject).getNumber(key) ?? 0
+    },
+    switchTab(tab: string) {
+      if (this.activeTab == tab) return
+      this.activeTab = tab
+      this.loadList(true)
+    },
+    statusText(s: string): string {
+      return aftersaleStatusText(s)
+    },
+    statusClass(s: string): string {
+      if (s == 'PENDING_ACCEPT' || s == 'PROCESSING') return 'pending'
+      if (s == 'REFUNDED') return 'success'
+      if (s == 'REJECTED' || s == 'CANCELLED') return 'default'
+      return 'default'
+    },
+    images(item: any): string[] {
+      const obj = item as UTSJSONObject
+      const imgs = obj['images']
+      if (imgs == null) return [] as string[]
+      return imgs as string[]
+    },
+    yuanText(fen: number): string {
+      return fenToYuan(fen)
+    },
+    async loadList(reset: boolean = false) {
+      if (reset) {
+        this.page = 1
+        this.hasMore = true
+        this.list = []
+      }
+      if (!this.hasMore) return
+      this.loading = true
+      try {
+        const statuses = this.activeTab == 'pending' ? 'PENDING_ACCEPT' : 'REFUNDED'
+        const resp = await listMerchantAftersales({
+          status: statuses,
+          page: this.page,
+          pageSize: this.pageSize
+        } as UTSJSONObject)
+        if (resp.code == 0 && resp.data != null) {
+          const data = resp.data as UTSJSONObject
+          const list = (data['list'] as any[]) ?? []
+          if (reset) {
+            this.list = list
+          } else {
+            for (let i = 0; i < list.length; i++) this.list.push(list[i])
+          }
+          const pagination = data['pagination'] as UTSJSONObject
+          if (pagination != null) {
+            const total = pagination.getNumber('total') ?? 0
+            if (this.activeTab == 'pending') this.pendingCount = total
+            this.hasMore = this.list.length < total
+          } else {
+            this.hasMore = false
+          }
+          this.page++
+        }
+      } catch (e) { }
+      finally {
+        this.loading = false
+      }
+    },
+    onRefresh() {
+      this.refreshing = true
+      this.loadList(true)
+      this.refreshing = false
+    },
+    onLoadMore() {
+      if (this.hasMore && !this.loading) this.loadList(false)
+    },
+    onApprove(item: any) {
+      const self = this
+      const obj = item as UTSJSONObject
+      const id = obj.getNumber('id') ?? 0
+      const refundAmt = obj.getNumber('refundAmount') ?? 0
+      uni.showModal({
+        title: '确认同意退款',
+        content: `退款金额 ¥${fenToYuan(refundAmt)}`,
+        success: async (res) => {
+          if (!res.confirm) return
+          try {
+            const resp = await merchantHandle(id, 'AGREE', '')
+            if (resp.code == 0) {
+              uni.showToast({ title: '已同意', icon: 'success' })
+              self.loadList(true)
+            }
+          } catch (e) { }
+        }
+      } as ShowModalOptions)
+    },
+    onReject(item: any) {
+      const self = this
+      const obj = item as UTSJSONObject
+      const id = obj.getNumber('id') ?? 0
+      uni.showModal({
+        title: '驳回售后',
+        editable: true,
+        placeholderText: '请填写驳回原因',
+        success: async (res) => {
+          if (!res.confirm) return
+          const reason = res.content ?? ''
+          if (reason == '') {
+            uni.showToast({ title: '请填写驳回原因', icon: 'none' })
+            return
+          }
+          try {
+            const resp = await merchantHandle(id, 'REJECT', reason)
+            if (resp.code == 0) {
+              uni.showToast({ title: '已驳回', icon: 'success' })
+              self.loadList(true)
+            }
+          } catch (e) { }
+        }
+      } as ShowModalOptions)
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.container {
+  min-height: 100vh;
+  background-color: #f5f6f8;
+  display: flex;
+  flex-direction: column;
+}
+.tab-bar {
+  display: flex;
+  flex-direction: row;
+  background-color: #fff;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+.tab {
+  flex: 1;
+  padding: 28rpx 0;
+  text-align: center;
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
+.tab-text {
+  font-size: 30rpx;
+  color: #666;
+}
+.tab.active .tab-text {
+  color: #FF6B00;
+  font-weight: bold;
+}
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60rpx;
+  height: 4rpx;
+  background-color: #FF6B00;
+  border-radius: 2rpx;
+}
+.tab-badge {
+  min-width: 36rpx;
+  padding: 0 10rpx;
+  height: 32rpx;
+  background-color: #F5222D;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 10rpx;
+}
+.badge-num {
+  color: #fff;
+  font-size: 20rpx;
+  line-height: 1;
+}
+.body {
+  flex: 1;
+  padding: 20rpx;
+}
+.loading, .empty {
+  padding: 120rpx 0;
+  text-align: center;
+}
+.loading-text, .empty-text {
+  font-size: 28rpx;
+  color: #bbb;
+}
+.as-card {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx 30rpx;
+  margin-bottom: 20rpx;
+}
+.card-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid #f5f5f5;
+  margin-bottom: 16rpx;
+}
+.as-no {
+  font-size: 24rpx;
+  color: #999;
+}
+.status {
+  font-size: 24rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 6rpx;
+}
+.status.pending {
+  color: #FF6B00;
+  background-color: #FFF5EC;
+}
+.status.success {
+  color: #52C41A;
+  background-color: #F6FFED;
+}
+.status.default {
+  color: #999;
+  background-color: #F5F5F5;
+}
+.as-info {
+  display: flex;
+  flex-direction: row;
+  padding: 8rpx 0;
+}
+.info-label {
+  width: 160rpx;
+  font-size: 26rpx;
+  color: #999;
+}
+.info-value {
+  flex: 1;
+  font-size: 26rpx;
+  color: #333;
+}
+.info-value.amount {
+  color: #F5222D;
+  font-weight: bold;
+}
+.img-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin-top: 10rpx;
+}
+.img-item {
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 8rpx;
+  margin-right: 10rpx;
+  margin-bottom: 10rpx;
+}
+.card-footer {
+  display: flex;
+  flex-direction: row;
+  padding-top: 20rpx;
+  border-top: 1rpx solid #f5f5f5;
+  margin-top: 16rpx;
+}
+.btn-reject, .btn-approve {
+  flex: 1;
+  margin: 0 8rpx;
+  height: 72rpx;
+  line-height: 72rpx;
+  font-size: 26rpx;
+  border-radius: 36rpx;
+}
+.btn-reject {
+  background-color: #fff;
+  color: #666;
+  border: 1rpx solid #e0e0e0;
+}
+.btn-approve {
+  background-color: #FF6B00;
+  color: #fff;
+}
+.handle-info {
+  padding-top: 16rpx;
+  border-top: 1rpx solid #f5f5f5;
+  margin-top: 16rpx;
+}
+.handle-text {
+  font-size: 24rpx;
+  color: #999;
+}
+.load-more {
+  padding: 30rpx;
+  text-align: center;
+}
+.load-text {
+  font-size: 24rpx;
+  color: #bbb;
+}
+</style>

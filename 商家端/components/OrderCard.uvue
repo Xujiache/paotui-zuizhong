@@ -1,0 +1,245 @@
+<template>
+  <view class="order-card" @click="onCardClick">
+    <view class="card-header">
+      <view class="header-left">
+        <text class="order-no">#{{ orderNo }}</text>
+        <text class="order-time">{{ timeText }}</text>
+      </view>
+      <StatusBadge :text="statusText" :type="statusType" />
+    </view>
+
+    <view v-if="summary != ''" class="product-summary">
+      <text class="summary-text">{{ summary }}</text>
+    </view>
+
+    <view v-if="remarkText != ''" class="remark-row">
+      <text class="remark-label">备注</text>
+      <text class="remark-text">{{ remarkText }}</text>
+    </view>
+
+    <view class="card-footer">
+      <view class="amount-group">
+        <text class="amount-label">实付</text>
+        <text class="amount-value">¥{{ amountText }}</text>
+      </view>
+      <view v-if="showActions && actions.length > 0" class="action-group">
+        <view
+          v-for="action in actions"
+          :key="action.key"
+          :class="'action-btn ' + (action.primary ? 'primary' : 'default')"
+          @click.stop="onActionClick(action.key)"
+        >
+          <text :class="'btn-text ' + (action.primary ? 'primary-text' : 'default-text')">{{ action.label }}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+import StatusBadge from './StatusBadge.uvue'
+import { fenToYuan, relativeTime, orderStatusText } from '@/utils/format'
+
+type ActionItem = {
+  key: string
+  label: string
+  primary: boolean
+}
+
+export default {
+  name: 'OrderCard',
+  components: { StatusBadge },
+  props: {
+    order: {
+      type: Object,
+      default: () => ({} as UTSJSONObject)
+    },
+    showActions: {
+      type: Boolean,
+      default: true
+    }
+  },
+  emits: ['click', 'action'],
+  computed: {
+    orderObj(): UTSJSONObject {
+      return this.order as UTSJSONObject
+    },
+    orderNo(): string {
+      return this.orderObj.getString('orderNo') ?? ''
+    },
+    remarkText(): string {
+      return this.orderObj.getString('remark') ?? ''
+    },
+    summary(): string {
+      const o = this.orderObj
+      const items = o['items'] as any[] | null
+      if (items != null && items!.length > 0) {
+        const first = items![0] as UTSJSONObject
+        const firstName = first.getString('productName') ?? ''
+        if (items!.length == 1) return firstName
+        return `${firstName} 等${items!.length}件商品`
+      }
+      return o.getString('productSummary') ?? ''
+    },
+    timeText(): string {
+      const t = this.orderObj['createdAt']
+      if (t == null) return ''
+      if (typeof t == 'number') return relativeTime(t as number)
+      if (typeof t == 'string') return relativeTime(t as string)
+      return ''
+    },
+    amountText(): string {
+      const o = this.orderObj
+      const paid = o.getNumber('paidAmount') ?? o.getNumber('payAmount') ?? o.getNumber('totalAmount') ?? 0
+      return fenToYuan(paid)
+    },
+    statusText(): string {
+      const s = this.orderObj.getString('status') ?? ''
+      return orderStatusText(s)
+    },
+    statusType(): string {
+      const s = this.orderObj.getString('status') ?? ''
+      if (s == 'PENDING_MERCHANT') return 'primary'
+      if (s == 'PENDING_RIDER' || s == 'PENDING_PICKUP' || s == 'DELIVERING') return 'info'
+      if (s == 'COMPLETED' || s == 'DELIVERED') return 'success'
+      if (s == 'CANCELLED' || s == 'REJECTED') return 'default'
+      if (s == 'AFTERSALE') return 'danger'
+      return 'default'
+    },
+    actions(): ActionItem[] {
+      const s = this.orderObj.getString('status') ?? ''
+      if (s == 'PENDING_MERCHANT') {
+        return [
+          { key: 'reject', label: '拒单', primary: false } as ActionItem,
+          { key: 'accept', label: '接单', primary: true } as ActionItem,
+        ]
+      }
+      if (s == 'PENDING_RIDER' || s == 'PENDING_PICKUP') {
+        return [
+          { key: 'print', label: '打印', primary: false } as ActionItem,
+        ]
+      }
+      return [] as ActionItem[]
+    }
+  },
+  methods: {
+    onCardClick() {
+      this.$emit('click', this.order)
+    },
+    onActionClick(key: string) {
+      this.$emit('action', { key: key, order: this.order } as UTSJSONObject)
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.order-card {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+.card-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+.header-left {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.order-no {
+  font-size: 26rpx;
+  color: #333;
+  font-weight: 500;
+}
+.order-time {
+  margin-left: 16rpx;
+  font-size: 22rpx;
+  color: #999;
+}
+.product-summary {
+  margin-bottom: 12rpx;
+}
+.summary-text {
+  font-size: 28rpx;
+  color: #333;
+  line-height: 1.5;
+}
+.remark-row {
+  display: flex;
+  flex-direction: row;
+  padding: 12rpx;
+  background-color: #FFF1F0;
+  border-radius: 8rpx;
+  margin-bottom: 16rpx;
+}
+.remark-label {
+  font-size: 24rpx;
+  color: #F5222D;
+  margin-right: 12rpx;
+  font-weight: bold;
+}
+.remark-text {
+  flex: 1;
+  font-size: 24rpx;
+  color: #F5222D;
+  line-height: 1.4;
+}
+.card-footer {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12rpx;
+}
+.amount-group {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+}
+.amount-label {
+  font-size: 22rpx;
+  color: #999;
+  margin-right: 8rpx;
+}
+.amount-value {
+  font-size: 30rpx;
+  color: #FF6B00;
+  font-weight: bold;
+}
+.action-group {
+  display: flex;
+  flex-direction: row;
+}
+.action-btn {
+  margin-left: 16rpx;
+  padding: 8rpx 28rpx;
+  border-radius: 30rpx;
+  border: 1rpx solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.action-btn.default {
+  background-color: #fff;
+  border-color: #e0e0e0;
+}
+.action-btn.primary {
+  background-color: #FF6B00;
+}
+.btn-text {
+  font-size: 26rpx;
+}
+.btn-text.default-text {
+  color: #666;
+}
+.btn-text.primary-text {
+  color: #fff;
+}
+</style>

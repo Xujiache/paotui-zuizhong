@@ -1,0 +1,69 @@
+/**
+ * 新订单弹窗/播报 全局状态
+ * - 模拟推送触发：服务端通过轮询+推送通道下发新订单
+ * - 支持多订单排队
+ */
+
+export type NewOrderItem = {
+  orderId: number
+  orderNo: string
+  orderType: string
+  orderSummary: string
+  amount: number
+  countdown: number
+  createdAt: number
+}
+
+export type OrderAlertState = {
+  queue: NewOrderItem[]
+  current: NewOrderItem | null
+  visible: boolean
+  voiceEnabled: boolean
+}
+
+export const alertState = reactive({
+  queue: [] as NewOrderItem[],
+  current: null,
+  visible: false,
+  voiceEnabled: true,
+} as OrderAlertState)
+
+/**
+ * 将新订单加入队列
+ */
+export const pushNewOrder = (order: NewOrderItem) => {
+  alertState.queue.push(order)
+  if (alertState.current == null) {
+    showNext()
+  }
+}
+
+export const showNext = () => {
+  if (alertState.queue.length == 0) {
+    alertState.current = null
+    alertState.visible = false
+    return
+  }
+  alertState.current = alertState.queue.shift() as NewOrderItem | null
+  alertState.visible = true
+}
+
+export const closeAlert = () => {
+  alertState.visible = false
+  alertState.current = null
+  setTimeout(() => {
+    showNext()
+  }, 500)
+}
+
+export const setVoiceEnabled = (enabled: boolean) => {
+  alertState.voiceEnabled = enabled
+  uni.setStorageSync('mct_voice_enabled', enabled)
+}
+
+export const loadVoiceSetting = () => {
+  const v = uni.getStorageSync('mct_voice_enabled')
+  if (v != null && typeof v == 'boolean') {
+    alertState.voiceEnabled = v as boolean
+  }
+}

@@ -1,0 +1,401 @@
+<template>
+  <view class="container">
+    <scroll-view class="body" scroll-y="true" :refresher-enabled="true"
+      :refresher-triggered="refreshing" @refresherrefresh="onRefresh">
+      <view class="tab-row">
+        <view v-for="t in tabs" :key="t.key"
+          :class="'tab-item ' + (period == t.key ? 'active' : '')"
+          @click="switchPeriod(t.key)">
+          <text class="tab-text">{{ t.label }}</text>
+        </view>
+      </view>
+
+      <view class="metrics-grid">
+        <view class="metric-card">
+          <text class="metric-num">{{ orderCount }}</text>
+          <text class="metric-label">订单数</text>
+        </view>
+        <view class="metric-card">
+          <text class="metric-num">¥{{ revenueText }}</text>
+          <text class="metric-label">营业额</text>
+        </view>
+        <view class="metric-card">
+          <text class="metric-num">¥{{ avgText }}</text>
+          <text class="metric-label">客单价</text>
+        </view>
+        <view class="metric-card">
+          <text class="metric-num">{{ completionRate }}%</text>
+          <text class="metric-label">完成率</text>
+        </view>
+      </view>
+
+      <view class="account-card">
+        <text class="card-title">账户余额</text>
+        <view class="balance-row">
+          <view class="balance-item">
+            <text class="balance-label">可用余额</text>
+            <text class="balance-num main">¥{{ balanceText }}</text>
+          </view>
+          <view class="balance-item">
+            <text class="balance-label">冻结金额</text>
+            <text class="balance-num">¥{{ frozenText }}</text>
+          </view>
+        </view>
+        <button class="btn-withdraw" @click="goWithdraw">去提现</button>
+      </view>
+
+      <view class="rank-card">
+        <text class="card-title">热销商品</text>
+        <view v-if="hotProducts.length == 0" class="empty">
+          <text class="empty-text">暂无销售数据</text>
+        </view>
+        <view v-else>
+          <view v-for="(p, idx) in hotProducts" :key="idx" class="rank-item">
+            <text :class="'rank-num rank-' + (idx + 1)">{{ idx + 1 }}</text>
+            <text class="rank-name">{{ p.name }}</text>
+            <text class="rank-sales">销 {{ p.sales }}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="chart-card">
+        <text class="card-title">订单趋势（暂用数值列表展示）</text>
+        <view v-if="trend.length == 0" class="empty">
+          <text class="empty-text">暂无数据</text>
+        </view>
+        <view v-else>
+          <view v-for="(t, idx) in trend" :key="idx" class="trend-row">
+            <text class="trend-date">{{ t.date }}</text>
+            <text class="trend-value">{{ t.count }} 单 · ¥{{ yuanText(t.revenue) }}</text>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+</template>
+
+<script lang="uts">
+import { getDashboard } from '@/api/merchant'
+import { getBalance } from '@/api/settlement'
+import { listMerchantOrders } from '@/api/order'
+import { fenToYuan } from '@/utils/format'
+
+type TabItem = {
+  key: string
+  label: string
+}
+
+type HotProduct = {
+  name: string
+  sales: number
+}
+
+type TrendRow = {
+  date: string
+  count: number
+  revenue: number
+}
+
+export default {
+  data() {
+    return {
+      period: 'day' as string,
+      tabs: [
+        { key: 'day', label: '今日' } as TabItem,
+        { key: 'week', label: '本周' } as TabItem,
+        { key: 'month', label: '本月' } as TabItem,
+      ] as TabItem[],
+      orderCount: 0,
+      revenue: 0,
+      avg: 0,
+      completionRate: 100,
+      balance: 0,
+      frozen: 0,
+      hotProducts: [] as HotProduct[],
+      trend: [] as TrendRow[],
+      refreshing: false
+    }
+  },
+  onLoad() {
+    this.loadAll()
+  },
+  onShow() {
+    this.loadAll()
+  },
+  computed: {
+    revenueText(): string {
+      return fenToYuan(this.revenue)
+    },
+    avgText(): string {
+      return fenToYuan(this.avg)
+    },
+    balanceText(): string {
+      return fenToYuan(this.balance)
+    },
+    frozenText(): string {
+      return fenToYuan(this.frozen)
+    }
+  },
+  methods: {
+    yuanText(fen: number): string {
+      return fenToYuan(fen)
+    },
+    switchPeriod(p: string) {
+      if (this.period == p) return
+      this.period = p
+      this.loadAll()
+    },
+    async loadAll() {
+      await Promise.all([
+        this.loadDashboard(),
+        this.loadBalance(),
+        this.loadHot()
+      ])
+    },
+    async loadDashboard() {
+      try {
+        const resp = await getDashboard()
+        if (resp.code == 0 && resp.data != null) {
+          const d = resp.data as UTSJSONObject
+          this.orderCount = d.getNumber('todayOrders') ?? 0
+          this.revenue = d.getNumber('todayRevenue') ?? 0
+          this.avg = this.orderCount > 0 ? Math.round(this.revenue / this.orderCount) : 0
+        }
+      } catch (e) { }
+    },
+    async loadBalance() {
+      try {
+        const resp = await getBalance()
+        if (resp.code == 0 && resp.data != null) {
+          const d = resp.data as UTSJSONObject
+          this.balance = d.getNumber('balance') ?? 0
+          this.frozen = d.getNumber('frozenBalance') ?? 0
+        }
+      } catch (e) { }
+    },
+    async loadHot() {
+      // 无专门的热销接口，复用近期已完成订单按商品聚合
+      try {
+        const resp = await listMerchantOrders({
+          status: 'COMPLETED',
+          page: 1,
+          pageSize: 50
+        } as UTSJSONObject)
+        if (resp.code == 0 && resp.data != null) {
+          const d = resp.data as UTSJSONObject
+          const orders = (d['list'] as any[]) ?? []
+          const map = new Map<string, number>()
+          for (let i = 0; i < orders.length; i++) {
+            const o = orders[i] as UTSJSONObject
+            const items = (o['items'] as any[]) ?? []
+            for (let j = 0; j < items.length; j++) {
+              const it = items[j] as UTSJSONObject
+              const name = it.getString('productName') ?? ''
+              const qty = it.getNumber('quantity') ?? 0
+              if (name != '') {
+                map.set(name, (map.get(name) ?? 0) + qty)
+              }
+            }
+          }
+          const arr: HotProduct[] = []
+          map.forEach((v: number, k: string) => {
+            arr.push({ name: k, sales: v } as HotProduct)
+          })
+          arr.sort((a, b) => b.sales - a.sales)
+          this.hotProducts = arr.slice(0, 10)
+        }
+      } catch (e) { }
+    },
+    onRefresh() {
+      this.refreshing = true
+      this.loadAll()
+      this.refreshing = false
+    },
+    goWithdraw() {
+      uni.navigateTo({ url: '/pages/finance/withdraw' })
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.container {
+  min-height: 100vh;
+  background-color: #f5f6f8;
+  display: flex;
+  flex-direction: column;
+}
+.body {
+  flex: 1;
+  padding: 20rpx;
+}
+.tab-row {
+  display: flex;
+  flex-direction: row;
+  background-color: #fff;
+  border-radius: 16rpx;
+  margin-bottom: 20rpx;
+}
+.tab-item {
+  flex: 1;
+  padding: 20rpx 0;
+  text-align: center;
+}
+.tab-item.active {
+  background-color: #FFF5EC;
+  border-radius: 16rpx;
+}
+.tab-text {
+  font-size: 28rpx;
+  color: #666;
+}
+.tab-item.active .tab-text {
+  color: #FF6B00;
+  font-weight: bold;
+}
+.metrics-grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  background-color: #fff;
+  border-radius: 16rpx;
+  margin-bottom: 20rpx;
+  padding: 20rpx 0;
+}
+.metric-card {
+  width: 50%;
+  padding: 24rpx 30rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.metric-num {
+  font-size: 40rpx;
+  color: #FF6B00;
+  font-weight: bold;
+}
+.metric-label {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 8rpx;
+}
+.account-card {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx 30rpx;
+  margin-bottom: 20rpx;
+}
+.card-title {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 16rpx;
+  display: block;
+}
+.balance-row {
+  display: flex;
+  flex-direction: row;
+  margin-bottom: 20rpx;
+}
+.balance-item {
+  flex: 1;
+}
+.balance-label {
+  font-size: 24rpx;
+  color: #999;
+  display: block;
+}
+.balance-num {
+  font-size: 36rpx;
+  color: #333;
+  font-weight: bold;
+  margin-top: 6rpx;
+}
+.balance-num.main {
+  color: #FF6B00;
+  font-size: 42rpx;
+}
+.btn-withdraw {
+  height: 72rpx;
+  line-height: 72rpx;
+  background-color: #FF6B00;
+  color: #fff;
+  font-size: 28rpx;
+  border-radius: 36rpx;
+}
+.rank-card, .chart-card {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx 30rpx;
+  margin-bottom: 20rpx;
+}
+.empty {
+  padding: 40rpx;
+  text-align: center;
+}
+.empty-text {
+  font-size: 26rpx;
+  color: #bbb;
+}
+.rank-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+.rank-item:last-child {
+  border-bottom: none;
+}
+.rank-num {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 22rpx;
+  background-color: #F5F5F5;
+  color: #999;
+  text-align: center;
+  line-height: 44rpx;
+  font-size: 24rpx;
+  font-weight: bold;
+  margin-right: 16rpx;
+}
+.rank-num.rank-1 {
+  background-color: #FFF1F0;
+  color: #F5222D;
+}
+.rank-num.rank-2 {
+  background-color: #FFF7E6;
+  color: #FA8C16;
+}
+.rank-num.rank-3 {
+  background-color: #FFFBE6;
+  color: #FAAD14;
+}
+.rank-name {
+  flex: 1;
+  font-size: 28rpx;
+  color: #333;
+}
+.rank-sales {
+  font-size: 24rpx;
+  color: #999;
+}
+.trend-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+.trend-row:last-child {
+  border-bottom: none;
+}
+.trend-date {
+  font-size: 26rpx;
+  color: #666;
+}
+.trend-value {
+  font-size: 26rpx;
+  color: #FF6B00;
+}
+</style>

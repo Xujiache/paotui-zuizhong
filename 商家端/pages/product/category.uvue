@@ -1,0 +1,375 @@
+<template>
+  <view class="container">
+    <scroll-view class="body" scroll-y="true" :refresher-enabled="true"
+      :refresher-triggered="refreshing" @refresherrefresh="onRefresh">
+
+      <view v-if="loading && list.length == 0" class="loading">
+        <text class="loading-text">加载中...</text>
+      </view>
+
+      <view v-else-if="list.length == 0" class="empty">
+        <text class="empty-text">还没有分类</text>
+        <text class="empty-hint">点击下方添加分类</text>
+      </view>
+
+      <view v-else class="list">
+        <view v-for="item in list" :key="getId(item)" class="cat-item">
+          <view class="cat-info">
+            <text class="cat-name">{{ getString(item, 'name') }}</text>
+            <text class="cat-meta">排序：{{ getNumber(item, 'sort') }}</text>
+          </view>
+          <view class="cat-actions">
+            <text class="act-btn" @click="onEdit(item)">编辑</text>
+            <text class="act-btn danger" @click="onDelete(item)">删除</text>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="footer">
+      <button class="btn-add" @click="onAdd">+ 新增分类</button>
+    </view>
+
+    <view v-if="showForm" class="form-mask">
+      <view class="form-box">
+        <text class="form-title">{{ editing != null ? '编辑分类' : '新增分类' }}</text>
+        <view class="form-row">
+          <text class="label">分类名称</text>
+          <input class="input" placeholder="请输入分类名称" v-model="form.name" maxlength="64" />
+        </view>
+        <view class="form-row">
+          <text class="label">排序</text>
+          <input class="input" type="number" placeholder="数字越小越靠前" v-model="form.sortStr" />
+        </view>
+        <view v-if="editing != null" class="form-row">
+          <text class="label">状态</text>
+          <view class="status-row">
+            <text :class="'status-tag ' + (form.status == 'ACTIVE' ? 'active' : '')"
+              @click="form.status = 'ACTIVE'">启用</text>
+            <text :class="'status-tag ' + (form.status == 'INACTIVE' ? 'active' : '')"
+              @click="form.status = 'INACTIVE'">停用</text>
+          </view>
+        </view>
+        <view class="form-footer">
+          <button class="btn-cancel" @click="closeForm">取消</button>
+          <button class="btn-confirm" @click="submitForm">确定</button>
+        </view>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+import { getCategories, createCategory, updateCategory, deleteCategory } from '@/api/product'
+import { getCurrentStoreId } from '@/stores/user'
+
+type CatForm = {
+  name: string
+  sortStr: string
+  status: string
+}
+
+export default {
+  data() {
+    return {
+      list: [] as any[],
+      loading: false,
+      refreshing: false,
+      showForm: false,
+      editing: null as UTSJSONObject | null,
+      form: {
+        name: '',
+        sortStr: '0',
+        status: 'ACTIVE'
+      } as CatForm
+    }
+  },
+  onLoad() {
+    this.loadList()
+  },
+  onShow() {
+    this.loadList()
+  },
+  methods: {
+    getId(item: any): number {
+      return (item as UTSJSONObject).getNumber('id') ?? 0
+    },
+    getString(item: any, key: string): string {
+      return (item as UTSJSONObject).getString(key) ?? ''
+    },
+    getNumber(item: any, key: string): number {
+      return (item as UTSJSONObject).getNumber(key) ?? 0
+    },
+    async loadList() {
+      this.loading = true
+      try {
+        const storeId = getCurrentStoreId()
+        if (storeId == 0) {
+          uni.showToast({ title: '请先创建门店', icon: 'none' })
+          this.loading = false
+          return
+        }
+        const resp = await getCategories(storeId, false)
+        if (resp.code == 0 && resp.data != null) {
+          const d = resp.data as UTSJSONObject
+          this.list = (d['list'] as any[]) ?? []
+        }
+      } catch (e) { }
+      finally {
+        this.loading = false
+      }
+    },
+    onRefresh() {
+      this.refreshing = true
+      this.loadList()
+      this.refreshing = false
+    },
+    onAdd() {
+      this.editing = null
+      this.form = {
+        name: '',
+        sortStr: '0',
+        status: 'ACTIVE'
+      } as CatForm
+      this.showForm = true
+    },
+    onEdit(item: any) {
+      const c = item as UTSJSONObject
+      this.editing = c
+      this.form = {
+        name: c.getString('name') ?? '',
+        sortStr: '' + (c.getNumber('sort') ?? 0),
+        status: c.getString('status') ?? 'ACTIVE'
+      } as CatForm
+      this.showForm = true
+    },
+    closeForm() {
+      this.showForm = false
+      this.editing = null
+    },
+    async submitForm() {
+      if (this.form.name == '') {
+        uni.showToast({ title: '请输入分类名称', icon: 'none' })
+        return
+      }
+      const storeId = getCurrentStoreId()
+      const sort = parseInt(this.form.sortStr)
+      const body: UTSJSONObject = {
+        name: this.form.name,
+        sort: isNaN(sort) ? 0 : sort
+      }
+      if (this.editing == null) {
+        body['storeId'] = storeId
+      } else {
+        body['status'] = this.form.status
+      }
+      uni.showLoading({ title: '保存中...' })
+      try {
+        let resp: any
+        if (this.editing == null) {
+          resp = await createCategory(body)
+        } else {
+          const id = this.editing!.getNumber('id') ?? 0
+          resp = await updateCategory(id, body)
+        }
+        uni.hideLoading()
+        const r = resp as UTSJSONObject
+        if (r.getNumber('code') == 0) {
+          uni.showToast({ title: '已保存', icon: 'success' })
+          this.closeForm()
+          this.loadList()
+        }
+      } catch (e) {
+        uni.hideLoading()
+      }
+    },
+    onDelete(item: any) {
+      const self = this
+      const c = item as UTSJSONObject
+      const id = c.getNumber('id') ?? 0
+      uni.showModal({
+        title: '提示',
+        content: '确定删除该分类？删除后该分类下的商品会失去分类归属',
+        confirmColor: '#F5222D',
+        success: async (res) => {
+          if (!res.confirm) return
+          try {
+            const resp = await deleteCategory(id)
+            if (resp.code == 0) {
+              uni.showToast({ title: '已删除', icon: 'success' })
+              self.loadList()
+            }
+          } catch (e) { }
+        }
+      } as ShowModalOptions)
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.container {
+  min-height: 100vh;
+  background-color: #f5f6f8;
+  display: flex;
+  flex-direction: column;
+}
+.body {
+  flex: 1;
+  padding: 20rpx;
+}
+.loading, .empty {
+  padding: 150rpx 0;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.empty-text {
+  font-size: 30rpx;
+  color: #666;
+  margin-bottom: 10rpx;
+}
+.empty-hint, .loading-text {
+  font-size: 24rpx;
+  color: #bbb;
+}
+.list {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 10rpx 30rpx;
+}
+.cat-item {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+.cat-item:last-child {
+  border-bottom: none;
+}
+.cat-info {
+  flex: 1;
+}
+.cat-name {
+  font-size: 30rpx;
+  color: #333;
+  font-weight: 500;
+}
+.cat-meta {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 4rpx;
+  display: block;
+}
+.cat-actions {
+  display: flex;
+  flex-direction: row;
+}
+.act-btn {
+  padding: 8rpx 20rpx;
+  font-size: 26rpx;
+  color: #1677FF;
+  margin-left: 20rpx;
+}
+.act-btn.danger {
+  color: #F5222D;
+}
+.footer {
+  padding: 20rpx;
+  background-color: #fff;
+  border-top: 1rpx solid #f0f0f0;
+}
+.btn-add {
+  height: 88rpx;
+  line-height: 88rpx;
+  background-color: #FF6B00;
+  color: #fff;
+  font-size: 30rpx;
+  border-radius: 44rpx;
+}
+.form-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+.form-box {
+  width: 80%;
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 40rpx 30rpx;
+}
+.form-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  text-align: center;
+  color: #333;
+  margin-bottom: 30rpx;
+  display: block;
+}
+.form-row {
+  margin-bottom: 20rpx;
+}
+.label {
+  font-size: 26rpx;
+  color: #666;
+  display: block;
+  margin-bottom: 10rpx;
+}
+.input {
+  height: 80rpx;
+  padding: 0 20rpx;
+  background-color: #fafafa;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+  color: #333;
+}
+.status-row {
+  display: flex;
+  flex-direction: row;
+}
+.status-tag {
+  padding: 14rpx 30rpx;
+  background-color: #F5F5F5;
+  border-radius: 30rpx;
+  margin-right: 16rpx;
+  font-size: 26rpx;
+  color: #666;
+}
+.status-tag.active {
+  background-color: #FFF5EC;
+  color: #FF6B00;
+}
+.form-footer {
+  display: flex;
+  flex-direction: row;
+  margin-top: 40rpx;
+}
+.btn-cancel, .btn-confirm {
+  flex: 1;
+  margin: 0 10rpx;
+  height: 80rpx;
+  line-height: 80rpx;
+  border-radius: 40rpx;
+  font-size: 28rpx;
+}
+.btn-cancel {
+  background-color: #fff;
+  color: #666;
+  border: 1rpx solid #e0e0e0;
+}
+.btn-confirm {
+  background-color: #FF6B00;
+  color: #fff;
+}
+</style>

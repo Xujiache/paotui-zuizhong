@@ -1,0 +1,54 @@
+/**
+ * 统一本地存储封装：类型安全的 get/set
+ */
+
+export const setStorage = (key: string, value: any) => {
+  uni.setStorageSync(key, value)
+}
+
+export const getString = (key: string, defaultValue: string = ''): string => {
+  const v = uni.getStorageSync(key)
+  if (v == null) return defaultValue
+  return v as string
+}
+
+export const getNumber = (key: string, defaultValue: number = 0): number => {
+  const v = uni.getStorageSync(key)
+  if (v == null) return defaultValue
+  if (typeof v == 'number') return v as number
+  return defaultValue
+}
+
+export const getBool = (key: string, defaultValue: boolean = false): boolean => {
+  const v = uni.getStorageSync(key)
+  if (v == null) return defaultValue
+  if (typeof v == 'boolean') return v as boolean
+  return defaultValue
+}
+
+export const getObject = (key: string): any | null => {
+  const v = uni.getStorageSync(key)
+  if (v == null) return null
+  return v
+}
+
+export const removeStorage = (key: string) => {
+  uni.removeStorageSync(key)
+}
+
+export const clearAll = () => {
+  uni.clearStorageSync()
+}
+
+// Keys
+export const STORAGE_KEYS = {
+  TOKEN: 'mct_token',
+  REFRESH_TOKEN: 'mct_refresh_token',
+  MERCHANT_INFO: 'mct_merchant_info',
+  CURRENT_STORE: 'mct_current_store',
+  PRINTER_CONFIG: 'mct_printer_config',
+  VOICE_ENABLED: 'mct_voice_enabled',
+  AUTO_PRINT: 'mct_auto_print',
+  PUSH_TOKEN: 'mct_push_token',
+  LAST_CHECK_TIME: 'mct_last_check_time',
+}

@@ -1,0 +1,229 @@
+<template>
+  <view v-if="state.visible && state.current != null" class="alert-mask">
+    <view class="alert-box">
+      <view class="alert-header">
+        <text class="alert-title">🔔 新订单提醒</text>
+        <text class="alert-type">{{ typeText }}</text>
+      </view>
+
+      <view class="alert-body">
+        <text class="order-no">订单号：{{ state.current!.orderNo }}</text>
+        <text class="summary">{{ state.current!.orderSummary }}</text>
+        <text class="amount">¥{{ amountText }}</text>
+        <text class="countdown">⏰ 请在 {{ countdownText }} 内处理</text>
+      </view>
+
+      <view class="alert-footer">
+        <button class="btn-reject" @click="onReject">拒单</button>
+        <button class="btn-accept" @click="onAccept">接单</button>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+import { alertState, closeAlert } from '@/stores/orderAlert'
+import { merchantAccept, merchantReject } from '@/api/order'
+import { fenToYuan } from '@/utils/format'
+import { stop as stopVoice, playNewOrder } from '@/services/voiceService'
+
+export default {
+  name: 'OrderAlert',
+  data() {
+    return {
+      state: alertState,
+      countdown: 300,
+      countdownTimer: 0 as number,
+    }
+  },
+  computed: {
+    amountText(): string {
+      if (this.state.current == null) return '0.00'
+      return fenToYuan(this.state.current!.amount)
+    },
+    typeText(): string {
+      if (this.state.current == null) return ''
+      const t = this.state.current!.orderType
+      return t == 'ERRAND' ? '跑腿订单' : '商品订单'
+    },
+    countdownText(): string {
+      const c = this.countdown
+      const m = Math.floor(c / 60)
+      const s = c % 60
+      return `${m}:${s < 10 ? '0' + s : '' + s}`
+    }
+  },
+  watch: {
+    'state.visible'(v: boolean) {
+      if (v) {
+        this.startCountdown()
+        playNewOrder()
+      } else {
+        this.clearCountdown()
+      }
+    }
+  },
+  methods: {
+    startCountdown() {
+      if (this.state.current == null) return
+      this.countdown = this.state.current!.countdown
+      this.clearCountdown()
+      this.countdownTimer = setInterval(() => {
+        this.countdown--
+        if (this.countdown <= 0) {
+          this.clearCountdown()
+          this.onClose()
+        }
+      }, 1000) as number
+    },
+    clearCountdown() {
+      if (this.countdownTimer != 0) {
+        clearInterval(this.countdownTimer)
+        this.countdownTimer = 0
+      }
+    },
+    onClose() {
+      stopVoice()
+      this.clearCountdown()
+      closeAlert()
+    },
+    async onAccept() {
+      if (this.state.current == null) return
+      const orderId = this.state.current!.orderId
+      uni.showLoading({ title: '接单中...' })
+      try {
+        const resp = await merchantAccept(orderId)
+        uni.hideLoading()
+        if (resp.code == 0) {
+          uni.showToast({ title: '接单成功', icon: 'success' })
+          this.onClose()
+          uni.$emit('orderAccepted', { orderId: orderId } as UTSJSONObject)
+        }
+      } catch (e) {
+        uni.hideLoading()
+      }
+    },
+    onReject() {
+      if (this.state.current == null) return
+      const orderId = this.state.current!.orderId
+      const self = this
+      uni.showActionSheet({
+        itemList: ['门店已关闭', '商品已售罄', '配送范围外', '其他原因'],
+        success: async (res) => {
+          const reasons = ['门店已关闭', '商品已售罄', '配送范围外', '其他原因']
+          const reason = reasons[res.tapIndex]
+          uni.showLoading({ title: '拒单中...' })
+          try {
+            const resp = await merchantReject(orderId, reason)
+            uni.hideLoading()
+            if (resp.code == 0) {
+              uni.showToast({ title: '已拒单', icon: 'success' })
+              self.onClose()
+            }
+          } catch (e) {
+            uni.hideLoading()
+          }
+        }
+      } as ShowActionSheetOptions)
+    }
+  },
+  beforeUnmount() {
+    this.clearCountdown()
+  }
+}
+</script>
+
+<style lang="scss">
+.alert-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+.alert-box {
+  width: 80%;
+  background-color: #fff;
+  border-radius: 24rpx;
+  padding: 40rpx 30rpx;
+}
+.alert-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30rpx;
+}
+.alert-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #FF6B00;
+}
+.alert-type {
+  font-size: 24rpx;
+  color: #999;
+  background-color: #F5F5F5;
+  padding: 4rpx 16rpx;
+  border-radius: 8rpx;
+}
+.alert-body {
+  padding: 20rpx 0;
+  text-align: center;
+}
+.order-no {
+  display: block;
+  font-size: 24rpx;
+  color: #999;
+  margin-bottom: 16rpx;
+}
+.summary {
+  display: block;
+  font-size: 28rpx;
+  color: #333;
+  margin-bottom: 20rpx;
+  line-height: 1.5;
+}
+.amount {
+  display: block;
+  font-size: 56rpx;
+  font-weight: bold;
+  color: #FF6B00;
+  margin-bottom: 16rpx;
+}
+.countdown {
+  display: block;
+  font-size: 26rpx;
+  color: #F5222D;
+}
+.alert-footer {
+  display: flex;
+  flex-direction: row;
+  margin-top: 30rpx;
+}
+.btn-reject {
+  flex: 1;
+  margin-right: 20rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  border-radius: 44rpx;
+  background-color: #fff;
+  color: #666;
+  font-size: 30rpx;
+  border: 1rpx solid #e0e0e0;
+}
+.btn-accept {
+  flex: 1;
+  height: 88rpx;
+  line-height: 88rpx;
+  border-radius: 44rpx;
+  background-color: #FF6B00;
+  color: #fff;
+  font-size: 30rpx;
+}
+</style>

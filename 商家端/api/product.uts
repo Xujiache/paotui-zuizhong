@@ -1,0 +1,130 @@
+/**
+ * 商家端商品接口
+ * 对应后端 /api/v1/product/*
+ */
+import { get, post, put, patch, del, ApiResponse } from './request'
+
+// ================== 分类 ==================
+
+/**
+ * 分类列表（公开接口，需传 storeId）
+ * onlyActive: 是否仅返回启用中的分类
+ */
+export const getCategories = (
+  storeId: number,
+  onlyActive: boolean = false,
+): Promise<ApiResponse> => {
+  return get('/product/categories', {
+    storeId: storeId,
+    onlyActive: onlyActive,
+  } as UTSJSONObject)
+}
+
+/**
+ * 创建分类
+ */
+export const createCategory = (data: UTSJSONObject): Promise<ApiResponse> => {
+  return post('/product/categories', data)
+}
+
+/**
+ * 更新分类
+ */
+export const updateCategory = (id: number, data: UTSJSONObject): Promise<ApiResponse> => {
+  return put(`/product/categories/${id}`, data)
+}
+
+/**
+ * 删除分类
+ */
+export const deleteCategory = (id: number): Promise<ApiResponse> => {
+  return del(`/product/categories/${id}`)
+}
+
+/**
+ * 分类排序
+ * items: [{id, sort}]
+ */
+export const sortCategories = (items: any[]): Promise<ApiResponse> => {
+  return put('/product/categories/sort', { items: items } as UTSJSONObject)
+}
+
+// ================== 商品 ==================
+
+export const listProducts = (params: UTSJSONObject): Promise<ApiResponse> => {
+  return get('/product/products', params)
+}
+
+export const createProduct = (data: UTSJSONObject): Promise<ApiResponse> => {
+  return post('/product/products', data)
+}
+
+export const updateProduct = (id: number, data: UTSJSONObject): Promise<ApiResponse> => {
+  return put(`/product/products/${id}`, data)
+}
+
+export const deleteProduct = (id: number): Promise<ApiResponse> => {
+  return del(`/product/products/${id}`)
+}
+
+/**
+ * 单个上下架
+ * status: ON_SHELF | OFF_SHELF
+ */
+export const toggleProductStatus = (id: number, status: string): Promise<ApiResponse> => {
+  return patch(`/product/products/${id}/status`, { status: status } as UTSJSONObject)
+}
+
+/**
+ * 批量上下架
+ */
+export const batchToggleStatus = (ids: number[], status: string): Promise<ApiResponse> => {
+  return patch('/product/products/batch-status', {
+    ids: ids,
+    status: status,
+  } as UTSJSONObject)
+}
+
+/**
+ * 商品详情（公开）
+ */
+export const getProductDetail = (id: number): Promise<ApiResponse> => {
+  return get(`/product/products/${id}`)
+}
+
+// ================== SKU ==================
+
+export const getSkus = (productId: number): Promise<ApiResponse> => {
+  return get(`/product/products/${productId}/skus`)
+}
+
+/**
+ * 保存商品 SKU 列表
+ * skus: [{ id?, specValues?, specText?, priceFen, originalPriceFen?, stock, skuCode? }]
+ */
+export const saveSkus = (productId: number, skus: any[]): Promise<ApiResponse> => {
+  return put(`/product/products/${productId}/skus`, { skus: skus } as UTSJSONObject)
+}
+
+/**
+ * 更新 SKU 库存
+ * action: SET | INCREMENT | DECREMENT
+ */
+export const updateSkuStock = (
+  skuId: number,
+  action: string,
+  quantity: number,
+): Promise<ApiResponse> => {
+  return patch(`/product/skus/${skuId}/stock`, {
+    action: action,
+    quantity: quantity,
+  } as UTSJSONObject)
+}
+
+/**
+ * 批量更新 SKU 库存
+ * items: [{skuId, action, quantity}]
+ */
+export const batchUpdateStock = (items: any[]): Promise<ApiResponse> => {
+  return patch('/product/skus/batch-stock', { items: items } as UTSJSONObject)
+}

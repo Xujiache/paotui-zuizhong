@@ -1,0 +1,268 @@
+<template>
+  <view class="container">
+    <view class="info-card">
+      <view class="info-row">
+        <text class="info-label">商家名称</text>
+        <text class="info-value">{{ merchantName }}</text>
+      </view>
+      <view class="info-row">
+        <text class="info-label">联系人</text>
+        <text class="info-value">{{ contactName }}</text>
+      </view>
+      <view class="info-row">
+        <text class="info-label">登录手机</text>
+        <text class="info-value">{{ maskedPhone }}</text>
+      </view>
+      <view class="info-row">
+        <text class="info-label">账号状态</text>
+        <text :class="'info-value status-' + statusClass">{{ statusText }}</text>
+      </view>
+    </view>
+
+    <view class="list-card">
+      <view class="list-item" @click="changePassword">
+        <text class="item-label">修改密码</text>
+        <text class="item-arrow">›</text>
+      </view>
+      <view class="list-item" @click="changePhone">
+        <text class="item-label">更换手机号</text>
+        <text class="item-arrow">›</text>
+      </view>
+    </view>
+
+    <view class="list-card">
+      <view class="list-item" @click="goNotify">
+        <text class="item-label">通知设置</text>
+        <text class="item-arrow">›</text>
+      </view>
+      <view class="list-item" @click="goPrinter">
+        <text class="item-label">打印机配置</text>
+        <text class="item-arrow">›</text>
+      </view>
+      <view class="list-item" @click="goVoice">
+        <text class="item-label">语音播报</text>
+        <view class="switch-wrap">
+          <switch :checked="voiceEnabled" color="#FF6B00" @change="onVoiceChange" />
+        </view>
+      </view>
+    </view>
+
+    <view class="list-card">
+      <view class="list-item" @click="goAbout">
+        <text class="item-label">关于我们</text>
+        <text class="item-value">v{{ version }}</text>
+        <text class="item-arrow">›</text>
+      </view>
+    </view>
+
+    <button class="btn-logout" @click="handleLogout">退出登录</button>
+  </view>
+</template>
+
+<script lang="uts">
+import { logout as apiLogout } from '@/api/auth'
+import { logoutMerchant, merchantState } from '@/stores/user'
+import { APP_VERSION } from '@/utils/env'
+import { setVoiceEnabled, alertState, loadVoiceSetting } from '@/stores/orderAlert'
+import { maskPhone } from '@/utils/format'
+import { stopPolling } from '@/services/pushService'
+import { stop as stopJPush } from '@/services/jpushService'
+import { stop as stopKeepAlive } from '@/services/keepAliveService'
+
+export default {
+  data() {
+    return {
+      version: APP_VERSION,
+      voiceEnabled: true
+    }
+  },
+  onShow() {
+    loadVoiceSetting()
+    this.voiceEnabled = alertState.voiceEnabled
+  },
+  computed: {
+    merchantName(): string {
+      const info = merchantState.merchantInfo
+      if (info == null) return '-'
+      return info!.name
+    },
+    contactName(): string {
+      const info = merchantState.merchantInfo
+      if (info == null) return '-'
+      return info!.contactName
+    },
+    maskedPhone(): string {
+      const info = merchantState.merchantInfo
+      if (info == null) return '-'
+      const p = info!.contactPhone
+      if (p == '') return '-'
+      if (p.indexOf('*') >= 0) return p
+      return maskPhone(p)
+    },
+    statusText(): string {
+      const info = merchantState.merchantInfo
+      if (info == null) return '-'
+      const s = info!.status
+      switch (s) {
+        case 'ACTIVE': return '正常'
+        case 'FROZEN': return '冻结'
+        case 'PENDING': return '待审核'
+        case 'REJECTED': return '已驳回'
+        default: return s
+      }
+    },
+    statusClass(): string {
+      const info = merchantState.merchantInfo
+      if (info == null) return 'default'
+      const s = info!.status
+      if (s == 'ACTIVE') return 'active'
+      if (s == 'FROZEN' || s == 'REJECTED') return 'danger'
+      return 'pending'
+    }
+  },
+  methods: {
+    changePassword() {
+      uni.showModal({
+        title: '提示',
+        content: '当前版本暂未支持密码修改，请通过客服协助',
+        showCancel: false
+      } as ShowModalOptions)
+    },
+    changePhone() {
+      uni.showModal({
+        title: '提示',
+        content: '更换手机号需联系客服审核',
+        showCancel: false
+      } as ShowModalOptions)
+    },
+    goNotify() {
+      uni.showModal({
+        title: '通知权限',
+        content: '请到手机"设置-通知管理"中允许本应用发送通知',
+        showCancel: false
+      } as ShowModalOptions)
+    },
+    goPrinter() {
+      uni.navigateTo({ url: '/pages/shop/printer' })
+    },
+    onVoiceChange(e: any) {
+      const d = e.detail as UTSJSONObject
+      const v = d.getBoolean('value') ?? false
+      this.voiceEnabled = v
+      setVoiceEnabled(v)
+    },
+    goVoice() {},
+    goAbout() {
+      uni.showModal({
+        title: '关于',
+        content: `同城O2O商家版 v${APP_VERSION}\n© 2026 同城O2O`,
+        showCancel: false
+      } as ShowModalOptions)
+    },
+    async handleLogout() {
+      uni.showModal({
+        title: '提示',
+        content: '确定要退出登录吗？',
+        success: async (res) => {
+          if (!res.confirm) return
+          uni.showLoading({ title: '登出中...' })
+          try {
+            await apiLogout()
+          } catch (e) { }
+          uni.hideLoading()
+          // 停止所有后台服务
+          stopPolling()
+          stopJPush()
+          stopKeepAlive()
+          logoutMerchant()
+          uni.reLaunch({ url: '/pages/auth/login' })
+        }
+      } as ShowModalOptions)
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.container {
+  min-height: 100vh;
+  padding: 20rpx;
+  background-color: #f5f6f8;
+}
+.info-card {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 10rpx 30rpx;
+  margin-bottom: 20rpx;
+}
+.info-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+.info-row:last-child {
+  border-bottom: none;
+}
+.info-label {
+  font-size: 28rpx;
+  color: #999;
+}
+.info-value {
+  font-size: 28rpx;
+  color: #333;
+}
+.info-value.status-active {
+  color: #52C41A;
+}
+.info-value.status-danger {
+  color: #F5222D;
+}
+.info-value.status-pending {
+  color: #FA8C16;
+}
+.list-card {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 10rpx 30rpx;
+  margin-bottom: 20rpx;
+}
+.list-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 28rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+.list-item:last-child {
+  border-bottom: none;
+}
+.item-label {
+  flex: 1;
+  font-size: 30rpx;
+  color: #333;
+}
+.item-value {
+  font-size: 26rpx;
+  color: #999;
+  margin-right: 16rpx;
+}
+.item-arrow {
+  font-size: 30rpx;
+  color: #ccc;
+}
+.switch-wrap {
+  transform: scale(0.8);
+}
+.btn-logout {
+  margin-top: 40rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  background-color: #fff;
+  color: #F5222D;
+  font-size: 30rpx;
+  border-radius: 44rpx;
+}
+</style>

@@ -1,0 +1,113 @@
+/**
+ * 商家中心相关接口
+ * 对应后端 /api/v1/merchant/*
+ */
+import { get, post, put, patch, ApiResponse } from './request'
+
+/**
+ * 提交入驻申请
+ * body: { name, contactName, licenseNo, licenseImage, idCardFront, idCardBack, category }
+ */
+export const submitApply = (data: UTSJSONObject): Promise<ApiResponse> => {
+  return post('/merchant/apply', data)
+}
+
+/**
+ * 查询审核状态
+ * 返回: { auditStatus, status, auditRemark, auditedAt }
+ */
+export const getAuditStatus = (): Promise<ApiResponse> => {
+  return get('/merchant/audit-status')
+}
+
+/**
+ * 我的门店列表
+ */
+export const getStores = (): Promise<ApiResponse> => {
+  return get('/merchant/stores')
+}
+
+/**
+ * 门店详情
+ */
+export const getStoreDetail = (storeId: number): Promise<ApiResponse> => {
+  return get(`/merchant/stores/${storeId}`)
+}
+
+/**
+ * 创建门店
+ */
+export const createStore = (data: UTSJSONObject): Promise<ApiResponse> => {
+  return post('/merchant/stores', data)
+}
+
+/**
+ * 更新门店基本信息
+ */
+export const updateStore = (storeId: number, data: UTSJSONObject): Promise<ApiResponse> => {
+  return put(`/merchant/stores/${storeId}`, data)
+}
+
+/**
+ * 更新营业时间
+ * body: { businessHours: [{ start: 'HH:mm', end: 'HH:mm' }] }
+ */
+export const updateBusinessHours = (
+  storeId: number,
+  businessHours: any[],
+): Promise<ApiResponse> => {
+  return put(`/merchant/stores/${storeId}/business-hours`, {
+    businessHours: businessHours,
+  } as UTSJSONObject)
+}
+
+/**
+ * 更新配送配置
+ * body: { minOrderAmount, deliveryFee, deliveryRange, deliveryTime, packingFee }
+ */
+export const updateDeliveryConfig = (
+  storeId: number,
+  data: UTSJSONObject,
+): Promise<ApiResponse> => {
+  return put(`/merchant/stores/${storeId}/delivery`, data)
+}
+
+/**
+ * 切换门店营业状态
+ * status: OPEN | CLOSED | SUSPENDED
+ */
+export const switchStoreStatus = (storeId: number, status: string): Promise<ApiResponse> => {
+  return patch(`/merchant/stores/${storeId}/status`, { status: status } as UTSJSONObject)
+}
+
+/**
+ * 更新打印配置
+ */
+export const updatePrinterConfig = (
+  storeId: number,
+  printerConfig: UTSJSONObject,
+): Promise<ApiResponse> => {
+  return put(`/merchant/stores/${storeId}/printer`, {
+    printerConfig: printerConfig,
+  } as UTSJSONObject)
+}
+
+/**
+ * 更新公告
+ */
+export const updateAnnouncement = (
+  storeId: number,
+  announcement: string,
+): Promise<ApiResponse> => {
+  return put(`/merchant/stores/${storeId}/announcement`, {
+    announcement: announcement,
+  } as UTSJSONObject)
+}
+
+/**
+ * 工作台数据
+ * 返回: { merchantStatus, auditStatus, balance, frozenBalance, storesCount, openStoresCount, todayOrders, todayRevenue }
+ */
+export const getDashboard = (): Promise<ApiResponse> => {
+  return get('/merchant/dashboard')
+}

@@ -1,0 +1,284 @@
+<template>
+  <view class="container">
+    <view class="status-card">
+      <view :class="'icon-box ' + statusType">
+        <text class="icon-emoji">{{ iconText }}</text>
+      </view>
+      <text class="status-title">{{ statusTitle }}</text>
+      <text class="status-desc">{{ statusDesc }}</text>
+
+      <view v-if="auditStatus == 'REJECTED' && rejectReason != ''" class="reject-box">
+        <text class="reject-title">驳回原因</text>
+        <text class="reject-text">{{ rejectReason }}</text>
+      </view>
+
+      <view v-if="submittedAt != 0" class="meta">
+        <text class="meta-text">提交时间：{{ submittedAtText }}</text>
+        <text v-if="reviewedAt != 0" class="meta-text">审核时间：{{ reviewedAtText }}</text>
+      </view>
+
+      <view class="actions">
+        <button v-if="auditStatus == 'APPROVED'" class="btn-primary" @click="goWorkbench">
+          进入工作台
+        </button>
+        <button v-else-if="auditStatus == 'REJECTED'" class="btn-primary" @click="goEdit">
+          修改资料
+        </button>
+        <button v-else class="btn-refresh" @click="loadStatus">
+          刷新状态
+        </button>
+      </view>
+    </view>
+
+    <view class="support">
+      <text class="support-text">遇到问题？</text>
+      <text class="support-link" @click="contactSupport">联系客服</text>
+    </view>
+
+    <view class="logout-row">
+      <text class="logout-text" @click="logout">退出登录</text>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+import { getAuditStatus } from '@/api/merchant'
+import { logout as apiLogout } from '@/api/auth'
+import { logoutMerchant, merchantState } from '@/stores/user'
+import { formatDateTime } from '@/utils/format'
+import { stopPolling } from '@/services/pushService'
+import { stop as stopJPush } from '@/services/jpushService'
+import { stop as stopKeepAlive } from '@/services/keepAliveService'
+
+export default {
+  data() {
+    return {
+      auditStatus: 'PENDING' as string,
+      status: '' as string,
+      rejectReason: '' as string,
+      submittedAt: 0 as number,
+      reviewedAt: 0 as number,
+      pollingTimer: 0 as number,
+    }
+  },
+  onLoad() {
+    this.loadStatus()
+    // 每20秒自动刷新一次状态
+    this.pollingTimer = setInterval(() => {
+      this.loadStatus()
+    }, 20000) as number
+  },
+  onUnload() {
+    if (this.pollingTimer != 0) {
+      clearInterval(this.pollingTimer)
+      this.pollingTimer = 0
+    }
+  },
+  computed: {
+    iconText(): string {
+      if (this.auditStatus == 'APPROVED') return '✓'
+      if (this.auditStatus == 'REJECTED') return '✗'
+      return '⏱'
+    },
+    statusType(): string {
+      if (this.auditStatus == 'APPROVED') return 'approved'
+      if (this.auditStatus == 'REJECTED') return 'rejected'
+      return 'pending'
+    },
+    statusTitle(): string {
+      if (this.auditStatus == 'APPROVED') return '审核通过'
+      if (this.auditStatus == 'REJECTED') return '审核未通过'
+      return '资料审核中'
+    },
+    statusDesc(): string {
+      if (this.auditStatus == 'APPROVED') return '您的入驻申请已通过，开始经营吧！'
+      if (this.auditStatus == 'REJECTED') return '请根据驳回原因修改资料后重新提交'
+      return '我们会尽快审核您的资料，预计1-3个工作日'
+    },
+    submittedAtText(): string {
+      return formatDateTime(this.submittedAt)
+    },
+    reviewedAtText(): string {
+      return formatDateTime(this.reviewedAt)
+    }
+  },
+  methods: {
+    async loadStatus() {
+      try {
+        const resp = await getAuditStatus()
+        if (resp.code == 0 && resp.data != null) {
+          const data = resp.data as UTSJSONObject
+          this.auditStatus = data.getString('auditStatus') ?? 'PENDING'
+          this.status = data.getString('status') ?? ''
+          this.rejectReason = data.getString('auditRemark') ?? ''
+          const auditedAt = data['auditedAt']
+          if (auditedAt != null) {
+            if (typeof auditedAt == 'number') {
+              this.reviewedAt = auditedAt as number
+            } else {
+              this.reviewedAt = new Date(auditedAt as string).getTime()
+            }
+          }
+          // 当审核通过时停止轮询并更新本地 merchantInfo
+          if (this.auditStatus == 'APPROVED') {
+            if (this.pollingTimer != 0) {
+              clearInterval(this.pollingTimer)
+              this.pollingTimer = 0
+            }
+            if (merchantState.merchantInfo != null) {
+              merchantState.merchantInfo!.auditStatus = 'APPROVED'
+            }
+          }
+        }
+      } catch (e) {
+        // 静默失败
+      }
+    },
+    goWorkbench() {
+      uni.switchTab({ url: '/pages/workbench/index' })
+    },
+    goEdit() {
+      uni.redirectTo({ url: '/pages/auth/apply' })
+    },
+    contactSupport() {
+      uni.makePhoneCall({ phoneNumber: '400-888-0000' } as MakePhoneCallOptions)
+    },
+    async logout() {
+      uni.showModal({
+        title: '提示',
+        content: '确定要退出登录吗？',
+        success: async (res) => {
+          if (!res.confirm) return
+          try { await apiLogout() } catch (e) { }
+          stopPolling()
+          stopJPush()
+          stopKeepAlive()
+          logoutMerchant()
+          uni.reLaunch({ url: '/pages/auth/login' })
+        }
+      } as ShowModalOptions)
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.container {
+  min-height: 100vh;
+  padding: 40rpx 30rpx;
+  background-color: #f5f6f8;
+}
+.status-card {
+  background-color: #fff;
+  border-radius: 20rpx;
+  padding: 60rpx 40rpx;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.icon-box {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 40rpx;
+}
+.icon-box.pending {
+  background-color: #FFF7E6;
+}
+.icon-box.approved {
+  background-color: #F6FFED;
+}
+.icon-box.rejected {
+  background-color: #FFF1F0;
+}
+.icon-emoji {
+  font-size: 80rpx;
+}
+.status-title {
+  font-size: 40rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 16rpx;
+}
+.status-desc {
+  font-size: 26rpx;
+  color: #666;
+  line-height: 1.6;
+  margin-bottom: 20rpx;
+}
+.reject-box {
+  width: 100%;
+  padding: 24rpx;
+  margin-top: 30rpx;
+  background-color: #FFF1F0;
+  border-left: 6rpx solid #F5222D;
+  border-radius: 8rpx;
+  text-align: left;
+}
+.reject-title {
+  display: block;
+  font-size: 26rpx;
+  font-weight: bold;
+  color: #F5222D;
+  margin-bottom: 10rpx;
+}
+.reject-text {
+  font-size: 26rpx;
+  color: #F5222D;
+  line-height: 1.5;
+}
+.meta {
+  margin-top: 40rpx;
+  padding-top: 30rpx;
+  border-top: 1rpx solid #f0f0f0;
+  width: 100%;
+}
+.meta-text {
+  display: block;
+  font-size: 24rpx;
+  color: #999;
+  text-align: center;
+  line-height: 1.8;
+}
+.actions {
+  margin-top: 40rpx;
+  width: 100%;
+}
+.btn-primary, .btn-refresh {
+  height: 88rpx;
+  line-height: 88rpx;
+  background-color: #FF6B00;
+  color: #fff;
+  font-size: 30rpx;
+  border-radius: 44rpx;
+}
+.btn-refresh {
+  background-color: #fff;
+  color: #FF6B00;
+  border: 1rpx solid #FF6B00;
+}
+.support {
+  margin-top: 40rpx;
+  text-align: center;
+}
+.support-text {
+  font-size: 26rpx;
+  color: #999;
+}
+.support-link {
+  color: #FF6B00;
+  margin-left: 8rpx;
+}
+.logout-row {
+  margin-top: 40rpx;
+  text-align: center;
+}
+.logout-text {
+  font-size: 24rpx;
+  color: #999;
+}
+</style>

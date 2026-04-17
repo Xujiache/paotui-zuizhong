@@ -1,0 +1,274 @@
+<template>
+  <view class="container">
+    <scroll-view class="body" scroll-y="true">
+      <view v-if="loading" class="loading">
+        <text class="loading-text">加载中...</text>
+      </view>
+
+      <view v-else>
+        <view class="tip-card">
+          <text class="tip-text">📝 为商品配置不同规格的价格和库存</text>
+        </view>
+
+        <view class="sku-list">
+          <view v-for="(sku, idx) in skuList" :key="idx" class="sku-item">
+            <view class="sku-header">
+              <text class="sku-label">规格 {{ idx + 1 }}</text>
+              <text v-if="skuList.length > 1" class="delete-btn" @click="removeSku(idx)">删除</text>
+            </view>
+            <view class="sku-row">
+              <text class="row-label">规格说明</text>
+              <input class="row-input" placeholder="如：大份 / 红色 / XL" v-model="sku.specText" />
+            </view>
+            <view class="sku-row">
+              <text class="row-label">价格（元）</text>
+              <input class="row-input" type="digit" placeholder="0.00" v-model="sku.priceStr" />
+            </view>
+            <view class="sku-row">
+              <text class="row-label">原价（元）</text>
+              <input class="row-input" type="digit" placeholder="可选" v-model="sku.originalPriceStr" />
+            </view>
+            <view class="sku-row">
+              <text class="row-label">库存</text>
+              <input class="row-input" type="number" placeholder="0" v-model="sku.stockStr" />
+            </view>
+            <view class="sku-row">
+              <text class="row-label">SKU编码</text>
+              <input class="row-input" placeholder="可选" v-model="sku.skuCode" />
+            </view>
+          </view>
+        </view>
+
+        <view class="add-row">
+          <button class="btn-add" @click="addSku">+ 添加一个规格</button>
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="footer">
+      <button class="btn-submit" @click="save">保存规格</button>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+import { getSkus, saveSkus } from '@/api/product'
+import { fenToYuan, yuanToFen } from '@/utils/format'
+
+type SkuForm = {
+  id: number
+  specText: string
+  priceStr: string
+  originalPriceStr: string
+  stockStr: string
+  skuCode: string
+}
+
+export default {
+  data() {
+    return {
+      productId: 0 as number,
+      loading: true,
+      skuList: [] as SkuForm[]
+    }
+  },
+  onLoad(opts: any) {
+    const o = opts as UTSJSONObject
+    this.productId = o.getNumber('id') ?? 0
+    this.loadSkus()
+  },
+  methods: {
+    async loadSkus() {
+      this.loading = true
+      try {
+        const resp = await getSkus(this.productId)
+        if (resp.code == 0 && resp.data != null) {
+          const d = resp.data as UTSJSONObject
+          const list = (d['list'] as any[]) ?? []
+          const arr: SkuForm[] = []
+          for (let i = 0; i < list.length; i++) {
+            const s = list[i] as UTSJSONObject
+            arr.push({
+              id: s.getNumber('id') ?? 0,
+              specText: s.getString('specText') ?? '',
+              priceStr: fenToYuan(s.getNumber('priceFen') ?? 0),
+              originalPriceStr: s.getNumber('originalPriceFen') != null
+                ? fenToYuan(s.getNumber('originalPriceFen') ?? 0) : '',
+              stockStr: '' + (s.getNumber('stock') ?? 0),
+              skuCode: s.getString('skuCode') ?? ''
+            } as SkuForm)
+          }
+          if (arr.length == 0) {
+            arr.push({
+              id: 0,
+              specText: '默认',
+              priceStr: '',
+              originalPriceStr: '',
+              stockStr: '0',
+              skuCode: ''
+            } as SkuForm)
+          }
+          this.skuList = arr
+        }
+      } catch (e) { }
+      finally {
+        this.loading = false
+      }
+    },
+    addSku() {
+      this.skuList.push({
+        id: 0,
+        specText: '',
+        priceStr: '',
+        originalPriceStr: '',
+        stockStr: '0',
+        skuCode: ''
+      } as SkuForm)
+    },
+    removeSku(idx: number) {
+      this.skuList.splice(idx, 1)
+    },
+    async save() {
+      if (this.skuList.length == 0) {
+        uni.showToast({ title: '至少保留1个规格', icon: 'none' })
+        return
+      }
+      const payload: any[] = []
+      for (let i = 0; i < this.skuList.length; i++) {
+        const s = this.skuList[i]
+        const priceYuan = parseFloat(s.priceStr)
+        const stock = parseInt(s.stockStr)
+        if (isNaN(priceYuan) || priceYuan < 0) {
+          uni.showToast({ title: `第${i + 1}个规格价格无效`, icon: 'none' })
+          return
+        }
+        const item: UTSJSONObject = {
+          priceFen: yuanToFen(priceYuan),
+          stock: isNaN(stock) ? 0 : stock,
+          specText: s.specText,
+          skuCode: s.skuCode
+        }
+        if (s.id > 0) item['id'] = s.id
+        if (s.originalPriceStr != '') {
+          const op = parseFloat(s.originalPriceStr)
+          if (!isNaN(op)) item['originalPriceFen'] = yuanToFen(op)
+        }
+        payload.push(item)
+      }
+
+      uni.showLoading({ title: '保存中...' })
+      try {
+        const resp = await saveSkus(this.productId, payload)
+        uni.hideLoading()
+        if (resp.code == 0) {
+          uni.showToast({ title: '已保存', icon: 'success' })
+          setTimeout(() => uni.navigateBack(), 800)
+        }
+      } catch (e) {
+        uni.hideLoading()
+      }
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.container {
+  min-height: 100vh;
+  background-color: #f5f6f8;
+  display: flex;
+  flex-direction: column;
+}
+.body {
+  flex: 1;
+  padding: 20rpx;
+}
+.loading {
+  padding: 120rpx 0;
+  text-align: center;
+}
+.loading-text {
+  font-size: 28rpx;
+  color: #bbb;
+}
+.tip-card {
+  padding: 20rpx 24rpx;
+  background-color: #FFF5EC;
+  border-radius: 12rpx;
+  margin-bottom: 20rpx;
+}
+.tip-text {
+  font-size: 24rpx;
+  color: #FF6B00;
+}
+.sku-item {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+.sku-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid #f5f5f5;
+  margin-bottom: 16rpx;
+}
+.sku-label {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333;
+}
+.delete-btn {
+  font-size: 24rpx;
+  color: #F5222D;
+}
+.sku-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 14rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+.sku-row:last-child {
+  border-bottom: none;
+}
+.row-label {
+  width: 180rpx;
+  font-size: 26rpx;
+  color: #666;
+}
+.row-input {
+  flex: 1;
+  height: 60rpx;
+  font-size: 28rpx;
+  color: #333;
+}
+.add-row {
+  margin: 20rpx 0;
+}
+.btn-add {
+  height: 80rpx;
+  line-height: 80rpx;
+  background-color: #fff;
+  color: #FF6B00;
+  font-size: 28rpx;
+  border-radius: 40rpx;
+  border: 1rpx dashed #FF6B00;
+}
+.footer {
+  padding: 20rpx;
+  background-color: #fff;
+  border-top: 1rpx solid #f0f0f0;
+}
+.btn-submit {
+  height: 88rpx;
+  line-height: 88rpx;
+  background-color: #FF6B00;
+  color: #fff;
+  font-size: 30rpx;
+  border-radius: 44rpx;
+}
+</style>

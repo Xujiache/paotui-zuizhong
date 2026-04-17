@@ -1,0 +1,57 @@
+<template>
+  <view class="badge" :style="'background-color:' + bgColor + '; color:' + textColor">
+    <text class="badge-text" :style="'color:' + textColor">{{ text }}</text>
+  </view>
+</template>
+
+<script lang="uts">
+export default {
+  name: 'StatusBadge',
+  props: {
+    text: {
+      type: String,
+      default: ''
+    },
+    type: {
+      type: String,
+      default: 'default' // primary | success | warning | danger | info | default
+    }
+  },
+  computed: {
+    bgColor(): string {
+      switch (this.type) {
+        case 'primary': return '#FFF5EC'
+        case 'success': return '#F6FFED'
+        case 'warning': return '#FFF7E6'
+        case 'danger': return '#FFF1F0'
+        case 'info': return '#E6F7FF'
+        default: return '#F5F5F5'
+      }
+    },
+    textColor(): string {
+      switch (this.type) {
+        case 'primary': return '#FF6B00'
+        case 'success': return '#52C41A'
+        case 'warning': return '#FA8C16'
+        case 'danger': return '#F5222D'
+        case 'info': return '#1677FF'
+        default: return '#666666'
+      }
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.badge {
+  padding: 4rpx 16rpx;
+  border-radius: 8rpx;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+}
+.badge-text {
+  font-size: 22rpx;
+  line-height: 1.4;
+}
+</style>
