@@ -280,3 +280,20 @@ export const markCouponRecordUsed = async (
   );
   return result.affectedRows > 0;
 };
+
+/**
+ * 订单取消 / 超时 / 退款时释放已占用的优惠券。
+ * 只有当记录确实处于 USED 且 used_order_id 匹配时才回退，避免误放。
+ */
+export const releaseCouponRecordByOrder = async (
+  couponRecordId: number,
+  orderId: number,
+): Promise<boolean> => {
+  const result = await execute(
+    `UPDATE coupon_records
+     SET status = 'UNUSED', used_at = NULL, used_order_id = NULL
+     WHERE id = ? AND used_order_id = ? AND status = 'USED'`,
+    [couponRecordId, orderId],
+  );
+  return result.affectedRows > 0;
+};

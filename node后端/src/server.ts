@@ -1,10 +1,13 @@
+import http from 'http';
 import app from './app';
 import config from './config';
 import logger from './utils/logger';
 import { testConnection, closePool } from './utils/database';
 import { connectRedis, disconnectRedis } from './utils/redis';
+import { setupWebSocket, closeWebSocket } from './websocket';
+import { startTasks, stopTasks } from './tasks';
 
-let httpServer: ReturnType<typeof app.listen> | null = null;
+let httpServer: http.Server | null = null;
 
 const startServer = async (): Promise<void> => {
   try {
@@ -20,12 +23,20 @@ const startServer = async (): Promise<void> => {
       process.exit(1);
     }
 
-    httpServer = app.listen(config.server.port, () => {
+    httpServer = http.createServer(app);
+    setupWebSocket(httpServer, '/ws');
+
+    httpServer.listen(config.server.port, () => {
+      const base = `http://localhost:${config.server.port}`;
       logger.info(`服务器已启动，端口 ${config.server.port} (${config.server.env}模式)`);
-      logger.info(`  健康检查: http://localhost:${config.server.port}/api/v1/common/health`);
-      logger.info(`  公共接口: http://localhost:${config.server.port}/api/v1/common/*`);
-      logger.info(`  认证接口: http://localhost:${config.server.port}/api/v1/auth/*`);
+      logger.info(`  健康检查: ${base}/api/v1/common/health`);
+      logger.info(`  公共接口: ${base}/api/v1/common/*`);
+      logger.info(`  认证接口: ${base}/api/v1/auth/*`);
+      logger.info(`  WebSocket: ws://localhost:${config.server.port}/ws?token=<JWT>`);
     });
+
+    // 定时任务必须在 DB / Redis / WS 全部就绪后启动
+    startTasks();
   } catch (error) {
     const err = error as Error;
     logger.error(`服务器启动失败: ${err.message}`);
@@ -37,6 +48,8 @@ const startServer = async (): Promise<void> => {
 const gracefulShutdown = async (signal: string): Promise<void> => {
   logger.info(`收到 ${signal} 信号，开始优雅关闭...`);
   try {
+    stopTasks();
+    await closeWebSocket();
     if (httpServer) {
       await new Promise<void>((resolve, reject) => {
         httpServer!.close((err) => (err ? reject(err) : resolve()));

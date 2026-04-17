@@ -6,20 +6,26 @@
 
 | 端 | 技术 |
 |----|------|
-| 后端服务 | Node.js 20+ · Express 4 · TypeScript 5 · MySQL 8 · Redis 7 |
+| 后端服务 | Node.js 20+ · Express 4 · TypeScript 5 · MySQL 8 · Redis 7 · WebSocket · node-cron |
 | 平台管理后台 | Vue 3 · Element Plus · Tailwind CSS 4 · Vite 7 · TypeScript |
 | 用户小程序 | uni-app x · Vue 3 · UTS |
-| 用户微信端 | 微信原生小程序 |
 | 商家 / 骑手 APP | uni-app x · Vue 3 · UTS（Android + iOS） |
+
+> 说明：用户微信端（WX-01 ~ WX-06）的微信原生小程序工程在本仓库尚未落地，后续按阶段 04 扩充章节独立补齐。
 
 ## 目录结构
 
 ```
 同城O2O配送系统/
-├── node后端/                   # 后端服务
+├── node后端/                   # 后端服务（HTTP + WebSocket + 定时任务）
+│   ├── src/
+│   │   ├── routes/             # 接口路由
+│   │   ├── services/           # 业务服务（订单、调度、结算、通知…）
+│   │   ├── tasks/              # 定时任务（支付超时、接单超时、自动确认、扩圈）
+│   │   └── websocket/          # 实时推送服务（/ws，JWT 鉴权）
+│   └── …
 ├── 管理后台/                   # 平台管理后台
-├── 微信小程序（用户端）/        # 用户端 uni-app x 小程序
-├── 微信端/                     # 用户端原生微信小程序
+├── 微信小程序（用户端）/        # 用户端 uni-app x 小程序（22 页）
 ├── 商家端/                     # 商家端 APP（uni-app x）
 ├── 骑手端/                     # 骑手端 APP（uni-app x）
 ├── docs/                       # 产品需求 + 设计文档
@@ -89,9 +95,27 @@ pnpm dev                   # http://localhost:3006
 - 修改对应目录下 `utils/env.uts` 中的 `BASE_URL` 指向你的后端地址
 - 通过 HBuilderX 运行到微信开发者工具或模拟器
 
-### 5. 用户微信端（原生）
+## 实时推送 & 定时任务
 
-- 在微信开发者工具中导入 `微信端/` 目录
+### WebSocket
+
+- 连接地址：`ws://<host>:<port>/ws?token=<accessToken>`（或通过 `Authorization: Bearer <token>` Header）
+- 鉴权：握手阶段校验 JWT + Redis 黑名单；失败直接返回 401
+- 心跳：服务端每 30s 发 ping，客户端需回 pong；失联连接会被主动回收
+- 主动 ping：客户端发送 `{"type":"ping"}`，服务端回 `{"type":"pong",...}`
+- 事件格式：`{ "type": "order.paid", "data": { ... }, "ts": 1700000000 }`
+- 典型事件类型：`order.paid` · `order.merchant_accepted` · `order.merchant_rejected` · `order.merchant_timeout` · `order.pay_timeout` · `order.rider_grabbed` · `order.rider_pickup` · `order.rider_depart` · `order.rider_in_progress` · `order.delivered` · `order.auto_completed` · `order.merchant_new_order` · `order.dispatch_expanded`
+
+### 定时任务
+
+| 任务 | cron | 作用 | 相关环境变量 |
+|------|------|------|--------------|
+| `paymentTimeout` | `*/1 * * * *` | 关闭支付超时订单，释放库存/优惠券 | `pay_deadline` 来自下单时（15 分钟） |
+| `merchantTimeout` | `*/1 * * * *` | 商家接单超时自动退款 | `MERCHANT_ACCEPT_TIMEOUT_MINUTES=5` |
+| `autoConfirm` | `*/15 * * * *` | 送达超时自动确认并结算 | `AUTO_CONFIRM_HOURS=24` |
+| `dispatchExtend` | `*/2 * * * *` | 调度池停留过久触发扩圈提醒 | `DISPATCH_EXPAND_MINUTES=5` |
+
+通过 `TASKS_ENABLED=false` 可在本地/CI 完全关闭调度。
 
 ## 文档入口
 

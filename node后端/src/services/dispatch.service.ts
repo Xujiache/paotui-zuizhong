@@ -23,9 +23,12 @@ import {
   OrderRow,
 } from '../models/order.model';
 import { findRiderById } from '../models/rider.model';
+import { findStoreById } from '../models/store.model';
 import { haversineMeters } from '../utils/geo';
 import { readDecimal } from '../utils/money';
 import { getOrderFSM } from './orderStateMachine';
+import { notify, OrderNotifyType } from './notification.service';
+import logger from '../utils/logger';
 
 const GRAB_LOCK_TTL = 30;
 
@@ -172,6 +175,33 @@ export const grabOrder = async (riderId: number, orderId: number) => {
       fromStatus: order.status,
       toStatus: nextStatus,
     });
+
+    // 抢单成功通知：用户 + 商家（商品单）
+    try {
+      await notify({
+        targetType: 'USER',
+        targetId: order.user_id,
+        type: OrderNotifyType.RIDER_GRABBED,
+        title: '骑手已接单',
+        content: `骑手已接单，即将为您配送（订单 ${order.order_no}）。`,
+        extra: { orderId, orderNo: order.order_no, riderId, status: nextStatus },
+      });
+      if (order.order_type === OrderType.PRODUCT && order.store_id) {
+        const store = await findStoreById(order.store_id);
+        if (store) {
+          await notify({
+            targetType: 'MERCHANT',
+            targetId: store.merchant_id,
+            type: OrderNotifyType.RIDER_GRABBED,
+            title: '骑手已接单',
+            content: `订单 ${order.order_no} 已被骑手接单，请准备交货。`,
+            extra: { orderId, orderNo: order.order_no, riderId, status: nextStatus },
+          });
+        }
+      }
+    } catch (err) {
+      logger.warn(`[dispatch.grab] 通知失败 order=${orderId}: ${(err as Error).message}`);
+    }
 
     return { orderId, status: nextStatus };
   } finally {

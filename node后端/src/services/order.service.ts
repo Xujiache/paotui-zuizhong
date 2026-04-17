@@ -49,9 +49,10 @@ import {
   calculateErrandOrder,
 } from './pricing.service';
 import { updateSkuStock } from '../models/product.model';
-import { markCouponRecordUsed } from '../models/coupon.model';
+import { markCouponRecordUsed, releaseCouponRecordByOrder } from '../models/coupon.model';
 import { getOrderFSM } from './orderStateMachine';
 import { clearCartByUser } from '../models/cart.model';
+import { notify, OrderNotifyType } from './notification.service';
 import { readDecimal, yuanToFen, fenToYuan } from '../utils/money';
 import { pool, transaction } from '../utils/database';
 import { acquireIdempotency } from '../utils/idempotency';
@@ -411,6 +412,41 @@ export const handlePaymentCallback = async (input: PaymentCallbackInput) => {
     });
   });
 
+  // 支付成功通知：用户 + 商家（商品单）/ 运营（跑腿单）
+  try {
+    await notify({
+      targetType: 'USER',
+      targetId: order.user_id,
+      type: OrderNotifyType.PAID,
+      title: '支付成功',
+      content: `订单 ${order.order_no} 支付成功，${
+        order.order_type === OrderType.PRODUCT ? '商家正在准备' : '等待骑手接单'
+      }。`,
+      extra: { orderId: order.id, orderNo: order.order_no, status: nextStatus },
+    });
+
+    if (order.order_type === OrderType.PRODUCT && order.store_id) {
+      const store = await findStoreById(order.store_id);
+      if (store) {
+        await notify({
+          targetType: 'MERCHANT',
+          targetId: store.merchant_id,
+          type: OrderNotifyType.MERCHANT_NEW_ORDER,
+          title: '您有新订单',
+          content: `订单 ${order.order_no} 等待接单，请尽快处理。`,
+          extra: {
+            orderId: order.id,
+            orderNo: order.order_no,
+            storeId: order.store_id,
+            status: nextStatus,
+          },
+        });
+      }
+    }
+  } catch (err) {
+    logger.warn(`[order.pay] 通知发送失败 order=${order.id}: ${(err as Error).message}`);
+  }
+
   return { success: true, orderId: order.id, status: nextStatus };
 };
 
@@ -469,9 +505,30 @@ export const merchantAccept = async (merchantId: number, orderId: number) => {
     action: 'MERCHANT_ACCEPT',
     updates: { merchantAcceptedAt: new Date() },
   });
+
+  try {
+    await notify({
+      targetType: 'USER',
+      targetId: order.user_id,
+      type: OrderNotifyType.MERCHANT_ACCEPTED,
+      title: '商家已接单',
+      content: `商家已接单，正在等待骑手抢单（订单 ${order.order_no}）。`,
+      extra: {
+        orderId: order.id,
+        orderNo: order.order_no,
+        status: OrderStatus.PENDING_RIDER,
+      },
+    });
+  } catch (err) {
+    logger.warn(`[order.accept] 通知失败 order=${order.id}: ${(err as Error).message}`);
+  }
+
   return { orderId, status: OrderStatus.PENDING_RIDER };
 };
 
+/**
+ * 商家拒单：MERCHANT_REJECTED → REFUNDED 级联 + 回滚库存/优惠券 + 全额退款 + 双端通知
+ */
 export const merchantReject = async (
   merchantId: number,
   orderId: number,
@@ -480,6 +537,7 @@ export const merchantReject = async (
   const order = await findOrderById(orderId);
   if (!order) throw new AppError(ErrorCode.ORDER_NOT_FOUND, '订单不存在', 404);
   await ensureMerchantOwnsOrder(merchantId, order);
+
   await transitionStatus({
     order,
     to: OrderStatus.MERCHANT_REJECTED,
@@ -488,7 +546,115 @@ export const merchantReject = async (
     action: 'MERCHANT_REJECT',
     updates: { cancelReason: reason, cancelledAt: new Date() },
   });
-  return { orderId, status: OrderStatus.MERCHANT_REJECTED };
+
+  // 级联自动退款
+  try {
+    const fsm = getOrderFSM(order.order_type);
+    fsm.assertTransition(OrderStatus.MERCHANT_REJECTED, OrderStatus.REFUNDED);
+    const paidYuan = readDecimal(order.paid_amount);
+    await updateOrder(orderId, {
+      status: OrderStatus.REFUNDED,
+      paymentStatus: PaymentStatus.FULL_REFUNDED,
+      refundAmount: paidYuan,
+    });
+    await insertOrderLog({
+      orderId,
+      operatorType: 'SYSTEM',
+      action: 'AUTO_REFUND',
+      fromStatus: OrderStatus.MERCHANT_REJECTED,
+      toStatus: OrderStatus.REFUNDED,
+      remark: '商家拒单自动退款',
+      extra: { refundAmount: yuanToFen(paidYuan) },
+    });
+
+    // payment 记录同步更新
+    try {
+      const { findPaymentByOrderId } = await import('../models/order.model');
+      const payment = await findPaymentByOrderId(orderId);
+      if (payment) {
+        await updatePayment(payment.id, {
+          status: PaymentStatus.FULL_REFUNDED,
+          refundAmount: paidYuan,
+        });
+      }
+    } catch (err) {
+      logger.warn(
+        `[order.reject] payment 更新失败 order=${orderId}: ${(err as Error).message}`,
+      );
+    }
+
+    // 释放预扣库存（商品单）
+    if (order.order_type === OrderType.PRODUCT) {
+      try {
+        const items = await listOrderItems(orderId);
+        for (const it of items) {
+          await updateSkuStock(it.sku_id, 'INCREMENT', it.quantity);
+        }
+      } catch (err) {
+        logger.error(
+          `[order.reject] 库存回滚失败 order=${orderId}: ${(err as Error).message}`,
+        );
+      }
+    }
+    // 回退优惠券
+    if (order.coupon_record_id) {
+      try {
+        await releaseCouponRecordByOrder(order.coupon_record_id, orderId);
+      } catch (err) {
+        logger.warn(
+          `[order.reject] 优惠券回退失败 order=${orderId}: ${(err as Error).message}`,
+        );
+      }
+    }
+  } catch (err) {
+    logger.warn(
+      `[order.reject] 自动退款推进失败 order=${orderId}: ${(err as Error).message}`,
+    );
+  }
+
+  // 通知用户
+  try {
+    await notify({
+      targetType: 'USER',
+      targetId: order.user_id,
+      type: OrderNotifyType.MERCHANT_REJECTED,
+      title: '商家已拒单',
+      content: `商家拒绝了订单 ${order.order_no}（${reason}），系统已发起全额退款。`,
+      extra: {
+        orderId: order.id,
+        orderNo: order.order_no,
+        reason,
+        status: OrderStatus.REFUNDED,
+      },
+    });
+  } catch (err) {
+    logger.warn(`[order.reject] 通知失败 order=${order.id}: ${(err as Error).message}`);
+  }
+
+  return { orderId, status: OrderStatus.REFUNDED };
+};
+
+const notifyUserOfStatus = async (
+  order: OrderRow,
+  type: string,
+  title: string,
+  content: string,
+  status: OrderStatus,
+): Promise<void> => {
+  try {
+    await notify({
+      targetType: 'USER',
+      targetId: order.user_id,
+      type,
+      title,
+      content,
+      extra: { orderId: order.id, orderNo: order.order_no, status },
+    });
+  } catch (err) {
+    logger.warn(
+      `[order.${type}] 通知失败 order=${order.id}: ${(err as Error).message}`,
+    );
+  }
 };
 
 export const riderPickup = async (riderId: number, orderId: number) => {
@@ -505,6 +671,15 @@ export const riderPickup = async (riderId: number, orderId: number) => {
     action: 'PICKUP',
     updates: { pickedUpAt: new Date() },
   });
+
+  await notifyUserOfStatus(
+    order,
+    OrderNotifyType.RIDER_PICKUP,
+    '骑手已取货',
+    `骑手已取货并开始配送，订单 ${order.order_no}。`,
+    OrderStatus.DELIVERING,
+  );
+
   return { orderId, status: OrderStatus.DELIVERING };
 };
 
@@ -520,6 +695,15 @@ export const riderDeliver = async (riderId: number, orderId: number) => {
     action: 'DELIVER',
     updates: { deliveredAt: new Date() },
   });
+
+  await notifyUserOfStatus(
+    order,
+    OrderNotifyType.DELIVERED,
+    '订单已送达',
+    `您的订单 ${order.order_no} 已送达，如果没问题请尽快确认收货。`,
+    OrderStatus.DELIVERED,
+  );
+
   return { orderId, status: OrderStatus.DELIVERED };
 };
 
@@ -534,6 +718,15 @@ export const riderDepart = async (riderId: number, orderId: number) => {
     operatorId: riderId,
     action: 'DEPART',
   });
+
+  await notifyUserOfStatus(
+    order,
+    OrderNotifyType.RIDER_DEPART,
+    '骑手已出发',
+    `骑手正在前往取件（订单 ${order.order_no}）。`,
+    OrderStatus.ON_THE_WAY,
+  );
+
   return { orderId, status: OrderStatus.ON_THE_WAY };
 };
 
@@ -548,6 +741,15 @@ export const riderStartService = async (riderId: number, orderId: number) => {
     operatorId: riderId,
     action: 'START_SERVICE',
   });
+
+  await notifyUserOfStatus(
+    order,
+    OrderNotifyType.RIDER_IN_PROGRESS,
+    '任务进行中',
+    `骑手已到达取件点，任务进行中（订单 ${order.order_no}）。`,
+    OrderStatus.IN_PROGRESS,
+  );
+
   return { orderId, status: OrderStatus.IN_PROGRESS };
 };
 

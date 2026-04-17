@@ -21,6 +21,8 @@ test.jpg
 smoke-*.txt
 srv-*.log
 srv-*.txt
+srv.stdout
+srv.stderr
 
 # 编辑器
 .idea/
